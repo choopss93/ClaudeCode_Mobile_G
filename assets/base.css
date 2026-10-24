@@ -128,3 +128,67 @@ code{
   font-size:12px;background:var(--surface-2);
   border:1px solid var(--line);border-radius:4px;padding:1px 5px;
 }
+
+/* ─────────── 원자: 네 공간이 함께 쓰는 기본 조각 ─────────── */
+
+/* 버튼 */
+.btn{
+  font:inherit;font-size:13px;font-weight:500;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:999px;
+  padding:7px 15px;min-height:34px;cursor:pointer;
+  text-decoration:none;
+  transition:background .15s, border-color .15s, filter .15s;
+}
+.btn:hover:not(:disabled){background:var(--surface-2)}
+.btn.primary{
+  background:var(--accent);color:var(--accent-ink);
+  border-color:var(--accent);font-weight:600;
+}
+.btn.primary:hover:not(:disabled){filter:brightness(1.07)}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover:not(:disabled){background:var(--surface-2);color:var(--ink)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.sm{font-size:12px;padding:5px 11px;min-height:28px}
+
+/* 상태 알약 */
+.pill{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:12px;color:var(--muted);
+  background:var(--surface-2);border:1px solid var(--line);
+  border-radius:999px;padding:5px 11px;min-height:28px;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none}
+.dot.live{background:var(--accent)}
+.dot.warn{background:#C8912F}
+.dot.off{background:var(--faint)}
+
+/* 입력 */
+.field{
+  font:inherit;font-size:14px;
+  color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:9px;
+  padding:9px 12px;min-height:40px;width:100%;
+}
+.field::placeholder{color:var(--faint)}
+.field:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+
+kbd{
+  font:inherit;font-size:11px;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--muted);
+}
+
+/* 공통 포커스 링 */
+:is(a,button,.btn,.card,[tabindex]):focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;
+}
+
+/* 스택: 조각 사이 간격만 주는 레이아웃 */
+.stack{display:flex;flex-direction:column;gap:10px}
+.row-inline{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+@media (prefers-reduced-motion: reduce){
+  *{transition:none!important;animation:none!important}
+  .card:hover{transform:none}
+}

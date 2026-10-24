@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>작업 공간</title>
-<meta name="description" content="네 개로 나눈 작업 공간. 각 공간은 독립된 페이지로 열립니다.">
+<meta name="description" content="네 개로 나눈 작업 공간 — 아토믹 디자인, 개인, 공용, 기타.">
 <meta name="color-scheme" content="light dark">
 <meta property="og:title" content="작업 공간">
 <meta property="og:description" content="네 개로 나눈 작업 공간.">
@@ -16,37 +16,39 @@
 <body>
 <div class="wrap">
   <header>
-    <p class="eyebrow">새 프로젝트</p>
-    <h1>작업 공간</h1>
-    <p class="sub">공간 네 개로 나눠 뒀습니다. 하나를 골라 들어가세요.</p>
+    <p class="eyebrow">작업 공간</p>
+    <h1>네 개의 공간</h1>
+    <p class="sub">용도별로 나눠 뒀습니다. 하나를 골라 들어가세요.</p>
   </header>
 
   <ul class="spaces">
-    <li><a class="card" href="space-1/">
+    <li><a class="card" href="design/">
       <span class="no">1</span>
-      <span class="name">공간 1</span>
-      <span class="desc">아직 비어 있어요</span>
+      <span class="name">아토믹 디자인</span>
+      <span class="desc">토큰과 컴포넌트 · 매번 확인용</span>
     </a></li>
-    <li><a class="card" href="space-2/">
+    <li><a class="card" href="my/">
       <span class="no">2</span>
-      <span class="name">공간 2</span>
-      <span class="desc">아직 비어 있어요</span>
+      <span class="name">MY</span>
+      <span class="desc">개인용 도구와 기록</span>
     </a></li>
-    <li><a class="card" href="space-3/">
+    <li><a class="card" href="shared/">
       <span class="no">3</span>
-      <span class="name">공간 3</span>
-      <span class="desc">아직 비어 있어요</span>
+      <span class="name">공용</span>
+      <span class="desc">여러 사람이 같이 쓰는 공유 서비스</span>
     </a></li>
-    <li><a class="card" href="space-4/">
+    <li><a class="card" href="etc/">
       <span class="no">4</span>
-      <span class="name">공간 4</span>
-      <span class="desc">아직 비어 있어요</span>
+      <span class="name">기타</span>
+      <span class="desc">실험 · 잠깐 쓰고 버릴 것</span>
     </a></li>
   </ul>
 
   <footer>
-    <b>공간 4개</b> · 각 공간은 <code>space-1/</code> ~ <code>space-4/</code> 폴더이고,
-    주소 뒤에 폴더 이름이 붙어 따로 열립니다. 이름과 내용은 언제든 바꿀 수 있어요.
+    <b>공간 4개</b> · 폴더 이름이 그대로 주소가 됩니다 —
+    <code>design/</code> <code>my/</code> <code>shared/</code> <code>etc/</code>.
+    네 공간 모두 <code>assets/base.css</code> 를 함께 쓰므로, 모양을 바꾸려면
+    <a href="design/">1번 공간</a>에서 확인하며 고치세요.
   </footer>
 </div>
 </body>

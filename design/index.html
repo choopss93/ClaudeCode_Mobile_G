@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>아토믹 디자인</title>
+<meta name="description" content="공통 스타일이 제공하는 토큰과 컴포넌트를 한 화면에서 확인하는 레퍼런스.">
+<meta name="color-scheme" content="light dark">
+<meta property="og:title" content="아토믹 디자인">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../assets/base.css">
+<style>
+  /* 이 페이지(갤러리)에서만 쓰는 표시용 스타일 */
+  .bar{display:flex;align-items:center;gap:8px;margin-top:14px}
+  .bar .spacer{flex:1 1 auto}
+
+  section.sec{margin-top:26px}
+  .sec > h2{
+    font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--faint);font-weight:700;margin:0 0 4px;
+  }
+  .sec > .note{margin:0 0 12px;color:var(--muted);font-size:12.5px}
+
+  .group{
+    background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius);padding:14px;margin-bottom:10px;
+  }
+  .group > h3{
+    font-size:13px;font-weight:600;margin:0 0 10px;
+    display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  }
+  .group > h3 code{font-weight:400}
+
+  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:9px}
+  .sw{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--bg)}
+  /* 흰색에 가까운 견본도 보이도록 안쪽에 테두리를 둔다 */
+  .sw .chip{
+    height:44px;border-bottom:1px solid var(--line);
+    box-shadow:inset 0 0 0 1px rgba(128,128,128,.25);
+  }
+  .sw .meta{padding:6px 8px}
+  .sw .nm{font-size:11.5px;font-weight:600;display:block;overflow-wrap:anywhere}
+  .sw .val{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:10.5px;color:var(--muted);display:block;margin-top:1px;
+  }
+
+  .specs{display:grid;gap:7px}
+  .spec{
+    display:flex;gap:10px;align-items:center;justify-content:space-between;
+    font-size:12.5px;border-bottom:1px dashed var(--line);padding-bottom:7px;
+  }
+  .spec:last-child{border-bottom:0;padding-bottom:0}
+  .spec .k{color:var(--muted)}
+  .spec .v{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:11.5px;text-align:right;overflow-wrap:anywhere;
+  }
+  .boxdemo{height:40px;background:var(--accent-soft);border:1px solid var(--accent);flex:none;width:72px}
+
+  .mini .spaces{margin-top:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="back" href="../">← 전체 공간</a>
+    <p class="eyebrow">공간 1 · 확인용</p>
+    <h1>아토믹 디자인</h1>
+    <p class="sub"><code>assets/base.css</code> 가 제공하는 토큰과 조각 전부입니다. 스타일을 고친 뒤 여기서 확인하세요.</p>
+    <div class="bar">
+      <span class="pill"><span class="dot live"></span><span id="themeLabel">시스템 설정</span></span>
+      <span class="spacer"></span>
+      <button class="btn sm" id="theme" type="button">테마 바꾸기</button>
+    </div>
+  </header>
+
+  <!-- ── 토큰 ── -->
+  <section class="sec">
+    <h2>Tokens · 토큰</h2>
+    <p class="note">아래 값은 실제 적용된 CSS 변수를 그대로 읽어 그립니다. base.css를 고치면 여기도 따라 바뀝니다.</p>
+
+    <div class="group">
+      <h3>색 <code>--*</code></h3>
+      <div class="swatches" id="swatches"></div>
+    </div>
+
+    <div class="group">
+      <h3>형태</h3>
+      <div class="specs">
+        <div class="spec"><span class="k">모서리 <code>--radius</code></span><span class="v" id="vRadius">—</span></div>
+        <div class="spec"><span class="k">그림자 <code>--shadow</code></span><span class="v" id="vShadow">—</span></div>
+        <div class="spec"><span class="k">본문 서체</span><span class="v">IBM Plex Sans KR · 14px / 1.6</span></div>
+        <div class="spec"><span class="k">본문 폭</span><span class="v">max 680px · 좌우 여백 16px</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 원자 ── -->
+  <section class="sec">
+    <h2>Atoms · 원자</h2>
+    <p class="note">더 쪼갤 수 없는 조각. 모든 공간이 이것만 조합해 씁니다.</p>
+
+    <div class="group">
+      <h3>타이포</h3>
+      <p class="eyebrow">eyebrow · 작은 머리글</p>
+      <h1 style="font-size:26px">h1 · 페이지 제목</h1>
+      <p class="sub">sub · 제목 아래 설명문. 두 줄 정도까지 자연스럽게 읽히는 길이로 씁니다.</p>
+      <p style="margin:10px 0 0;font-size:14px">본문 단락. 인라인 <code>code</code> 와 <kbd>Enter</kbd> 같은 키 표시도 함께 씁니다.</p>
+    </div>
+
+    <div class="group">
+      <h3>버튼 <code>.btn</code></h3>
+      <div class="row-inline">
+        <button class="btn primary" type="button">기본 동작</button>
+        <button class="btn" type="button">보조 동작</button>
+        <button class="btn ghost" type="button">약한 동작</button>
+        <button class="btn" type="button" disabled>비활성</button>
+        <button class="btn sm" type="button">작은 버튼</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>상태 알약 <code>.pill</code> + <code>.dot</code></h3>
+      <div class="row-inline">
+        <span class="pill"><span class="dot live"></span>진행 중</span>
+        <span class="pill"><span class="dot warn"></span>주의</span>
+        <span class="pill"><span class="dot off"></span>꺼짐</span>
+        <span class="pill">점 없는 알약</span>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>입력 <code>.field</code></h3>
+      <div class="stack">
+        <input class="field" type="text" placeholder="여기에 입력하세요" aria-label="예시 입력">
+        <input class="field" type="text" value="입력된 값" aria-label="값이 있는 예시 입력">
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 분자 ── -->
+  <section class="sec">
+    <h2>Molecules · 분자</h2>
+    <p class="note">원자를 몇 개 합쳐 하나의 뜻을 갖게 된 조각.</p>
+
+    <div class="group">
+      <h3>카드 <code>.card</code></h3>
+      <div class="mini">
+        <ul class="spaces">
+          <li><a class="card" href="#">
+            <span class="no">1</span>
+            <span class="name">카드 제목</span>
+            <span class="desc">한 줄 설명이 들어갑니다</span>
+          </a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>빈 상태 <code>.empty</code></h3>
+      <div class="empty">
+        <b>아직 비어 있어요</b>
+        무엇을 해야 하는지 한 줄로 알려 주는 자리입니다.
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>동작 줄 <code>.row-inline</code></h3>
+      <div class="row-inline">
+        <span class="pill"><span class="dot live"></span>저장됨</span>
+        <span style="flex:1 1 auto"></span>
+        <button class="btn sm" type="button">되돌리기</button>
+        <button class="btn sm primary" type="button">저장</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 유기체 · 템플릿 ── -->
+  <section class="sec">
+    <h2>Organisms &amp; Template · 유기체 · 템플릿</h2>
+    <p class="note">공간 페이지 하나가 완성되는 뼈대. 네 공간이 모두 이 틀을 씁니다.</p>
+
+    <div class="group">
+      <h3>페이지 틀</h3>
+      <div class="specs">
+        <div class="spec"><span class="k"><code>.wrap</code></span><span class="v">전체를 감싸는 기둥 · 680px</span></div>
+        <div class="spec"><span class="k"><code>header</code></span><span class="v">back · eyebrow · h1 · sub · bar</span></div>
+        <div class="spec"><span class="k"><code>.panel</code> / <code>section</code></span><span class="v">본문이 들어가는 영역</span></div>
+        <div class="spec"><span class="k"><code>footer</code></span><span class="v">보조 설명 · 경로 안내</span></div>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>패널 <code>.panel</code></h3>
+      <div class="panel" style="margin-top:0">
+        <div class="row-inline">
+          <span class="pill">패널 안에 담긴 내용</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    이 페이지는 <code>design/index.html</code> 입니다.
+    조각을 새로 만들면 <code>assets/base.css</code> 에 넣고 여기에 한 칸 추가해 두세요 —
+    그러면 네 공간이 같은 모양을 쓰게 됩니다.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // 색 토큰: base.css 에 정의된 이름들. 값은 실제 계산값을 읽는다.
+  var COLORS = [
+    "--bg","--surface","--surface-2","--ink","--muted","--faint",
+    "--line","--accent","--accent-ink","--accent-soft"
+  ];
+
+  var box = document.getElementById("swatches");
+
+  function paintTokens(){
+    var cs = getComputedStyle(document.documentElement);
+    box.replaceChildren();
+    COLORS.forEach(function(name){
+      var val = cs.getPropertyValue(name).trim() || "—";
+      var cell = document.createElement("div");
+      cell.className = "sw";
+      var chip = document.createElement("div");
+      chip.className = "chip";
+      chip.style.background = "var(" + name + ")";
+      var meta = document.createElement("div");
+      meta.className = "meta";
+      var nm = document.createElement("span");
+      nm.className = "nm";
+      nm.textContent = name;
+      var vv = document.createElement("span");
+      vv.className = "val";
+      vv.textContent = val;
+      meta.appendChild(nm); meta.appendChild(vv);
+      cell.appendChild(chip); cell.appendChild(meta);
+      box.appendChild(cell);
+    });
+    document.getElementById("vRadius").textContent = cs.getPropertyValue("--radius").trim() || "—";
+    document.getElementById("vShadow").textContent = cs.getPropertyValue("--shadow").trim() || "—";
+  }
+
+  // 라이트/다크를 둘 다 바로 확인할 수 있게. 시스템 → 라이트 → 다크 순환.
+  var MODES = ["system","light","dark"];
+  var LABEL = { system:"시스템 설정", light:"라이트", dark:"다크" };
+  var mode = 0;
+
+  document.getElementById("theme").addEventListener("click", function(){
+    mode = (mode + 1) % MODES.length;
+    var next = MODES[mode];
+    if (next === "system") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", next);
+    document.getElementById("themeLabel").textContent = LABEL[next];
+    paintTokens();
+  });
+
+  // 시스템 테마가 바뀌면 값도 다시 읽어야 한다.
+  var mq = window.matchMedia("(prefers-color-scheme: dark)");
+  if (mq.addEventListener) mq.addEventListener("change", function(){
+    if (MODES[mode] === "system") paintTokens();
+  });
+
+  paintTokens();
+})();
+</script>
+</body>
+</html>
