@@ -135,25 +135,30 @@ export function createWorld(){
   const dummy = new THREE.Object3D();
   const tint = new THREE.Color();
 
+  // 그 자리에 심어도 되는지. 울타리 너머는 배경일 뿐이라 따지지 않는다.
+  function free(x, z, pad){
+    const d = Math.hypot(x, z);
+    if (d > WORLD_RADIUS) return true;
+    if (d < 5.2) return false;             // 가운데 모이는 자리는 비워 둔다
+    for (const c of colliders){
+      if ((x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + pad) ** 2) return false;
+    }
+    return true;
+  }
+
   // 들판 어디에 설지 고른다. 안쪽은 촘촘하게, 울타리 너머는 성기게.
   function spot(){
     const inside = rnd() < 0.68;
     const ang = rnd() * Math.PI * 2;
-    // 가운데 모이는 자리는 비워 둔다 — 풀이 짧게 깎인 곳이다
     const dist = inside
       ? 5.2 + rnd() * (WORLD_RADIUS - 6)
       : WORLD_RADIUS + 2.5 + rnd() * 42;
     const x = Math.cos(ang) * dist;
     const z = Math.sin(ang) * dist;
-    if (inside){
-      for (const c of colliders){
-        if ((x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + 0.45) ** 2) return null;
-      }
-    }
-    return { x, z };
+    return free(x, z, 0.45) ? { x, z } : null;
   }
 
-  const FLOWERS = 480;
+  const FLOWERS = 900;          // 뭉치 크기가 제각각이라 넉넉히 잡고 남는 건 안 그린다
   const stemGeo = new THREE.CylinderGeometry(0.02, 0.028, 1, 5);
   stemGeo.translate(0, 0.5, 0);              // 밑동을 원점에 두고 높이만 늘린다
   const bloomGeo = new THREE.SphereGeometry(1, 7, 5);
@@ -165,24 +170,53 @@ export function createWorld(){
   const blooms = new THREE.InstancedMesh(
     bloomGeo, swayed(toonUnique(0xFFFFFF), 'head'), FLOWERS);
 
-  let f = 0, tries = 0;
-  while (f < FLOWERS && tries++ < FLOWERS * 12){
-    const at = spot();
-    if (!at) continue;
+  /* 고르게 흩뿌리면 색종이를 뿌린 것처럼 보인다. 들꽃은 뭉쳐서 핀다 —
+     한두 송이만 선 자리도 있고, 한 무더기로 뒤덮은 자리도 있고, 사이사이는
+     그냥 풀밭이다. 뭉치마다 빛깔과 키대를 따로 뽑는다. */
+  const CLUMPS = 56;
+  let f = 0;
 
-    const h = 0.2 + rnd() * 0.26;
-    dummy.position.set(at.x, 0, at.z);
-    dummy.scale.set(1, h, 1);
-    dummy.updateMatrix();
-    stems.setMatrixAt(f, dummy.matrix);
+  for (let c = 0; c < CLUMPS && f < FLOWERS; c++){
+    const seed = spot();
+    if (!seed) continue;
 
-    const r = 0.065 + rnd() * 0.055;
-    dummy.position.set(at.x, h + r * 0.5, at.z);
-    dummy.scale.set(r, r * 0.78, r);
-    dummy.updateMatrix();
-    blooms.setMatrixAt(f, dummy.matrix);
-    blooms.setColorAt(f, tint.setHex(RAINBOW[Math.floor(rnd() * RAINBOW.length)]));
-    f++;
+    // 뭉치 크기: 한두 송이 / 작은 뭉치 / 큰 뭉치 / 한 무더기
+    const roll = rnd();
+    let count, spread;
+    if (roll < 0.26)      { count = 1 + (rnd() * 3 | 0);   spread = 0.2 + rnd() * 0.5; }
+    else if (roll < 0.64) { count = 5 + (rnd() * 8 | 0);   spread = 0.7 + rnd() * 0.9; }
+    else if (roll < 0.90) { count = 14 + (rnd() * 16 | 0); spread = 1.6 + rnd() * 1.4; }
+    else                  { count = 30 + (rnd() * 26 | 0); spread = 3 + rnd() * 1.6; }
+
+    // 한 뭉치는 대체로 한 빛깔이다. 가끔 다른 빛깔이 섞여 핀다.
+    const main = RAINBOW[rnd() * RAINBOW.length | 0];
+    const accent = rnd() < 0.3 ? RAINBOW[rnd() * RAINBOW.length | 0] : main;
+
+    // 뭉치마다 키대가 다르고, 그 안에서도 들쭉날쭉하다
+    const tall = 0.15 + rnd() * 0.52;
+    const headSize = 0.05 + rnd() * 0.06;
+
+    for (let i = 0; i < count && f < FLOWERS; i++){
+      const a = rnd() * Math.PI * 2;
+      const d = Math.pow(rnd(), 0.7) * spread;    // 가운데가 조금 더 빽빽하게
+      const x = seed.x + Math.cos(a) * d;
+      const z = seed.z + Math.sin(a) * d;
+      if (!free(x, z, 0.35)) continue;
+
+      const h = Math.max(0.12, tall * (0.55 + rnd() * 0.9));
+      dummy.position.set(x, 0, z);
+      dummy.scale.set(0.8 + rnd() * 0.5, h, 0.8 + rnd() * 0.5);
+      dummy.updateMatrix();
+      stems.setMatrixAt(f, dummy.matrix);
+
+      const r = headSize * (0.72 + rnd() * 0.65);
+      dummy.position.set(x, h + r * 0.5, z);
+      dummy.scale.set(r, r * 0.78, r);
+      dummy.updateMatrix();
+      blooms.setMatrixAt(f, dummy.matrix);
+      blooms.setColorAt(f, tint.setHex(rnd() < 0.22 ? accent : main));
+      f++;
+    }
   }
   stems.count = blooms.count = f;
   stems.instanceMatrix.needsUpdate = true;
@@ -199,13 +233,13 @@ export function createWorld(){
     tuftGeo, swayed(toonUnique(0xFFFFFF), 'stalk'), TUFTS);
   const TUFT_GREENS = [0x9AE385, 0xAEF09B, 0x8CD87F];
 
-  let t = 0; tries = 0;
+  let t = 0, tries = 0;
   while (t < TUFTS && tries++ < TUFTS * 12){
     const at = spot();
     if (!at) continue;
-    const h = 0.22 + rnd() * 0.3;
+    const h = 0.14 + rnd() * 0.44;
     dummy.position.set(at.x, 0, at.z);
-    dummy.scale.set(0.7 + rnd() * 0.5, h, 0.7 + rnd() * 0.5);
+    dummy.scale.set(0.65 + rnd() * 0.6, h, 0.65 + rnd() * 0.6);
     dummy.rotation.set((rnd() - 0.5) * 0.4, rnd() * 3.14, (rnd() - 0.5) * 0.4);
     dummy.updateMatrix();
     tufts.setMatrixAt(t, dummy.matrix);
