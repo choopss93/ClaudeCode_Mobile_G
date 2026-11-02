@@ -1,32 +1,50 @@
 /*
- * 바람 소리.
+ * 풀이 바람에 흩날리는 소리.
  *
  * 음원 파일을 두지 않고 그 자리에서 만든다. 저장소에 파일이 늘지 않고,
  * 같은 구간이 되풀이되는 티도 나지 않는다.
  *
- * 만드는 법 — 갈색 잡음(낮은 쪽이 두터운 쉬익 소리)을 저역 통과 필터로
- * 깎고, 아주 느린 흔들림 둘을 얹는다. 하나는 소리 크기를, 하나는 필터를
- * 흔들어 바람이 불었다 잦아드는 결을 만든다.
+ * 낮게 웅웅대는 바람 소리와는 결이 다르다. 풀잎 소리는 잎이 하나하나
+ * 스치는 "사락" 이 수없이 겹친 것이라, 매끈한 잡음으로는 안 난다. 그래서
+ * 아주 짧은 알갱이 수천 개를 미리 구워 넣고, 낮은 쪽을 깎아 잎 스치는
+ * 대역(700Hz~2.6kHz 언저리)만 남긴다. 돌릴 때는 되풀이만 하면 된다.
  *
  * 브라우저는 사용자가 무언가 누르기 전에는 소리를 내주지 않는다. 그래서
  * "정원으로 들어가기" 를 누르는 그 순간에 만든다.
  */
 
 const STORE = 'rainbowGarden.sound';
-const LEVEL = 0.085;          // 잔잔하게. 1 이 최대다.
-const LOOP_SECONDS = 5;
-const SEAM = 0.3;             // 이음매를 섞을 구간 (초)
+const LEVEL = 0.07;           // 잔잔하게. 높은 소리는 같은 크기도 더 크게 들린다.
+const LOOP_SECONDS = 6;
+const SEAM = 0.35;            // 이음매를 섞을 구간 (초)
 
-function brownNoise(ctx){
+function rustleBuffer(ctx){
   const len = Math.floor(ctx.sampleRate * LOOP_SECONDS);
   const buf = ctx.createBuffer(1, len, ctx.sampleRate);
   const d = buf.getChannelData(0);
 
-  let last = 0;
-  for (let i = 0; i < len; i++){
-    const white = Math.random() * 2 - 1;
-    last = (last + 0.02 * white) / 1.02;   // 낮은 쪽을 두텁게
-    d[i] = last * 3.2;
+  // 바탕 — 아주 옅은 쉬 소리. 알갱이 사이를 메워 끊기지 않게 한다.
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * 0.12;
+
+  // 알갱이 — 잎이 한 번 스치는 소리. 짧게 치고 빠르게 잦아든다.
+  const grains = Math.floor(len / 26);
+  for (let g = 0; g < grains; g++){
+    const at = Math.floor(Math.random() * (len - 320));
+    const dur = 24 + Math.floor(Math.random() * 170);
+    // 제곱해서 뽑으면 대부분 작고 가끔 도드라진다 — 실제 풀숲이 그렇다
+    const amp = Math.pow(Math.random(), 2.2) * 0.9;
+    for (let i = 0; i < dur; i++){
+      const fade = 1 - i / dur;
+      d[at + i] += (Math.random() * 2 - 1) * amp * fade * fade;
+    }
+  }
+
+  // 넘치지 않게 전체를 눌러 준다
+  let peak = 0;
+  for (let i = 0; i < len; i++){ const v = Math.abs(d[i]); if (v > peak) peak = v; }
+  if (peak > 0){
+    const k = 0.9 / peak;
+    for (let i = 0; i < len; i++) d[i] *= k;
   }
 
   // 되풀이될 때 이음매에서 "툭" 하고 튀지 않도록, 끝자락을 앞머리에 섞는다.
@@ -53,17 +71,30 @@ export function createWind(){
     if (!AC) return false;
     ctx = new AC();
 
-    const { buf, loopEnd } = brownNoise(ctx);
+    const { buf, loopEnd } = rustleBuffer(ctx);
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.loop = true;
     src.loopStart = 0;
     src.loopEnd = loopEnd;
 
+    // 낮은 쪽을 걷어낸다. 남기면 바람이 웅웅대는 소리가 되어 버린다.
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 560;
+    hp.Q.value = 0.5;
+
+    // 너무 쨍한 쪽을 깎는다. 필터 하나로는 기울기가 완만해 위쪽이 남고,
+    // 그러면 풀잎이 아니라 백색소음처럼 들린다. 둘을 이어 두 배로 깎는다.
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.frequency.value = 520;
-    lp.Q.value = 0.4;
+    lp.frequency.value = 2400;
+    lp.Q.value = 0.6;
+
+    const lp2 = ctx.createBiquadFilter();
+    lp2.type = 'lowpass';
+    lp2.frequency.value = 2800;
+    lp2.Q.value = 0.5;
 
     const gust = ctx.createGain();
     gust.gain.value = 1;
@@ -71,25 +102,25 @@ export function createWind(){
     master = ctx.createGain();
     master.gain.value = 0;
 
-    src.connect(lp).connect(gust).connect(master).connect(ctx.destination);
+    src.connect(hp).connect(lp).connect(lp2).connect(gust).connect(master).connect(ctx.destination);
 
-    // 불었다 잦아드는 결 — 한 번 오가는 데 15초 남짓
+    // 바람이 한 번 지나가는 결 — 오가는 데 15초 남짓
     const swell = ctx.createOscillator();
     swell.frequency.value = 0.066;
     const swellDepth = ctx.createGain();
-    swellDepth.gain.value = 0.42;
+    swellDepth.gain.value = 0.5;
     swell.connect(swellDepth).connect(gust.gain);
 
-    // 필터도 같이 흔들어 숨 쉬게 — 이쪽은 더 느리게 해서 결이 겹치지 않는다
-    const breath = ctx.createOscillator();
-    breath.frequency.value = 0.043;
-    const breathDepth = ctx.createGain();
-    breathDepth.gain.value = 190;
-    breath.connect(breathDepth).connect(lp.frequency);
+    // 세게 불 때 잎 소리가 함께 밝아지도록 — 주기를 달리해 결이 겹치지 않게
+    const bright = ctx.createOscillator();
+    bright.frequency.value = 0.049;
+    const brightDepth = ctx.createGain();
+    brightDepth.gain.value = 750;
+    bright.connect(brightDepth).connect(lp.frequency);
 
     src.start();
     swell.start();
-    breath.start();
+    bright.start();
     return true;
   }
 
