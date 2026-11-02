@@ -1,0 +1,16 @@
+{
+  "name": "무지개 정원",
+  "short_name": "무지개 정원",
+  "description": "강아지와 함께 정원을 깡충깡충 거니는 힐링 게임.",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#C3EBF8",
+  "theme_color": "#C3EBF8",
+  "icons": [
+    { "src": "./icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

@@ -13,6 +13,7 @@ const LABEL_FAR = 42;
 const STORE = 'rainbowGarden.names';
 
 const $ = id => document.getElementById(id);
+const TOUCH = matchMedia('(hover:none) and (pointer:coarse)').matches;
 
 const canvas  = $('scene');
 const layer   = $('labels');
@@ -24,6 +25,23 @@ const chatForm = $('chat');
 const chatIn  = $('chatInput');
 const countEl = $('count');
 const whoEl   = $('who');
+
+/* ── 폰: 소프트 키보드가 가리는 높이를 재어 UI 를 올린다 ──
+   100dvh 만으로는 키보드를 알 수 없다. visualViewport 가 알려준다. */
+if (window.visualViewport){
+  const vv = window.visualViewport;
+  const sync = () => {
+    const gap = Math.max(0, innerHeight - (vv.height + vv.offsetTop));
+    document.documentElement.style.setProperty('--kb', gap + 'px');
+    document.body.classList.toggle('kb', gap > 80);
+  };
+  vv.addEventListener('resize', sync);
+  vv.addEventListener('scroll', sync);
+  sync();
+}
+
+// 캔버스를 길게 눌렀을 때 뜨는 메뉴가 조작을 끊지 않게
+$('scene').addEventListener('contextmenu', e => e.preventDefault());
 
 /* ── 이름 먼저 ── */
 try {
@@ -40,12 +58,12 @@ startForm.addEventListener('submit', e => {
   startEl.hidden = true;
   begin(name, dog);
 });
-nameIn.focus();
+if (!TOUCH) nameIn.focus();   // 폰에서는 키보드가 시작 화면을 가린다
 
 /* ── 게임 ── */
 function begin(myName, dogName){
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, TOUCH ? 1.75 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
@@ -173,6 +191,7 @@ function begin(myName, dogName){
     myLabel.say(text);
     net.say(text);
   });
+  // 폰에는 Enter 키가 없으니 키보드 단축키는 마우스 쪽에서만 쓴다
   addEventListener('keydown', e => {
     if (e.key === 'Enter' && document.activeElement !== chatIn){
       e.preventDefault(); chatIn.focus();
@@ -227,6 +246,8 @@ function begin(myName, dogName){
   function resize(){
     renderer.setSize(innerWidth, innerHeight, false);
     camera.aspect = innerWidth / innerHeight;
+    // 세로로 길면 좌우가 좁아진다. 시야를 넓혀 앞을 보게 한다.
+    camera.fov = camera.aspect < 1 ? 62 : 50;
     camera.updateProjectionMatrix();
   }
   addEventListener('resize', resize);

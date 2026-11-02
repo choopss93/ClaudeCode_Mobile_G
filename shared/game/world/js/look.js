@@ -72,12 +72,12 @@ export function makeBlob(radius){
 
 /* ── 색 ── */
 
-export const SKY = 0xAEE5FA;
+export const SKY = 0xC3EBF8;
 
 // 무지개 일곱 빛깔. 파스텔로 눌러 눈이 편하게.
 export const RAINBOW = [
-  0xFF7B83, 0xFFA94D, 0xFFE05C, 0x6FE07A,
-  0x4FD2F5, 0x8294FF, 0xD98CFF
+  0xFF9CA0, 0xFFBE78, 0xFFE783, 0x94E799,
+  0x7DDDF4, 0xA2AFFC, 0xE3A9FC
 ];
 
 function hashOf(name){
@@ -88,21 +88,21 @@ function hashOf(name){
 
 /** 머리칼. 옷과 같은 색이면 뒤에서 볼 때 한 덩어리로 뭉친다. */
 export function hairFor(name){
-  const HAIR = [0xA9693F, 0x7A5343, 0xC98A4E, 0x5E4A48, 0xD9A05B, 0x8F5E38];
+  const HAIR = [0xBC8966, 0x97786A, 0xD5A372, 0x81716D, 0xE1B47C, 0xA88161];
   return HAIR[hashOf(name + 'hair') % HAIR.length];
 }
 
 /** 강아지 털. 파란 강아지는 없으니 따뜻한 색에서만 고른다. */
 export function furFor(name){
-  const FUR = [0xFFDCA8, 0xF7C184, 0xFFF3E0, 0xD9A878, 0xEFE6D8, 0xFFE9BC];
+  const FUR = [0xFFE3BA, 0xF9CF9E, 0xFFF5E4, 0xE2BC95, 0xF3EBDE, 0xFFEDC9];
   return FUR[hashOf(name + 'fur') % FUR.length];
 }
 
 /** 이름이 같으면 늘 같은 색. */
 export function colorFor(name){
   const PALETTE = [
-    0xFF8F9E, 0xFFBD63, 0xFFE878, 0x8FE88A,
-    0x6FD9F0, 0x96A6FF, 0xDE9CF2, 0xFF9ED0
+    0xFFABB4, 0xFFCD88, 0xFFED98, 0xACEDA5,
+    0x94E2F1, 0xB1BCFC, 0xE7B5F2, 0xFFB6D9
   ];
   return PALETTE[hashOf(name) % PALETTE.length];
 }
