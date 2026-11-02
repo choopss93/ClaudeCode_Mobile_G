@@ -34,6 +34,18 @@
 
 - GitHub Pages는 브랜치 **하나**만 서빙한다. 공간을 브랜치로 쪼개지 말 것 — 폴더로 나눠야 전부 열린다.
 - Pages 소스는 `main` / `/ (root)`. 작업 브랜치에만 있으면 공개되지 않는다.
+- **Pages 가 어느 브랜치를 보는지 확인 없이 단정하지 말 것.** 한동안
+  `gh-pages` 로 설정돼 있어서, `main` 에 아무리 올려도 공개되지 않고
+  404 가 났다. 확인하는 법 — `pages build and deployment` 워크플로 실행
+  목록을 보고 `head_branch` 와 마지막 배포 시각을 본다. 내가 올린 뒤로
+  배포가 없거나 다른 브랜치면 그게 원인이다.
+
+  ```
+  mcp__github__actions_list(method="list_workflow_runs",
+                            owner="choopss93", repo="ClaudeCode_Mobile_G")
+  ```
+- 쓰지 않는 `gh-pages` 브랜치가 남아 있다. 옛 44곡 페이지가 들어 있고
+  지금은 아무 데도 쓰이지 않는다. 지우는 일은 사용자에게 묻고 한다.
 - 폴더 이름이 곧 주소다. 폴더를 바꾸면 허브 `index.html` 의 링크도 같이 고칠 것.
 - **올린 것은 전부 공개된다.** `my/` 도 비공개가 아니므로 비밀로 둘 내용은 올리지 말 것.
 
