@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toon, toonUnique, RAINBOW } from './look.js';
+import { toon, toonUnique, swayed, RAINBOW } from './look.js';
 
 // 정원은 모든 접속자에게 똑같아야 하므로 난수를 고정 씨앗으로 돌린다.
 function seeded(seed){
@@ -153,17 +153,20 @@ export function createWorld(){
     return { x, z };
   }
 
-  const FLOWERS = 190;
+  const FLOWERS = 480;
   const stemGeo = new THREE.CylinderGeometry(0.02, 0.028, 1, 5);
   stemGeo.translate(0, 0.5, 0);              // 밑동을 원점에 두고 높이만 늘린다
   const bloomGeo = new THREE.SphereGeometry(1, 7, 5);
 
-  const stems  = new THREE.InstancedMesh(stemGeo, toon(0x94DC83), FLOWERS);
-  // 꽃잎 색은 인스턴스마다 다르다. 흰 재질에 색을 곱해야 그대로 나온다.
-  const blooms = new THREE.InstancedMesh(bloomGeo, toonUnique(0xFFFFFF), FLOWERS);
+  // 바람에 흔들 재질은 고쳐 쓰므로 공유 재질(toon)을 넘기면 안 된다.
+  const stems  = new THREE.InstancedMesh(
+    stemGeo, swayed(toonUnique(0x94DC83), 'stalk'), FLOWERS);
+  // 꽃잎 색은 송이마다 다르다. 흰 재질에 색을 곱해야 그대로 나온다.
+  const blooms = new THREE.InstancedMesh(
+    bloomGeo, swayed(toonUnique(0xFFFFFF), 'head'), FLOWERS);
 
   let f = 0, tries = 0;
-  while (f < FLOWERS && tries++ < FLOWERS * 8){
+  while (f < FLOWERS && tries++ < FLOWERS * 12){
     const at = spot();
     if (!at) continue;
 
@@ -189,14 +192,15 @@ export function createWorld(){
 
   // 풀포기 — 들판을 초록초록하게 만드는 잔털
   // 넓적하면 풀이 아니라 삼각형 조각처럼 보인다. 가늘고 길어야 풀날이다.
-  const TUFTS = 340;
+  const TUFTS = 850;
   const tuftGeo = new THREE.ConeGeometry(0.055, 1, 5);
   tuftGeo.translate(0, 0.5, 0);
-  const tufts = new THREE.InstancedMesh(tuftGeo, toonUnique(0xFFFFFF), TUFTS);
+  const tufts = new THREE.InstancedMesh(
+    tuftGeo, swayed(toonUnique(0xFFFFFF), 'stalk'), TUFTS);
   const TUFT_GREENS = [0x9AE385, 0xAEF09B, 0x8CD87F];
 
   let t = 0; tries = 0;
-  while (t < TUFTS && tries++ < TUFTS * 8){
+  while (t < TUFTS && tries++ < TUFTS * 12){
     const at = spot();
     if (!at) continue;
     const h = 0.22 + rnd() * 0.3;

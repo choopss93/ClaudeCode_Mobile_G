@@ -3,7 +3,7 @@ import { createWorld, resolve } from './world.js';
 import { createActor, createDog } from './actor.js';
 import { createControls, dirToVector } from './controls.js';
 import { createLocalNet, HOP_HEIGHT } from './net.js';
-import { SKY, colorFor, hairFor, furFor } from './look.js';
+import { SKY, colorFor, hairFor, furFor, wind } from './look.js';
 
 const HOP_DIST = 1.25;
 const HOP_TIME = 0.42;
@@ -263,6 +263,9 @@ function begin(myName, dogName){
     const dt = Math.min((now - last) / 1000, 0.05);
     last = now;
     const cam = controls.state;
+
+    // 바람은 그래픽카드가 흔든다. 여기서는 시간만 올려 준다.
+    wind.time.value += dt;
 
     /* 나 */
     if (!myHop.on){

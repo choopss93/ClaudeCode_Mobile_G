@@ -70,6 +70,60 @@ export function makeBlob(radius){
   return m;
 }
 
+/* ── 바람 ── */
+
+/*
+ * 들꽃과 풀을 바람에 흔든다.
+ *
+ * 송이가 천 개가 넘어 매 프레임 자리를 다시 계산하면 폰이 버티지 못한다.
+ * 그래서 자리는 그대로 두고 그래픽카드가 그리면서 휘게 한다 — CPU 는
+ * 시간 하나만 올려 주면 된다.
+ */
+export const wind = {
+  time: { value: 0 },
+  sway: { value: 0.055 }      // 꼭대기가 휘는 폭 (미터)
+};
+
+// 흔들림을 싫어하는 사람에게는 멈춰 둔다.
+try {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) wind.sway.value = 0;
+} catch (_){}
+
+// stalk: 밑동은 붙어 있고 위로 갈수록 휜다 (꽃대 · 풀날)
+// head: 통째로 꽃대 끝을 따라 움직인다 (꽃잎)
+const HEIGHT = { stalk: 'clamp(transformed.y, 0.0, 1.0)', head: '1.0' };
+
+/** InstancedMesh 전용. 재질 하나를 바람에 흔들리게 고쳐 돌려준다. */
+export function swayed(material, mode){
+  const lift = HEIGHT[mode];
+  material.onBeforeCompile = shader => {
+    shader.uniforms.uWindTime = wind.time;
+    shader.uniforms.uWindSway = wind.sway;
+    shader.vertexShader =
+      'uniform float uWindTime;\nuniform float uWindSway;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+      #ifdef USE_INSTANCING
+      {
+        // 포기마다 자리가 다르므로 흔들리는 때도 조금씩 어긋난다
+        vec3 ip = instanceMatrix[3].xyz;
+        float sx = max(length(instanceMatrix[0].xyz), 0.0001);
+        float ph = uWindTime * 1.5 + ip.x * 0.32 + ip.z * 0.32;
+        float bend = (sin(ph) * 0.55 + sin(ph * 2.1 + 1.3) * 0.2) * uWindSway;
+        float lift = ${lift};
+        // 인스턴스 배율로 나눠, 크기가 달라도 같은 만큼 휘게 한다
+        transformed.x += bend * lift / sx;
+        transformed.z += bend * 0.4 * lift / sx;
+      }
+      #endif`
+    );
+  };
+  // 두 모드가 같은 프로그램을 나눠 쓰면 한쪽 코드가 무시된다
+  material.customProgramCacheKey = () => 'sway-' + mode;
+  return material;
+}
+
 /* ── 색 ── */
 
 export const SKY = 0xC3EBF8;
