@@ -20,12 +20,20 @@ GitHub Pages는 브랜치 **하나**만 서빙하므로, 공간을 브랜치로 
 index.html          허브 — 네 공간으로 가는 링크
 assets/base.css     네 공간이 함께 쓰는 토큰과 원자 (단일 출처)
 design/index.html   1 · 아토믹 디자인 레퍼런스
+design/refs/        1 · 확인하고 작업할 원본 자료
 my/index.html       2 · 개인
 shared/index.html   3 · 공용
 etc/index.html      4 · 기타
 .nojekyll           Pages의 Jekyll 처리를 끔
 README.md
+CLAUDE.md           작업 규칙
 ```
+
+## 1번은 "확인하고 작업하는" 자리
+
+저장해 두고 확인한 뒤 작업할 자료는 1번(`design/`)에 둡니다.
+원본 자료는 `design/refs/`, 레퍼런스 페이지는 `design/index.html` 입니다.
+자세한 작업 규칙은 [CLAUDE.md](CLAUDE.md) 에 있습니다.
 
 ## 공통 스타일을 고치는 순서
 
