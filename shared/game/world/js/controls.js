@@ -1,9 +1,10 @@
 /*
- * 조작: 둥근 조이스틱으로 어느 방향이든 걸어다닌다.
+ * 조작: 왼쪽 아래 조이스틱을 한 손가락으로 잡고 밀면 그 방향으로 걷는다.
+ * 민 만큼 빨라진다. 화면 아무 데나 끌면 카메라가 돈다.
  *
- * 손가락은 화면 왼쪽 아무 데나 대면 그 자리에 조이스틱이 생기고, 민
- * 방향으로 걷는다. 많이 밀수록 빨리 걷는다. 오른쪽을 끌면 카메라가 돈다.
- * 마우스는 왼쪽 아래 조이스틱을 끌거나 WASD 를 쓴다.
+ * 조이스틱은 캔버스 위에 얹힌 별개의 요소다. 그래서 터치를 캔버스에서만
+ * 들으면 조이스틱을 짚었을 때 아무 일도 일어나지 않는다 — 조이스틱이
+ * 손가락을 가로채기 때문이다. 조이스틱에서 직접 듣는 이유다.
  */
 
 const KEY_VEC = {
@@ -13,8 +14,8 @@ const KEY_VEC = {
   KeyD:[1,0], ArrowRight:[1,0]
 };
 
-const MAX = 40;          // 손잡이가 벗어날 수 있는 거리 (테두리 안에 머물 만큼)
-const DEAD = 0.14;       // 이만큼 안쪽은 흔들림으로 보고 무시한다
+const MAX = 30;        // 손잡이가 테두리 안에서 움직일 수 있는 거리
+const DEAD = 0.12;     // 이만큼 안쪽은 손 떨림으로 보고 무시한다
 
 function typing(){
   const el = document.activeElement;
@@ -30,71 +31,60 @@ export function createControls(surface, { stick, knob } = {}){
   };
 
   const keys = new Set();
-  let grip = null;        // {id, cx, cy, dx, dy} — 조이스틱을 쥐고 있는 손가락
-  const look = new Map(); // 카메라를 돌리고 있는 손가락들
+  let grip = null;          // {id, cx, cy, dx, dy}
+  const look = new Map();   // 카메라를 돌리고 있는 손가락들
 
   /* ── 조이스틱 ── */
 
-  function homeCenter(){
-    stick.style.left = '';
-    stick.style.top = '';
+  function center(){
     const r = stick.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }
 
-  function placeAt(x, y){
-    stick.style.left = x + 'px';
-    stick.style.top = y + 'px';
-  }
-
-  function drawKnob(dx, dy){
+  function draw(dx, dy){
     knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
   }
 
-  function take(e, cx, cy){
-    grip = { id: e.pointerId, cx, cy, dx: 0, dy: 0 };
+  stick.addEventListener('pointerdown', e => {
+    if (grip) return;
+    e.preventDefault();
+    const c = center();
+    grip = { id: e.pointerId, cx: c.x, cy: c.y, dx: 0, dy: 0 };
     stick.classList.add('on');
-    drawKnob(0, 0);
-  }
-
-  function release(){
-    grip = null;
-    stick.classList.remove('on');
-    homeCenter();          // 제자리로 돌아간다
-    drawKnob(0, 0);
-  }
-
-  surface.addEventListener('pointerdown', e => {
-    if (!grip){
-      // 손가락은 왼쪽 아무 데나. 짚은 자리에 조이스틱이 생긴다.
-      if (e.pointerType === 'touch' && e.clientX < innerWidth * 0.5){
-        placeAt(e.clientX, e.clientY);
-        take(e, e.clientX, e.clientY);
-        surface.setPointerCapture(e.pointerId);
-        return;
-      }
-      // 마우스는 왼쪽 아래 제자리 조이스틱을 잡아 끈다
-      const h = homeCenter();
-      if (Math.hypot(e.clientX - h.x, e.clientY - h.y) < MAX * 1.5){
-        take(e, h.x, h.y);
-        surface.setPointerCapture(e.pointerId);
-        return;
-      }
-    }
-    look.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    surface.setPointerCapture(e.pointerId);
+    draw(0, 0);
+    try { stick.setPointerCapture(e.pointerId); } catch (_){}
   });
 
+  stick.addEventListener('pointermove', e => {
+    if (!grip || e.pointerId !== grip.id) return;
+    e.preventDefault();
+    let dx = e.clientX - grip.cx;
+    let dy = e.clientY - grip.cy;
+    const d = Math.hypot(dx, dy);
+    if (d > MAX){ dx = dx / d * MAX; dy = dy / d * MAX; }
+    grip.dx = dx; grip.dy = dy;
+    draw(dx, dy);
+  });
+
+  function drop(e){
+    if (!grip || e.pointerId !== grip.id) return;
+    grip = null;
+    stick.classList.remove('on');
+    draw(0, 0);
+  }
+  stick.addEventListener('pointerup', drop);
+  stick.addEventListener('pointercancel', drop);
+  // 손가락을 붙잡지 못한 채 화면 밖으로 나가는 경우까지 받아 둔다
+  addEventListener('pointerup', drop);
+  addEventListener('pointercancel', drop);
+
+  /* ── 카메라: 화면 아무 데나 끌면 돈다 ── */
+
+  surface.addEventListener('pointerdown', e => {
+    look.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { surface.setPointerCapture(e.pointerId); } catch (_){}
+  });
   surface.addEventListener('pointermove', e => {
-    if (grip && e.pointerId === grip.id){
-      let dx = e.clientX - grip.cx;
-      let dy = e.clientY - grip.cy;
-      const d = Math.hypot(dx, dy);
-      if (d > MAX){ dx = dx / d * MAX; dy = dy / d * MAX; }
-      grip.dx = dx; grip.dy = dy;
-      drawKnob(dx, dy);
-      return;
-    }
     const prev = look.get(e.pointerId);
     if (!prev) return;
     state.yaw   -= (e.clientX - prev.x) * 0.005;
@@ -102,15 +92,12 @@ export function createControls(surface, { stick, knob } = {}){
     state.pitch = Math.max(0.16, Math.min(1.1, state.pitch));
     look.set(e.pointerId, { x: e.clientX, y: e.clientY });
   });
-
-  function letGo(e){
-    if (grip && e.pointerId === grip.id) release();
-    look.delete(e.pointerId);
-  }
-  surface.addEventListener('pointerup', letGo);
-  surface.addEventListener('pointercancel', letGo);
+  const unlook = e => look.delete(e.pointerId);
+  surface.addEventListener('pointerup', unlook);
+  surface.addEventListener('pointercancel', unlook);
 
   /* ── 키보드 ── */
+
   addEventListener('keydown', e => {
     if (typing() || e.repeat) return;
     if (KEY_VEC[e.code]){ keys.add(e.code); e.preventDefault(); }
@@ -119,6 +106,7 @@ export function createControls(surface, { stick, knob } = {}){
   addEventListener('blur', () => keys.clear());   // 창을 벗어나면 눌린 채 남는다
 
   /* ── 거리 ── */
+
   function zoom(d){ state.dist = Math.max(3.5, Math.min(12, state.dist + d)); }
   surface.addEventListener('wheel', e => {
     e.preventDefault();
@@ -138,6 +126,7 @@ export function createControls(surface, { stick, knob } = {}){
   surface.addEventListener('touchend', () => { pinch = 0; });
 
   /* ── 매 프레임 ── */
+
   function update(){
     let x = 0, z = 0;
 
@@ -147,7 +136,7 @@ export function createControls(surface, { stick, knob } = {}){
     }
     if (x || z){
       const n = Math.hypot(x, z);
-      x /= n; z /= n;            // 키보드는 늘 전속력
+      x /= n; z /= n;                 // 키보드는 늘 전속력
     }
 
     if (grip){
@@ -163,8 +152,6 @@ export function createControls(surface, { stick, knob } = {}){
     return state;
   }
 
-  homeCenter();
-  drawKnob(0, 0);
-
+  draw(0, 0);
   return { state, update, isTyping: typing };
 }

@@ -115,33 +115,40 @@
   #hud .spacer{flex:1 1 auto}
 
   /* ── 조이스틱 ──
-     평소에는 왼쪽 아래에 옅게 떠 있고, 손가락을 화면 왼쪽 아무 데나 대면
-     그 자리로 옮겨 온다. 손을 떼면 제자리로 돌아간다. */
+     보이는 테두리는 작게 두되, 손가락이 닿는 자리(.grab)는 넉넉히 잡는다.
+     작아 보이면서도 짚기 쉬워야 한다. */
   #stick{
-    position:fixed;z-index:6;
-    left:calc(78px + env(safe-area-inset-left, 0px));
-    bottom:calc(132px + env(safe-area-inset-bottom, 0px));
+    position:fixed;z-index:7;
+    left:calc(68px + env(safe-area-inset-left, 0px));
+    bottom:calc(130px + env(safe-area-inset-bottom, 0px));
     width:0;height:0;
-    opacity:.5;
     touch-action:none;
     transition:opacity .18s ease;
   }
-  #stick.on{opacity:1}
+  #stick .grab{
+    position:absolute;left:50%;top:50%;
+    width:124px;height:124px;margin:-62px 0 0 -62px;
+    border-radius:50%;
+    cursor:grab;
+  }
+  #stick.on .grab{cursor:grabbing}
   #stick .ring{
     position:absolute;left:50%;top:50%;
-    width:128px;height:128px;margin:-64px 0 0 -64px;
+    width:86px;height:86px;margin:-43px 0 0 -43px;
     border-radius:50%;
-    background:rgba(255,255,255,.3);
-    border:2px solid rgba(255,255,255,.75);
-    box-shadow:0 3px 14px rgba(110,120,140,.18);
+    background:rgba(255,255,255,.34);
+    border:2px solid rgba(255,255,255,.8);
+    box-shadow:0 3px 12px rgba(110,120,140,.18);
+    pointer-events:none;
   }
   #stick .knob{
     position:absolute;left:50%;top:50%;
-    width:52px;height:52px;
+    width:40px;height:40px;
     border-radius:50%;
-    background:rgba(255,255,255,.94);
-    box-shadow:0 3px 12px rgba(110,120,140,.3);
+    background:rgba(255,255,255,.95);
+    box-shadow:0 2px 9px rgba(110,120,140,.3);
     transform:translate(-50%, -50%);
+    pointer-events:none;
   }
   #stick:not(.on) .knob{transition:transform .16s ease}
 
@@ -268,6 +275,7 @@
 </div>
 
 <div id="stick" aria-hidden="true">
+  <div class="grab"></div>
   <div class="ring"></div>
   <div class="knob" id="knob"></div>
 </div>
@@ -275,7 +283,7 @@
 <p id="help">
   <span class="mouse-only"><b>WASD</b> · <b>방향키</b> 로 걷기<br>
   끌어서 둘러보기 · <b>Enter</b> 로 말하기</span>
-  <span class="touch-only"><b>왼쪽</b> 을 밀어 걷기<br><b>오른쪽</b> 을 끌어 둘러보기</span>
+  <span class="touch-only"><b>조이스틱</b> 을 밀어 걷기<br>화면을 끌어 둘러보기</span>
 </p>
 
 <form id="chat" autocomplete="off">
