@@ -7,7 +7,7 @@ function seeded(seed){
   return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
 }
 
-export const WORLD_RADIUS = 21;
+export const WORLD_RADIUS = 44;   // 거닐 맛이 나도록 넓게
 
 export function createWorld(){
   const rnd = seeded(20260314);
@@ -30,7 +30,7 @@ export function createWorld(){
   // 울타리 너머로도 들판이 이어진다. 여기서 끊기면 정원이 하늘에 뜬
   // 접시처럼 보인다. 멀리는 안개가 하늘빛으로 지워 준다.
   const field = new THREE.Mesh(
-    new THREE.CircleGeometry(120, 48),
+    new THREE.CircleGeometry(220, 56),
     toon(0xC6F0AC)
   );
   field.rotation.x = -Math.PI / 2;
@@ -45,7 +45,7 @@ export function createWorld(){
   group.add(lawn);
 
   // 가운데 모이는 자리 — 풀을 짧게 깎은 듯한 옅은 풀빛
-  const clearing = new THREE.Mesh(new THREE.CircleGeometry(4.2, 40), toon(0xC4F0A8));
+  const clearing = new THREE.Mesh(new THREE.CircleGeometry(5.4, 40), toon(0xC4F0A8));
   clearing.rotation.x = -Math.PI / 2;
   clearing.position.y = 0.01;
   group.add(clearing);
@@ -62,11 +62,11 @@ export function createWorld(){
   });
   // 처음 들어섰을 때 정면에 보이도록. 가까우면 세로 화면에서 머리 위를
   // 덮어 아치가 아니라 기둥처럼 보인다.
-  arch.position.set(0, 0, -17);
+  arch.position.set(0, 0, -21);
   group.add(arch);
 
   /* ── 연못 ── */
-  const POND = { x: -9.5, z: 6.5, r: 3.1 };
+  const POND = { x: -17, z: 12, r: 5.2 };
   const water = new THREE.Mesh(new THREE.CircleGeometry(POND.r, 32), toon(0x94E4F4));
   water.rotation.x = -Math.PI / 2;
   water.position.set(POND.x, 0.02, POND.z);
@@ -80,11 +80,32 @@ export function createWorld(){
   group.add(rim);
   colliders.push({ x: POND.x, z: POND.z, r: POND.r + 0.1 });
 
-  /* ── 나무와 덤불 ── */
+  /* ── 나무와 덤불 ──
+     들판이 넓어지며 수가 서너 배로 늘었다. 하나씩 그리면 그리기 횟수가
+     수백 번이 되므로, 줄기와 잎덩이를 각각 인스턴스로 묶는다. */
   const GREENS = [0x9AE385, 0xAEF09B, 0x8CD87F];
-  for (let i = 0; i < 16; i++){
+  const PLANTS = 58;
+  const trunkGeo = new THREE.CylinderGeometry(1, 1, 1, 7);
+  trunkGeo.translate(0, 0.5, 0);
+
+  const trunks = new THREE.InstancedMesh(trunkGeo, toon(0xDCB795), PLANTS);
+  const leaves = new THREE.InstancedMesh(ball, toonUnique(0xFFFFFF), PLANTS * 3);
+  const plantAt = new THREE.Object3D();
+  const leafTint = new THREE.Color();
+  let tn = 0, ln = 0;
+
+  function leaf(x, y, z, sx, sy, sz, color){
+    plantAt.position.set(x, y, z);
+    plantAt.scale.set(sx, sy, sz);
+    plantAt.updateMatrix();
+    leaves.setMatrixAt(ln, plantAt.matrix);
+    leaves.setColorAt(ln, leafTint.setHex(color));
+    ln++;
+  }
+
+  for (let i = 0; i < PLANTS; i++){
     const ang = rnd() * Math.PI * 2;
-    const dist = 6.5 + rnd() * (WORLD_RADIUS - 9);
+    const dist = 7 + rnd() * (WORLD_RADIUS - 10);
     const x = Math.cos(ang) * dist;
     const z = Math.sin(ang) * dist;
 
@@ -94,26 +115,35 @@ export function createWorld(){
     }
     if (clash) continue;
 
+    const g = GREENS[Math.floor(rnd() * GREENS.length)];
     if (rnd() > 0.42){
-      const th = 0.9 + rnd() * 0.6;
-      put(rod, 0xDCB795, x, th / 2, z, 0.12, th, 0.12);
-      const r = 0.95 + rnd() * 0.5;
-      const g = GREENS[Math.floor(rnd() * GREENS.length)];
-      put(ball, g, x, th + r * 0.55, z, r, r * 0.86, r);
-      put(ball, g, x - r * 0.5, th + r * 0.25, z + r * 0.2, r * 0.6);
-      put(ball, g, x + r * 0.45, th + r * 0.3, z - r * 0.15, r * 0.55);
+      const th = 0.9 + rnd() * 0.7;
+      plantAt.position.set(x, 0, z);
+      plantAt.scale.set(0.12, th, 0.12);
+      plantAt.updateMatrix();
+      trunks.setMatrixAt(tn++, plantAt.matrix);
+
+      const r = 0.95 + rnd() * 0.6;
+      leaf(x, th + r * 0.55, z, r, r * 0.86, r, g);
+      leaf(x - r * 0.5, th + r * 0.25, z + r * 0.2, r * 0.6, r * 0.6, r * 0.6, g);
+      leaf(x + r * 0.45, th + r * 0.3, z - r * 0.15, r * 0.55, r * 0.55, r * 0.55, g);
       colliders.push({ x, z, r: 0.42 });
     } else {
-      const r = 0.55 + rnd() * 0.35;
-      const g = GREENS[Math.floor(rnd() * GREENS.length)];
-      put(ball, g, x, r * 0.72, z, r, r * 0.8, r);
-      put(ball, g, x + r * 0.7, r * 0.5, z + r * 0.3, r * 0.6);
+      const r = 0.55 + rnd() * 0.4;
+      leaf(x, r * 0.72, z, r, r * 0.8, r, g);
+      leaf(x + r * 0.7, r * 0.5, z + r * 0.3, r * 0.6, r * 0.6, r * 0.6, g);
       colliders.push({ x, z, r: r * 0.9 });
     }
   }
+  trunks.count = tn;
+  leaves.count = ln;
+  trunks.instanceMatrix.needsUpdate = true;
+  leaves.instanceMatrix.needsUpdate = true;
+  leaves.instanceColor.needsUpdate = true;
+  group.add(trunks, leaves);
 
   /* ── 버섯 ── */
-  for (let i = 0; i < 7; i++){
+  for (let i = 0; i < 18; i++){
     const ang = rnd() * Math.PI * 2;
     const dist = 6 + rnd() * (WORLD_RADIUS - 9);
     const x = Math.cos(ang) * dist;
@@ -152,16 +182,17 @@ export function createWorld(){
     const ang = rnd() * Math.PI * 2;
     const dist = inside
       ? 5.2 + rnd() * (WORLD_RADIUS - 6)
-      : WORLD_RADIUS + 2.5 + rnd() * 42;
+      // 안개가 지우는 거리 너머에는 심어도 보이지 않는다. 괜히 그리지 않게.
+      : WORLD_RADIUS + 3 + rnd() * 34;
     const x = Math.cos(ang) * dist;
     const z = Math.sin(ang) * dist;
     return free(x, z, 0.45) ? { x, z } : null;
   }
 
-  const FLOWERS = 900;          // 뭉치 크기가 제각각이라 넉넉히 잡고 남는 건 안 그린다
+  const FLOWERS = 2100;          // 뭉치 크기가 제각각이라 넉넉히 잡고 남는 건 안 그린다
   const stemGeo = new THREE.CylinderGeometry(0.02, 0.028, 1, 5);
   stemGeo.translate(0, 0.5, 0);              // 밑동을 원점에 두고 높이만 늘린다
-  const bloomGeo = new THREE.SphereGeometry(1, 7, 5);
+  const bloomGeo = new THREE.SphereGeometry(1, 6, 4);   // 멀리선 작게 보이니 면을 아껴도 된다
 
   // 바람에 흔들 재질은 고쳐 쓰므로 공유 재질(toon)을 넘기면 안 된다.
   const stems  = new THREE.InstancedMesh(
@@ -173,7 +204,7 @@ export function createWorld(){
   /* 고르게 흩뿌리면 색종이를 뿌린 것처럼 보인다. 들꽃은 뭉쳐서 핀다 —
      한두 송이만 선 자리도 있고, 한 무더기로 뒤덮은 자리도 있고, 사이사이는
      그냥 풀밭이다. 뭉치마다 빛깔과 키대를 따로 뽑는다. */
-  const CLUMPS = 56;
+  const CLUMPS = 130;
   let f = 0;
 
   for (let c = 0; c < CLUMPS && f < FLOWERS; c++){
@@ -226,7 +257,7 @@ export function createWorld(){
 
   // 풀포기 — 들판을 초록초록하게 만드는 잔털
   // 넓적하면 풀이 아니라 삼각형 조각처럼 보인다. 가늘고 길어야 풀날이다.
-  const TUFTS = 850;
+  const TUFTS = 2400;
   const tuftGeo = new THREE.ConeGeometry(0.055, 1, 5);
   tuftGeo.translate(0, 0.5, 0);
   const tufts = new THREE.InstancedMesh(

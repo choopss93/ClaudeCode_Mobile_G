@@ -20,7 +20,7 @@ import { resolve } from '#world';
 
 const GUESTS = [
   { name: '햇살',   dog: '구름', pet: { kind:'dog', breed:4, coat:'brown'  } },  // 웰시코기
-  { name: '민들레', dog: '보리', pet: { kind:'cat', breed:7, coat:'tuxedo' } }   // 메인쿤
+  { name: '민들레', dog: '단비', pet: { kind:'cat', breed:7, coat:'tuxedo' } }   // 메인쿤
 ];
 
 const LINES = [

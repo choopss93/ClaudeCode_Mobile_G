@@ -299,6 +299,62 @@
   /* 키보드가 올라온 동안에는 가릴 것을 치운다 */
   body.kb #stick, body.kb #help{opacity:0;pointer-events:none}
 
+  /* ── 코드 창 ── */
+  #codePanel{
+    position:fixed;inset:0;z-index:12;
+    display:flex;align-items:center;justify-content:center;
+    padding:20px 20px calc(20px + var(--kb));
+    background:rgba(60,70,90,.34);
+    overflow-y:auto;overscroll-behavior:contain;
+  }
+  #codePanel .sheet{
+    width:min(360px, 100%);margin:auto;
+    background:rgba(255,255,255,.96);
+    border-radius:24px;padding:22px 20px 18px;
+    box-shadow:0 18px 48px rgba(60,70,90,.26);
+  }
+  #codePanel h2{margin:0 0 6px;font-size:17px;font-weight:700;color:#4A4458}
+  #codePanel .hint{margin:0 0 14px;font-size:12.5px;line-height:1.6;color:#7A7490}
+  #codePanel .hint b{color:#4A4458}
+  #codePanel .codeRow{display:flex;gap:7px;align-items:stretch;margin-bottom:18px}
+  #codePanel code{
+    flex:1 1 auto;min-width:0;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:14px;letter-spacing:.04em;color:#2F6B52;
+    background:#EAF7F0;border-radius:13px;
+    padding:12px 13px;display:flex;align-items:center;
+    overflow-wrap:anywhere;line-height:1.45;
+  }
+  #codePanel .codeRow button{
+    font:inherit;font-size:13px;font-weight:600;flex:none;
+    color:#215C45;background:#9BE6C4;border:0;border-radius:13px;
+    padding:0 15px;min-height:44px;cursor:pointer;
+  }
+  #codePanel label{
+    display:block;font-size:12px;font-weight:600;color:#6E6480;margin:0 0 5px 4px;
+  }
+  #codePanel input{
+    font:inherit;font-size:16px;width:100%;
+    color:#4F4A52;background:#fff;
+    border:1.5px solid #DCE6EE;border-radius:14px;
+    padding:11px 14px;min-height:46px;margin-bottom:10px;
+  }
+  #codePanel input:focus{outline:0;border-color:#7DDDF4}
+  #codePanel .go{
+    font:inherit;font-size:14px;font-weight:600;width:100%;
+    color:#215C45;background:#CFF0E0;border:0;border-radius:999px;
+    min-height:46px;cursor:pointer;
+  }
+  #codePanel .said{
+    margin:10px 0 0;font-size:12.5px;line-height:1.5;color:#4BBF90;min-height:18px;
+  }
+  #codePanel .said.no{color:#D98080}
+  #codePanel .close{
+    font:inherit;font-size:13.5px;width:100%;
+    color:#7A7490;background:none;border:0;
+    min-height:44px;cursor:pointer;margin-top:6px;
+  }
+
   #loading{
     position:fixed;inset:0;z-index:10;
     display:flex;align-items:center;justify-content:center;
@@ -325,13 +381,15 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-02d",
-    "#world": "./js/world.js?v=2026-11-02d",
-    "#actor": "./js/actor.js?v=2026-11-02d",
-    "#controls": "./js/controls.js?v=2026-11-02d",
-    "#net": "./js/net.js?v=2026-11-02d",
-    "#sound": "./js/sound.js?v=2026-11-02d",
-    "#pets": "./js/pets.js?v=2026-11-02d"
+    "#look": "./js/look.js?v=2026-11-02e",
+    "#world": "./js/world.js?v=2026-11-02e",
+    "#actor": "./js/actor.js?v=2026-11-02e",
+    "#controls": "./js/controls.js?v=2026-11-02e",
+    "#net": "./js/net.js?v=2026-11-02e",
+    "#sound": "./js/sound.js?v=2026-11-02e",
+    "#pets": "./js/pets.js?v=2026-11-02e",
+    "#petcode": "./js/petcode.js?v=2026-11-02e",
+    "#daylight": "./js/daylight.js?v=2026-11-02e"
   }
 }
 </script>
@@ -344,8 +402,10 @@
 <div id="hud">
   <a class="chip" href="../">← 게임</a>
   <span class="spacer"></span>
+  <span class="chip" id="when">—</span>
   <span class="chip" id="who">—</span>
   <span class="chip" id="count">1명</span>
+  <button class="chip" id="codeOpen" type="button">코드</button>
   <button class="chip icon on" id="sound" type="button" aria-pressed="true" aria-label="소리 끄기">
     <svg viewBox="0 0 20 20" aria-hidden="true">
       <path class="horn" d="M3.6 7.6h2.8L10 4.4v11.2L6.4 12.4H3.6z"/>
@@ -371,6 +431,24 @@
   <input id="chatInput" type="text" maxlength="60" placeholder="말을 적으면 머리 위에 뜹니다" aria-label="대화 입력">
   <button type="submit">말하기</button>
 </form>
+
+<div id="codePanel" hidden>
+  <div class="sheet">
+    <h2>반려동물 코드</h2>
+    <p class="hint">이 코드를 보내면, 받은 사람도 정원에서 <b id="myPetName">—</b> 를 만날 수 있어요.</p>
+    <div class="codeRow">
+      <code id="myCode">—</code>
+      <button type="button" id="copyCode">복사</button>
+    </div>
+
+    <label for="addCode">친구 코드 넣기</label>
+    <input id="addCode" type="text" autocapitalize="characters" placeholder="받은 코드를 붙여넣으세요">
+    <button type="button" class="go" id="addCodeBtn">정원에 부르기</button>
+    <p class="said" id="codeSaid"></p>
+
+    <button type="button" class="close" id="closeCode">닫기</button>
+  </div>
+</div>
 
 <div id="loading" hidden>정원을 여는 중…</div>
 
@@ -403,12 +481,16 @@
     <label>털빛 <span class="sel" id="coatName">화이트</span></label>
     <div class="coats" id="coats"></div>
 
+    <label for="friendCodes">친구 코드 <span class="sel">없어도 괜찮아요</span></label>
+    <input id="friendCodes" type="text" autocapitalize="characters"
+           placeholder="받은 코드를 붙여넣으면 그 아이도 만나요">
+
     <button type="submit">정원으로 들어가기</button>
     <p class="note">서두를 것도, 지는 것도 없는 곳이에요.
-      <span class="ver">2026-11-02d</span></p>
+      <span class="ver">2026-11-02e</span></p>
   </form>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-02d"></script>
+<script type="module" src="./js/main.js?v=2026-11-02e"></script>
 </body>
 </html>

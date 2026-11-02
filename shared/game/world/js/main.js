@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { createWorld, resolve } from '#world';
 import { createActor, createPet } from '#actor';
 import { KINDS, COATS, resolvePet } from '#pets';
+import { makeCode, readCodes } from '#petcode';
+import { lookNow, createStars, applyLook } from '#daylight';
 import { createControls } from '#controls';
 import { createLocalNet } from '#net';
 import { createWind } from '#sound';
@@ -9,9 +11,9 @@ import { SKY, colorFor, hairFor, wind } from '#look';
 
 const SPEED = 3.1;           // 전속력으로 걸을 때 초당 거리
 const TURN = 11;             // 몸이 방향을 따라 도는 빠르기
-const DOG_SPEED = 3.6;       // 뒤처지면 종종걸음으로 쫓아온다
-const DOG_NEAR = 1.3;        // 이만큼 떨어지면 따라나선다
-const DOG_STOP = 0.9;        // 이만큼 가까워지면 멈춘다
+const PET_SPEED = 1.9;       // 반려동물이 거니는 빠르기
+const MEET_CHANCE = 0.75;    // 다음 갈 곳을 내 근처로 잡을 확률
+const MEET_RANGE = 10;       // 그 "내 근처" 의 넓이
 const BUBBLE_MS = 6500;
 const LABEL_FAR = 42;
 const STORE = 'rainbowGarden.names';
@@ -29,6 +31,8 @@ const chatForm = $('chat');
 const chatIn  = $('chatInput');
 const countEl = $('count');
 const whoEl   = $('who');
+const whenEl  = $('when');
+const themeMeta = document.querySelector('meta[name="theme-color"]');
 
 /* ── 폰: 소프트 키보드가 가리는 높이를 재어 UI 를 올린다 ──
    100dvh 만으로는 키보드를 알 수 없다. visualViewport 가 알려준다. */
@@ -157,27 +161,31 @@ startForm.addEventListener('submit', e => {
   paintSound();
   startEl.hidden = true;
   // 랜덤이면 여기서 한 번만 뽑는다. 들어갈 때마다 달라진다.
-  begin(name, dog, resolvePet(choice));
+  begin(name, dog, resolvePet(choice), readCodes($('friendCodes').value));
 });
 if (!TOUCH) nameIn.focus();   // 폰에서는 키보드가 시작 화면을 가린다
 
 /* ── 게임 ── */
-function begin(myName, petName, petSpec){
+function begin(myName, petName, petSpec, friends){
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, TOUCH ? 1.75 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SKY);
-  scene.fog = new THREE.Fog(SKY, 34, 74);
+  scene.fog = new THREE.Fog(SKY, 38, 104);
 
-  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 160);
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);   // 안개가 지우는 거리보다 조금 멀리까지만
 
-  // 그림자 맵 없이 빛 둘로만. 일러스트처럼 납작하고 가볍다.
-  scene.add(new THREE.HemisphereLight(0xFFFFFF, 0xD6F5C4, 1.35));
+  // 밝기와 색은 시간대(daylight.js)가 정한다. 여기서는 자리만 만든다.
+  const hemi = new THREE.HemisphereLight(0xFFFFFF, 0xD6F5C4, 1.35);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xFFFBF0, 1.0);
-  sun.position.set(6, 12, 8);
   scene.add(sun);
+  scene.add(sun.target);
+
+  const stars = createStars(170);
+  scene.add(stars);
 
   const world = createWorld();
   scene.add(world.group);
@@ -219,15 +227,50 @@ function begin(myName, petName, petSpec){
   scene.add(me.group);
   const myLabel = makeLabel(myName);
 
-  const dog = createPet(petSpec);
-  dog.group.position.set(0.9, 0, 6.4);
-  scene.add(dog.group);
-  const dogLabel = makeLabel(petName, 'pet');
-
   whoEl.textContent = myName + ' · ' + petName;
   whoEl.title = petSpec.breedName + ' · ' + petSpec.coatName;
 
-  let dogSpeed = 0;
+  /* ── 반려동물 ──
+     따라다니지 않는다. 저마다 정원을 거닐되, 다음 갈 곳을 열에 일곱쯤은
+     내 근처로 잡아 자주 마주치게 한다. */
+  const pets = [];
+
+  function wander(e){
+    const a = Math.random() * Math.PI * 2;
+    let x, z;
+    if (Math.random() < MEET_CHANCE){
+      const d = 2.5 + Math.random() * MEET_RANGE;
+      x = me.group.position.x + Math.cos(a) * d;
+      z = me.group.position.z + Math.sin(a) * d;
+    } else {
+      const d = Math.random() * (world.radius - 5);
+      x = Math.cos(a) * d;
+      z = Math.sin(a) * d;
+    }
+    const at = resolve(world, x, z);
+    e.tx = at.x; e.tz = at.z;
+  }
+
+  function addPet(spec, name){
+    const actor = createPet(spec);
+    // 들어서자마자 만날 수 있도록 곁에서 시작한다
+    const a = Math.random() * Math.PI * 2;
+    const d = 2.5 + Math.random() * 4;
+    const at = resolve(world,
+      me.group.position.x + Math.cos(a) * d,
+      me.group.position.z + Math.sin(a) * d);
+    actor.group.position.set(at.x, 0, at.z);
+    scene.add(actor.group);
+
+    const e = { actor, label: makeLabel(name, 'pet'), tx: at.x, tz: at.z,
+                rest: Math.random() * 1.5 };
+    wander(e);
+    pets.push(e);
+    return e;
+  }
+
+  addPet(petSpec, petName);
+  for (const f of friends || []) addPet(resolvePet(f), f.name);
 
   /* ── 다른 사람들 ── */
   const peers = new Map();
@@ -238,13 +281,8 @@ function begin(myName, petName, petSpec){
       scene.add(actor.group);
       const entry = { actor, label: makeLabel(info.name), s: { x:0, y:0, z:0, ry:0, speed:0 }, started: false };
 
-      if (info.dog){
-        entry.dog = createPet(resolvePet(info.pet || { kind:'dog', breed:3, coat:'white' }));
-        scene.add(entry.dog.group);
-        entry.dogLabel = makeLabel(info.dog, 'pet');
-        entry.dogSpeed = 0;
-        entry.dog.group.position.set(info.x ?? 0, 0, (info.z ?? 0) + 1);
-      }
+      // 손님의 반려동물도 주인을 따라다니지 않고 정원을 거닌다
+      if (info.pet) addPet(resolvePet(info.pet), info.dog || '친구');
       peers.set(id, entry);
       updateCount();
     },
@@ -254,7 +292,6 @@ function begin(myName, petName, petSpec){
       p.s = s;
       if (!p.started){
         p.actor.group.position.set(s.x, 0, s.z);
-        if (p.dog) p.dog.group.position.set(s.x, 0, s.z + 1);
         p.started = true;
       }
     },
@@ -266,7 +303,6 @@ function begin(myName, petName, petSpec){
       const p = peers.get(id);
       if (!p) return;
       scene.remove(p.actor.group); p.actor.dispose(); p.label.remove();
-      if (p.dog){ scene.remove(p.dog.group); p.dog.dispose(); p.dogLabel.remove(); }
       peers.delete(id);
       updateCount();
     }
@@ -279,6 +315,50 @@ function begin(myName, petName, petSpec){
 
   /* ── 조작 ── */
   const controls = createControls(canvas, { stick: $('stick'), knob: $('knob') });
+
+  /* ── 반려동물 코드 ── */
+  const myCode = makeCode({
+    kind: petSpec.kind, breed: choice.breed, coat: choice.coat, name: petName
+  });
+  $('myCode').textContent = myCode;
+  $('myPetName').textContent = petName;
+
+  const panel = $('codePanel');
+  const said = $('codeSaid');
+
+  function tell(text, bad){
+    said.textContent = text;
+    said.classList.toggle('no', !!bad);
+  }
+
+  $('codeOpen').addEventListener('click', () => { tell(''); panel.hidden = false; });
+  $('closeCode').addEventListener('click', () => { panel.hidden = true; });
+  panel.addEventListener('click', e => { if (e.target === panel) panel.hidden = true; });
+
+  $('copyCode').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(myCode);
+      tell('코드를 복사했어요. 친구에게 보내세요.');
+    } catch (_){
+      // 복사가 막힌 곳에서는 직접 고를 수 있게 띄워 준다
+      window.prompt('이 코드를 복사해 보내세요', myCode);
+    }
+  });
+
+  $('addCodeBtn').addEventListener('click', () => {
+    const found = readCodes($('addCode').value);
+    if (!found.length){
+      tell('코드를 읽지 못했어요. 다시 확인해 주세요.', true);
+      return;
+    }
+    const names = [];
+    for (const f of found){
+      addPet(resolvePet(f), f.name);
+      names.push(f.name);
+    }
+    $('addCode').value = '';
+    tell(names.join(' · ') + ' 가 정원에 왔어요. 거닐다 보면 만나요.');
+  });
 
   /* ── 대화 ── */
   chatForm.addEventListener('submit', e => {
@@ -360,6 +440,10 @@ function begin(myName, petName, petSpec){
   if (window.visualViewport) visualViewport.addEventListener('resize', resize);
 
   /* ── 루프 ── */
+  let look = lookNow();
+  let skyWait = 0;
+  whenEl.textContent = look.label;
+
   const camWant = new THREE.Vector3();
   const camAim = new THREE.Vector3();
   let last = performance.now();
@@ -386,16 +470,25 @@ function begin(myName, petName, petSpec){
     }
     me.update(dt, mySpeed);
 
-    /* 강아지 — 뒤처지면 쫓아오고, 가까워지면 멈춰 선다 */
-    {
-      const dx = me.group.position.x - dog.group.position.x;
-      const dz = me.group.position.z - dog.group.position.z;
-      const gap = Math.hypot(dx, dz);
-      if (gap > DOG_NEAR) dogSpeed = DOG_SPEED;
-      else if (gap < DOG_STOP) dogSpeed = 0;
-      dogSpeed > 0 && gap > 0.01
-        ? dog.update(dt, walk(dog.group, dx / gap, dz / gap, Math.min(dogSpeed, gap / Math.max(dt, 1e-4)), dt))
-        : dog.update(dt, 0);
+    /* 반려동물 — 저마다 거닌다 */
+    for (const e of pets){
+      if (e.rest > 0){
+        e.rest -= dt;
+        e.actor.update(dt, 0);
+        continue;
+      }
+      const at = e.actor.group.position;
+      const dx = e.tx - at.x, dz = e.tz - at.z;
+      const d = Math.hypot(dx, dz);
+      if (d < 0.5){
+        // 내 곁이면 좀 더 머물다 간다
+        const near = Math.hypot(me.group.position.x - at.x, me.group.position.z - at.z) < 3.2;
+        e.rest = near ? 2.5 + Math.random() * 4 : 0.6 + Math.random() * 2.4;
+        wander(e);
+        e.actor.update(dt, 0);
+      } else {
+        e.actor.update(dt, walk(e.actor.group, dx / d, dz / d, PET_SPEED, dt));
+      }
     }
 
     /* 다른 사람들 */
@@ -411,16 +504,6 @@ function begin(myName, petName, petSpec){
       g.rotation.y += d * k;
       p.actor.update(dt, p.s.speed || 0);
 
-      if (p.dog){
-        const dx = g.position.x - p.dog.group.position.x;
-        const dz = g.position.z - p.dog.group.position.z;
-        const gap = Math.hypot(dx, dz);
-        if (gap > DOG_NEAR) p.dogSpeed = DOG_SPEED;
-        else if (gap < DOG_STOP) p.dogSpeed = 0;
-        p.dog.update(dt, p.dogSpeed > 0 && gap > 0.01
-          ? walk(p.dog.group, dx / gap, dz / gap, Math.min(p.dogSpeed, gap / Math.max(dt, 1e-4)), dt)
-          : 0);
-      }
     }
 
     /* 카메라 */
@@ -435,13 +518,27 @@ function begin(myName, petName, petSpec){
     camera.position.lerp(camWant, first ? 1 : Math.min(1, dt * 7));
     camera.lookAt(camAim);
 
+    /* 시간대 — 새벽 · 아침 · 낮 · 노을 · 밤.
+       빛은 천천히 바뀌므로 몇 초에 한 번만 다시 재면 충분하다. */
+    skyWait -= dt;
+    if (skyWait <= 0){
+      skyWait = 2;
+      look = lookNow();
+      if (look.label !== whenEl.textContent) whenEl.textContent = look.label;
+      if (themeMeta){
+        themeMeta.setAttribute('content', '#' + look.sky.toString(16).padStart(6, '0'));
+      }
+    }
+    applyLook(look, { scene, hemi, sun, stars, follow: t });
+    sun.target.position.copy(t);
+    sun.target.updateMatrixWorld();
+
     renderer.render(scene, camera);
 
     place(myLabel, me.headTop, me.group);
-    place(dogLabel, dog.headTop, dog.group);
+    for (const e of pets) place(e.label, e.actor.headTop, e.actor.group);
     for (const p of peers.values()){
       place(p.label, p.actor.headTop, p.actor.group);
-      if (p.dog) place(p.dogLabel, p.dog.headTop, p.dog.group);
     }
 
     if (first){ first = false; $('loading').hidden = true; }
