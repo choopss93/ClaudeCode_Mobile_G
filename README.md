@@ -10,7 +10,7 @@ GitHub Pages는 브랜치 **하나**만 서빙하므로, 공간을 브랜치로 
 | | 폴더 | 용도 |
 | --- | --- | --- |
 | 1 | `design/` | **아토믹 디자인** — 공통 토큰·컴포넌트를 눈으로 확인하는 레퍼런스 |
-| 2 | `my/` | **MY** — 개인용 도구와 기록 |
+| 2 | `my/` | **MY** — 개인. 안에 `admin/`(어드민) · `front/`(프론트) |
 | 3 | `shared/` | **공용** — 여러 사람이 같이 쓰는 공유 서비스 |
 | 4 | `etc/` | **기타** — 실험, 잠깐 쓰고 버릴 것 |
 
@@ -21,7 +21,9 @@ index.html          허브 — 네 공간으로 가는 링크
 assets/base.css     네 공간이 함께 쓰는 토큰과 원자 (단일 출처)
 design/index.html   1 · 아토믹 디자인 레퍼런스
 design/refs/        1 · 확인하고 작업할 원본 자료
-my/index.html       2 · 개인
+my/index.html       2 · 개인 (허브)
+my/admin/index.html 2 · 어드민 — 데이터를 넣고 고치는 쪽
+my/front/index.html 2 · 프론트 — 사용자에게 보이는 쪽
 shared/index.html   3 · 공용
 etc/index.html      4 · 기타
 .nojekyll           Pages의 Jekyll 처리를 끔
@@ -64,6 +66,8 @@ Pages를 켜면 이렇게 열립니다.
 | 허브 | `https://choopss93.github.io/ClaudeCode_Mobile_G/` |
 | 1 아토믹 디자인 | `.../ClaudeCode_Mobile_G/design/` |
 | 2 MY | `.../ClaudeCode_Mobile_G/my/` |
+| 2 어드민 | `.../ClaudeCode_Mobile_G/my/admin/` |
+| 2 프론트 | `.../ClaudeCode_Mobile_G/my/front/` |
 | 3 공용 | `.../ClaudeCode_Mobile_G/shared/` |
 | 4 기타 | `.../ClaudeCode_Mobile_G/etc/` |
 

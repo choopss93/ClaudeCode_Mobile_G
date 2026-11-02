@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>어드민 · MY</title>
+<meta name="description" content="데이터를 넣고 고치고 지우는 쪽. 운영에 필요한 화면을 둡니다.">
+<meta name="color-scheme" content="light dark">
+<meta property="og:title" content="어드민 · MY">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<style>
+  /* MY 공간의 강조색 */
+  :root{ --accent:#2B5C84; --accent-soft:#DFE8F1 }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){ --accent:#79B6E0; --accent-soft:#1D2A36 }
+  }
+  :root[data-theme="dark"]{ --accent:#79B6E0; --accent-soft:#1D2A36 }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="back" href="../">← MY</a>
+    <p class="eyebrow">MY · 관리</p>
+    <h1>어드민</h1>
+    <p class="sub">데이터를 넣고 고치고 지우는 쪽. 운영에 필요한 화면을 둡니다.</p>
+  </header>
+
+  <main class="panel">
+    <div class="empty">
+      <b>아직 비어 있어요</b>
+      어떤 것을 관리할지 알려주시면 화면을 만들겠습니다.
+    </div>
+  </main>
+
+  <footer>
+    이 페이지는 <code>my/admin/index.html</code> 입니다.
+    모양은 <code>assets/base.css</code> 를 따르고, 강조색만 MY 공간 색으로 덮어씁니다.
+  </footer>
+</div>
+</body>
+</html>
