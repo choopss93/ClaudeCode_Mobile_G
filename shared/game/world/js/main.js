@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { createWorld, resolve } from './world.js';
-import { createActor, createDog } from './actor.js';
-import { createControls } from './controls.js';
-import { createLocalNet } from './net.js';
-import { SKY, colorFor, hairFor, furFor, wind } from './look.js';
+import { createWorld, resolve } from '#world';
+import { createActor, createDog } from '#actor';
+import { createControls } from '#controls';
+import { createLocalNet } from '#net';
+import { SKY, colorFor, hairFor, furFor, wind } from '#look';
 
 const SPEED = 3.1;           // 전속력으로 걸을 때 초당 거리
 const TURN = 11;             // 몸이 방향을 따라 도는 빠르기

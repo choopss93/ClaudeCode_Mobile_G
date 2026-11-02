@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toon, makeBlob } from './look.js';
+import { toon, makeBlob } from '#look';
 
 /*
  * 머리가 크고 몸이 작은, 동글동글한 캐릭터.

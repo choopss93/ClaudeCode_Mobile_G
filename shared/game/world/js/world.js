@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toon, toonUnique, swayed, RAINBOW } from './look.js';
+import { toon, toonUnique, swayed, RAINBOW } from '#look';
 
 // 정원은 모든 접속자에게 똑같아야 하므로 난수를 고정 씨앗으로 돌린다.
 function seeded(seed){

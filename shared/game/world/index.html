@@ -231,6 +231,8 @@
   }
   #start button:hover{background:#86DEB5}
   #start .note{margin:14px 0 0;font-size:11.5px;color:#9A94AC;line-height:1.6}
+  /* 폰에서 어느 판을 보고 있는지 바로 알 수 있게 */
+  #start .ver{display:block;margin-top:4px;font-size:10.5px;color:#C0BACB}
 
   /* 키보드가 올라온 동안에는 가릴 것을 치운다 */
   body.kb #stick, body.kb #help{opacity:0;pointer-events:none}
@@ -254,10 +256,18 @@
     #help{display:none}
   }
 </style>
+<!-- 판 번호를 붙여 받아 온다. 안 붙이면 사파리가 예전 파일을 계속 꺼내 써서,
+     고쳐 올려도 폰에서는 바뀌지 않는다. 게임 파일을 고치면 아래 날짜를 바꿀 것.
+     Three.js 는 바뀌지 않으므로 번호를 붙이지 않는다 (656KB 를 다시 받지 않게). -->
 <script type="importmap">
 {
   "imports": {
-    "three": "./js/vendor/three.module.min.js"
+    "three": "./js/vendor/three.module.min.js",
+    "#look": "./js/look.js?v=2026-11-02a",
+    "#world": "./js/world.js?v=2026-11-02a",
+    "#actor": "./js/actor.js?v=2026-11-02a",
+    "#controls": "./js/controls.js?v=2026-11-02a",
+    "#net": "./js/net.js?v=2026-11-02a"
   }
 }
 </script>
@@ -311,10 +321,11 @@
     <input id="dogInput" type="text" maxlength="12" required placeholder="곁에서 따라다녀요">
 
     <button type="submit">정원으로 들어가기</button>
-    <p class="note">서두를 것도, 지는 것도 없는 곳이에요.</p>
+    <p class="note">서두를 것도, 지는 것도 없는 곳이에요.
+      <span class="ver">2026-11-02a</span></p>
   </form>
 </div>
 
-<script type="module" src="./js/main.js"></script>
+<script type="module" src="./js/main.js?v=2026-11-02a"></script>
 </body>
 </html>

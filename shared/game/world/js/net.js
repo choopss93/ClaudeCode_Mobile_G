@@ -1,4 +1,4 @@
-import { resolve } from './world.js';
+import { resolve } from '#world';
 
 /*
  * 네트워크 자리.
