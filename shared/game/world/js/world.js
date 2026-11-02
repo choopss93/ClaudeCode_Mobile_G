@@ -25,7 +25,18 @@ export function createWorld(){
     return m;
   }
 
-  /* ── 잔디 ── */
+  /* ── 들판 ── */
+
+  // 울타리 너머로도 들판이 이어진다. 여기서 끊기면 정원이 하늘에 뜬
+  // 접시처럼 보인다. 멀리는 안개가 하늘빛으로 지워 준다.
+  const field = new THREE.Mesh(
+    new THREE.CircleGeometry(120, 48),
+    toon(0xC6F0AC)
+  );
+  field.rotation.x = -Math.PI / 2;
+  field.position.y = -0.03;
+  group.add(field);
+
   const lawn = new THREE.Mesh(
     new THREE.CircleGeometry(WORLD_RADIUS, 56),
     toon(0xB7ED99)
@@ -33,8 +44,8 @@ export function createWorld(){
   lawn.rotation.x = -Math.PI / 2;
   group.add(lawn);
 
-  // 가운데 빈터 — 모이는 자리
-  const clearing = new THREE.Mesh(new THREE.CircleGeometry(4.6, 40), toon(0xFFF9EA));
+  // 가운데 모이는 자리 — 풀을 짧게 깎은 듯한 옅은 풀빛
+  const clearing = new THREE.Mesh(new THREE.CircleGeometry(4.2, 40), toon(0xC4F0A8));
   clearing.rotation.x = -Math.PI / 2;
   clearing.position.y = 0.01;
   group.add(clearing);
@@ -68,30 +79,6 @@ export function createWorld(){
   rim.position.set(POND.x, 0.1, POND.z);
   group.add(rim);
   colliders.push({ x: POND.x, z: POND.z, r: POND.r + 0.1 });
-
-  /* ── 무지개 꽃밭: 빛깔마다 한 뙈기씩 ── */
-  RAINBOW.forEach((c, i) => {
-    const ang = (i / RAINBOW.length) * Math.PI * 2 + 0.35;
-    const bx = Math.cos(ang) * 11.5;
-    const bz = Math.sin(ang) * 11.5;
-
-    const bed = new THREE.Mesh(new THREE.CircleGeometry(2, 20), toon(0xA8E78D));
-    bed.rotation.x = -Math.PI / 2;
-    bed.position.set(bx, 0.012, bz);
-    group.add(bed);
-
-    for (let f = 0; f < 9; f++){
-      const a = rnd() * Math.PI * 2;
-      const d = rnd() * 1.6;
-      const fx = bx + Math.cos(a) * d;
-      const fz = bz + Math.sin(a) * d;
-      const h = 0.3 + rnd() * 0.2;
-      put(rod, 0x94DC83, fx, h / 2, fz, 0.022, h, 0.022);
-      put(ball, c, fx, h + 0.07, fz, 0.13, 0.1, 0.13);
-      put(ball, 0xFFFAE7, fx, h + 0.105, fz, 0.05, 0.04, 0.05);   // 꽃술
-    }
-    // 꽃은 지나다닐 수 있게 충돌체를 두지 않는다
-  });
 
   /* ── 나무와 덤불 ── */
   const GREENS = [0x9AE385, 0xAEF09B, 0x8CD87F];
@@ -140,6 +127,92 @@ export function createWorld(){
   put(rod, 0xF7ECCF, 0, 0.55, 0, 0.08, 0.55, 0.08);
   put(ball, 0xFFF7C5, 0, 1.22, 0, 0.3, 0.34, 0.3);
   colliders.push({ x: 0, z: 0, r: 0.3 });
+
+  /* ── 들꽃과 풀포기 ──
+     수가 많아 하나씩 그리면 폰이 버겁다. 같은 모양을 한 번에 그리는
+     인스턴스로 묶어, 들꽃 전체가 그리기 두 번이면 끝난다. */
+
+  const dummy = new THREE.Object3D();
+  const tint = new THREE.Color();
+
+  // 들판 어디에 설지 고른다. 안쪽은 촘촘하게, 울타리 너머는 성기게.
+  function spot(){
+    const inside = rnd() < 0.68;
+    const ang = rnd() * Math.PI * 2;
+    // 가운데 모이는 자리는 비워 둔다 — 풀이 짧게 깎인 곳이다
+    const dist = inside
+      ? 5.2 + rnd() * (WORLD_RADIUS - 6)
+      : WORLD_RADIUS + 2.5 + rnd() * 42;
+    const x = Math.cos(ang) * dist;
+    const z = Math.sin(ang) * dist;
+    if (inside){
+      for (const c of colliders){
+        if ((x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + 0.45) ** 2) return null;
+      }
+    }
+    return { x, z };
+  }
+
+  const FLOWERS = 190;
+  const stemGeo = new THREE.CylinderGeometry(0.02, 0.028, 1, 5);
+  stemGeo.translate(0, 0.5, 0);              // 밑동을 원점에 두고 높이만 늘린다
+  const bloomGeo = new THREE.SphereGeometry(1, 7, 5);
+
+  const stems  = new THREE.InstancedMesh(stemGeo, toon(0x94DC83), FLOWERS);
+  // 꽃잎 색은 인스턴스마다 다르다. 흰 재질에 색을 곱해야 그대로 나온다.
+  const blooms = new THREE.InstancedMesh(bloomGeo, toonUnique(0xFFFFFF), FLOWERS);
+
+  let f = 0, tries = 0;
+  while (f < FLOWERS && tries++ < FLOWERS * 8){
+    const at = spot();
+    if (!at) continue;
+
+    const h = 0.2 + rnd() * 0.26;
+    dummy.position.set(at.x, 0, at.z);
+    dummy.scale.set(1, h, 1);
+    dummy.updateMatrix();
+    stems.setMatrixAt(f, dummy.matrix);
+
+    const r = 0.065 + rnd() * 0.055;
+    dummy.position.set(at.x, h + r * 0.5, at.z);
+    dummy.scale.set(r, r * 0.78, r);
+    dummy.updateMatrix();
+    blooms.setMatrixAt(f, dummy.matrix);
+    blooms.setColorAt(f, tint.setHex(RAINBOW[Math.floor(rnd() * RAINBOW.length)]));
+    f++;
+  }
+  stems.count = blooms.count = f;
+  stems.instanceMatrix.needsUpdate = true;
+  blooms.instanceMatrix.needsUpdate = true;
+  blooms.instanceColor.needsUpdate = true;
+  group.add(stems, blooms);
+
+  // 풀포기 — 들판을 초록초록하게 만드는 잔털
+  // 넓적하면 풀이 아니라 삼각형 조각처럼 보인다. 가늘고 길어야 풀날이다.
+  const TUFTS = 340;
+  const tuftGeo = new THREE.ConeGeometry(0.055, 1, 5);
+  tuftGeo.translate(0, 0.5, 0);
+  const tufts = new THREE.InstancedMesh(tuftGeo, toonUnique(0xFFFFFF), TUFTS);
+  const TUFT_GREENS = [0x9AE385, 0xAEF09B, 0x8CD87F];
+
+  let t = 0; tries = 0;
+  while (t < TUFTS && tries++ < TUFTS * 8){
+    const at = spot();
+    if (!at) continue;
+    const h = 0.22 + rnd() * 0.3;
+    dummy.position.set(at.x, 0, at.z);
+    dummy.scale.set(0.7 + rnd() * 0.5, h, 0.7 + rnd() * 0.5);
+    dummy.rotation.set((rnd() - 0.5) * 0.4, rnd() * 3.14, (rnd() - 0.5) * 0.4);
+    dummy.updateMatrix();
+    tufts.setMatrixAt(t, dummy.matrix);
+    tufts.setColorAt(t, tint.setHex(TUFT_GREENS[Math.floor(rnd() * TUFT_GREENS.length)]));
+    t++;
+  }
+  dummy.rotation.set(0, 0, 0);
+  tufts.count = t;
+  tufts.instanceMatrix.needsUpdate = true;
+  tufts.instanceColor.needsUpdate = true;
+  group.add(tufts);
 
   /* ── 바깥 울타리: 둥근 산울타리 ── */
   const hedge = new THREE.Mesh(
