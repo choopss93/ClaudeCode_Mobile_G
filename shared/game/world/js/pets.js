@@ -14,6 +14,10 @@
  *   earSize 귀 크기
  *   tail   curl 말린꼬리 · plume 풍성한꼬리 · long 긴꼬리 · stub 짧은꼬리
  *   fluff  털북숭이 정도 (1.15 를 넘으면 덤불털이 붙는다)
+ *
+ * 품종을 더할 때는 **반드시 목록 끝에 붙인다.** 자리 번호가 반려동물 코드에
+ * 그대로 박히므로, 가운데 끼우면 이미 나간 코드가 다른 품종을 가리키게 된다.
+ * 한 종류당 16종까지 담을 수 있다 (코드에서 품종에 4비트를 쓴다).
  */
 
 const DOGS = [
@@ -26,7 +30,8 @@ const DOGS = [
   { name:'닥스훈트',    scale:0.88, body:[1.38,0.86], legs:0.48, head:0.94, muzzle:1.15, ear:'drop',  earSize:1.15, tail:'long',  fluff:1.00 },
   { name:'골든리트리버',scale:1.22, body:[1.10,1.06], legs:1.10, head:1.02, muzzle:1.05, ear:'drop',  earSize:1.05, tail:'plume', fluff:1.14 },
   { name:'치와와',      scale:0.72, body:[0.90,0.90], legs:0.82, head:1.14, muzzle:0.55, ear:'prick', earSize:1.30, tail:'long',  fluff:0.96 },
-  { name:'시츄',        scale:0.84, body:[0.98,1.00], legs:0.70, head:1.08, muzzle:0.52, ear:'drop',  earSize:1.12, tail:'plume', fluff:1.26 }
+  { name:'시츄',        scale:0.84, body:[0.98,1.00], legs:0.70, head:1.08, muzzle:0.52, ear:'drop',  earSize:1.12, tail:'plume', fluff:1.26 },
+  { name:'비숑',        scale:0.84, body:[0.96,1.02], legs:0.84, head:1.10, muzzle:0.58, ear:'drop',  earSize:0.95, tail:'plume', fluff:1.36 }
 ];
 
 const CATS = [
@@ -56,6 +61,16 @@ export const COATS = [
   { key:'random', label:'랜덤',       random:true }
 ];
 
+// 사람은 초당 3.1 만큼 걷는다. 반려동물은 그보다 늘 느려야 한다.
+const PET_WALK = 1.2;
+
+/** 품종에 따른 걷는 빠르기. 다리가 길고 몸집이 클수록 보폭이 넓다. */
+export function walkSpeed(spec){
+  const legs = 0.72 + spec.legs * 0.42;
+  const size = 0.88 + spec.scale * 0.2;
+  return PET_WALK * legs * size;
+}
+
 /** 고른 값을 실제 모양 지시서로 바꾼다. 랜덤이면 여기서 뽑는다. */
 export function resolvePet({ kind, breed, coat }){
   const k = KINDS[kind] ? kind : 'dog';
@@ -75,6 +90,7 @@ export function resolvePet({ kind, breed, coat }){
     coatName: c.label,
     base: c.base,
     accent: c.accent,
+    speed: walkSpeed(b),
     ...b
   };
 }

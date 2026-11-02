@@ -11,9 +11,11 @@ import { SKY, colorFor, hairFor, wind } from '#look';
 
 const SPEED = 3.1;           // 전속력으로 걸을 때 초당 거리
 const TURN = 11;             // 몸이 방향을 따라 도는 빠르기
-const PET_SPEED = 1.9;       // 반려동물이 거니는 빠르기
-const MEET_CHANCE = 0.75;    // 다음 갈 곳을 내 근처로 잡을 확률
-const MEET_RANGE = 10;       // 그 "내 근처" 의 넓이
+// 거니는 빠르기는 품종마다 다르다 (pets.js 의 walkSpeed). 사람보다 늘 느리다.
+const MEET_CHANCE = 0.8;     // 다음 갈 곳을 바로 내 근처로 잡을 확률
+const MEET_NEAR = 12;        // 그 "내 근처" 의 넓이
+const MEET_FAR = 26;         // 멀리 갈 때도 이 안에서만 — 넓은 들판 끝까지
+                             // 보내면 느린 걸음으로 30초씩 걸려 안 보인다
 const BUBBLE_MS = 6500;
 const LABEL_FAR = 42;
 const STORE = 'rainbowGarden.names';
@@ -238,15 +240,12 @@ function begin(myName, petName, petSpec, friends){
   function wander(e){
     const a = Math.random() * Math.PI * 2;
     let x, z;
-    if (Math.random() < MEET_CHANCE){
-      const d = 2.5 + Math.random() * MEET_RANGE;
-      x = me.group.position.x + Math.cos(a) * d;
-      z = me.group.position.z + Math.sin(a) * d;
-    } else {
-      const d = Math.random() * (world.radius - 5);
-      x = Math.cos(a) * d;
-      z = Math.sin(a) * d;
-    }
+    // 멀리 가든 가까이 오든 늘 내 자리를 가운데 삼는다. 그래야 다시 만난다.
+    const d = Math.random() < MEET_CHANCE
+      ? 2.5 + Math.random() * MEET_NEAR
+      : MEET_NEAR + Math.random() * (MEET_FAR - MEET_NEAR);
+    x = me.group.position.x + Math.cos(a) * d;
+    z = me.group.position.z + Math.sin(a) * d;
     const at = resolve(world, x, z);
     e.tx = at.x; e.tz = at.z;
   }
@@ -263,7 +262,7 @@ function begin(myName, petName, petSpec, friends){
     scene.add(actor.group);
 
     const e = { actor, label: makeLabel(name, 'pet'), tx: at.x, tz: at.z,
-                rest: Math.random() * 1.5 };
+                speed: spec.speed, rest: Math.random() * 1.5 };
     wander(e);
     pets.push(e);
     return e;
@@ -487,7 +486,7 @@ function begin(myName, petName, petSpec, friends){
         wander(e);
         e.actor.update(dt, 0);
       } else {
-        e.actor.update(dt, walk(e.actor.group, dx / d, dz / d, PET_SPEED, dt));
+        e.actor.update(dt, walk(e.actor.group, dx / d, dz / d, e.speed, dt));
       }
     }
 
