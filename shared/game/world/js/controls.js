@@ -1,11 +1,16 @@
-// 조작: 키보드 + 마우스 드래그 + 모바일 터치.
-// 왼쪽 절반을 끌면 이동(조이스틱), 오른쪽 절반을 끌면 카메라가 돈다.
+/*
+ * 조작: 앞뒤양옆 네 방향 점프만.
+ *
+ * 누른 방향은 한 번 소비되고 사라진다. 뛰는 중에 들어온 입력은 하나만
+ * 기억해 뒀다가 착지하는 순간 이어서 뛴다 — 연달아 누르면 리듬이 끊기지
+ * 않는다.
+ */
 
-const MOVE_KEYS = {
-  KeyW:[0,1], ArrowUp:[0,1],
-  KeyS:[0,-1], ArrowDown:[0,-1],
-  KeyA:[-1,0], ArrowLeft:[-1,0],
-  KeyD:[1,0], ArrowRight:[1,0]
+const KEY_DIR = {
+  KeyW:'f', ArrowUp:'f',
+  KeyS:'b', ArrowDown:'b',
+  KeyA:'l', ArrowLeft:'l',
+  KeyD:'r', ArrowRight:'r'
 };
 
 function typing(){
@@ -13,125 +18,94 @@ function typing(){
   return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
 }
 
-export function createControls(surface, { joystick } = {}){
-  const keys = new Set();
-  let run = false;
+export function createControls(surface, { pad } = {}){
+  const state = { yaw: 0, pitch: 0.5, dist: 6.2 };
+  let queued = null;
 
-  const state = {
-    move: { x: 0, z: 0 },   // x = 좌우, z = 앞뒤 (카메라 기준)
-    run: false,
-    yaw: 0,
-    pitch: 0.42,
-    dist: 7.5
-  };
+  function push(dir){ queued = dir; }
 
   /* ── 키보드 ── */
   addEventListener('keydown', e => {
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') run = true;
-    if (typing()) return;
-    if (MOVE_KEYS[e.code]){ keys.add(e.code); e.preventDefault(); }
+    if (typing() || e.repeat) return;
+    const dir = KEY_DIR[e.code];
+    if (dir){ e.preventDefault(); push(dir); }
   });
-  addEventListener('keyup', e => {
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') run = false;
-    keys.delete(e.code);
-  });
-  // 창을 벗어나면 키가 눌린 채로 남는다.
-  addEventListener('blur', () => { keys.clear(); run = false; });
 
-  /* ── 포인터: 카메라 회전 / 조이스틱 ── */
-  const cam = new Map();   // pointerId -> {x, y}
-  let stick = null;        // {id, ox, oy, dx, dy}
-  const STICK_MAX = 46;
-
-  function isLeftHalf(e){
-    return e.clientX < innerWidth * 0.5;
+  /* ── 화면 위 방향 패드 ── */
+  if (pad){
+    for (const btn of pad.querySelectorAll('button[data-dir]')){
+      // pointerdown 으로 받아야 누르는 즉시 뛴다
+      btn.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        push(btn.dataset.dir);
+        btn.classList.add('on');
+      });
+      const off = () => btn.classList.remove('on');
+      btn.addEventListener('pointerup', off);
+      btn.addEventListener('pointercancel', off);
+      btn.addEventListener('pointerleave', off);
+    }
   }
 
+  /* ── 카메라: 끌어서 돌리기 ── */
+  const drag = new Map();
   surface.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'touch' && isLeftHalf(e)){
-      if (stick) return;
-      stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, dx: 0, dy: 0 };
-      showStick(e.clientX, e.clientY, 0, 0);
-    } else {
-      cam.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    }
+    drag.set(e.pointerId, { x: e.clientX, y: e.clientY });
     surface.setPointerCapture(e.pointerId);
   });
-
   surface.addEventListener('pointermove', e => {
-    if (stick && e.pointerId === stick.id){
-      let dx = e.clientX - stick.ox;
-      let dy = e.clientY - stick.oy;
-      const d = Math.hypot(dx, dy);
-      if (d > STICK_MAX){ dx = dx / d * STICK_MAX; dy = dy / d * STICK_MAX; }
-      stick.dx = dx; stick.dy = dy;
-      showStick(stick.ox, stick.oy, dx, dy);
-      return;
-    }
-    const prev = cam.get(e.pointerId);
+    const prev = drag.get(e.pointerId);
     if (!prev) return;
     state.yaw   -= (e.clientX - prev.x) * 0.005;
     state.pitch -= (e.clientY - prev.y) * 0.004;
-    state.pitch = Math.max(0.06, Math.min(1.15, state.pitch));
-    cam.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    state.pitch = Math.max(0.16, Math.min(1.1, state.pitch));
+    drag.set(e.pointerId, { x: e.clientX, y: e.clientY });
   });
+  const drop = e => drag.delete(e.pointerId);
+  surface.addEventListener('pointerup', drop);
+  surface.addEventListener('pointercancel', drop);
 
-  function release(e){
-    if (stick && e.pointerId === stick.id){ stick = null; hideStick(); }
-    cam.delete(e.pointerId);
+  /* ── 거리 ── */
+  function zoom(delta){
+    state.dist = Math.max(3.5, Math.min(12, state.dist + delta));
   }
-  surface.addEventListener('pointerup', release);
-  surface.addEventListener('pointercancel', release);
-
-  /* ── 거리 조절 ── */
   surface.addEventListener('wheel', e => {
     e.preventDefault();
-    state.dist = Math.max(3.2, Math.min(14, state.dist + Math.sign(e.deltaY) * 0.7));
+    zoom(Math.sign(e.deltaY) * 0.8);
   }, { passive: false });
 
-  // 두 손가락 벌리기
   let pinch = 0;
   surface.addEventListener('touchmove', e => {
-    if (e.touches.length !== 2) { pinch = 0; return; }
+    if (e.touches.length !== 2){ pinch = 0; return; }
     const d = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
     );
-    if (pinch) state.dist = Math.max(3.2, Math.min(14, state.dist - (d - pinch) * 0.02));
+    if (pinch) zoom(-(d - pinch) * 0.02);
     pinch = d;
   }, { passive: true });
   surface.addEventListener('touchend', () => { pinch = 0; });
 
-  /* ── 조이스틱 그리기 ── */
-  function showStick(ox, oy, dx, dy){
-    if (!joystick) return;
-    joystick.hidden = false;
-    joystick.style.left = ox + 'px';
-    joystick.style.top  = oy + 'px';
-    joystick.firstElementChild.style.transform = `translate(${dx}px, ${dy}px)`;
-  }
-  function hideStick(){
-    if (joystick) joystick.hidden = true;
-  }
+  return {
+    state,
+    /** 기다리던 방향을 꺼내 쓴다. 꺼내면 비워진다. */
+    takeHop(){
+      const d = queued;
+      queued = null;
+      return d;
+    },
+    isTyping: typing
+  };
+}
 
-  /* ── 매 프레임 입력 모으기 ── */
-  function update(){
-    let x = 0, z = 0;
-    for (const code of keys){
-      const [kx, kz] = MOVE_KEYS[code];
-      x += kx; z += kz;
-    }
-    if (stick){
-      x += stick.dx / STICK_MAX;
-      z += -stick.dy / STICK_MAX;
-    }
-    const len = Math.hypot(x, z);
-    if (len > 1){ x /= len; z /= len; }
-    state.move.x = x;
-    state.move.z = z;
-    state.run = run || (stick ? Math.hypot(stick.dx, stick.dy) > STICK_MAX * 0.92 : false);
-    return state;
+/** 'f' | 'b' | 'l' | 'r' 을 카메라가 보는 방향 기준의 x, z 로. */
+export function dirToVector(dir, yaw){
+  const sin = Math.sin(yaw), cos = Math.cos(yaw);
+  switch (dir){
+    case 'f': return { x: -sin, z: -cos };
+    case 'b': return { x:  sin, z:  cos };
+    case 'l': return { x: -cos, z:  sin };
+    case 'r': return { x:  cos, z: -sin };
   }
-
-  return { state, update, isTyping: typing };
+  return { x: 0, z: 0 };
 }

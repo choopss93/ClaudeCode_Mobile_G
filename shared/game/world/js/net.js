@@ -3,98 +3,124 @@ import { resolve } from './world.js';
 /*
  * 네트워크 자리.
  *
- * 지금은 접속 기능이 없으므로 local 구현만 있다. 임시 캐릭터 몇 명이
- * 맵을 돌아다니며 가끔 말을 거는데, 이들은 "다른 접속자"와 똑같은
- * 통로(onJoin / onState / onSay / onLeave)로 들어온다.
+ * 지금은 접속 기능이 없으므로 local 구현만 있다. 정원을 거니는 손님
+ * 몇 명이 "다른 접속자"와 똑같은 통로(onJoin / onState / onSay /
+ * onLeave)로 들어온다.
  *
- * 나중에 WebRTC 나 Firebase 를 붙일 때는 아래와 같은 모양의 객체를
- * 하나 더 만들어 main.js 에서 바꿔 끼우기만 하면 된다. 게임 쪽 코드는
- * 손대지 않는다.
+ * 나중에 실시간 연결을 붙일 때는 아래 모양의 객체를 하나 더 만들어
+ * main.js 에서 바꿔 끼우기만 하면 된다. 게임 쪽 코드는 손대지 않는다.
  *
- *   createXxxNet({ world, me, handlers }) => {
- *     mode,                      // 화면에 표시할 접속 상태
- *     sendState({x, z, ry}),     // 내 위치를 남에게 알림
- *     say(text),                 // 내 말풍선을 남에게 알림
- *     update(dt)                 // 매 프레임
+ *   createXxxNet({ world, handlers }) => {
+ *     mode,                         // 화면에 표시할 접속 상태
+ *     sendState({x, y, z, ry}),     // 내 위치 (y 는 뛴 높이)
+ *     say(text),
+ *     update(dt)
  *   }
  */
 
-const NAMES = ['초록', '바다', '노을', '모래', '구름'];
-const LINES = [
-  '안녕!',
-  '여기 좋다',
-  '분수 앞에서 만나자',
-  '저 집은 누구 거지',
-  '한 바퀴 돌고 올게',
-  '나무 그늘 시원하다',
-  '같이 갈래?',
-  '오늘 날씨 좋네'
+const GUESTS = [
+  { name: '햇살', dog: '구름' },
+  { name: '민들레', dog: '보리' }
 ];
 
-export function createLocalNet({ world, handlers }){
-  const npcs = [];
+const LINES = [
+  '오늘 볕이 좋다',
+  '여기 앉아 있으면 마음이 놓여',
+  '저 무지개 아래까지 가보자',
+  '연못에 비친 하늘 봤어?',
+  '천천히 가도 괜찮아',
+  '꽃밭 한 바퀴 돌고 올게',
+  '바람이 부드럽다',
+  '같이 쉬었다 갈래?'
+];
 
-  for (let i = 0; i < 3; i++){
-    const ang = (i / 3) * Math.PI * 2;
-    const npc = {
+const HOP_DIST = 1.25;
+const HOP_TIME = 0.42;
+export const HOP_HEIGHT = 0.5;
+
+export function createLocalNet({ world, handlers }){
+  const guests = [];
+
+  GUESTS.forEach((g, i) => {
+    const ang = (i / GUESTS.length) * Math.PI * 2 + 1.2;
+    const guest = {
       id: 'local-' + i,
-      name: NAMES[i % NAMES.length],
-      x: Math.cos(ang) * 7,
-      z: Math.sin(ang) * 7,
+      x: Math.cos(ang) * 5.5,
+      z: Math.sin(ang) * 5.5,
       ry: 0,
-      tx: 0, tz: 0,
-      wait: Math.random() * 2,
-      sayIn: 4 + Math.random() * 10
+      fromX: 0, fromZ: 0, toX: 0, toZ: 0,
+      hop: 0, hopping: false,
+      rest: 0.6 + Math.random() * 1.6,
+      sayIn: 6 + Math.random() * 10,
+      tx: 0, tz: 0
     };
-    pickTarget(npc);
-    npcs.push(npc);
-    handlers.onJoin(npc.id, { name: npc.name });
+    pickTarget(guest);
+    guests.push(guest);
+    handlers.onJoin(guest.id, { name: g.name, dog: g.dog });
+  });
+
+  function pickTarget(g){
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 3 + Math.random() * (world.radius - 7);
+    const p = resolve(world, Math.cos(ang) * dist, Math.sin(ang) * dist);
+    g.tx = p.x; g.tz = p.z;
   }
 
-  function pickTarget(npc){
-    const ang = Math.random() * Math.PI * 2;
-    const dist = 5 + Math.random() * (world.radius - 9);
-    const p = resolve(world, Math.cos(ang) * dist, Math.sin(ang) * dist);
-    npc.tx = p.x;
-    npc.tz = p.z;
+  function startHop(g){
+    const dx = g.tx - g.x, dz = g.tz - g.z;
+    const d = Math.hypot(dx, dz);
+    if (d < HOP_DIST * 0.8){ pickTarget(g); return; }
+
+    // 네 방향 중 목적지에 가까워지는 쪽으로만 뛴다
+    const ux = Math.abs(dx) > Math.abs(dz) ? Math.sign(dx) : 0;
+    const uz = ux === 0 ? Math.sign(dz) : 0;
+    const p = resolve(world, g.x + ux * HOP_DIST, g.z + uz * HOP_DIST);
+
+    // 벽에 막혀 거의 제자리면 목적지를 바꾼다
+    if (Math.hypot(p.x - g.x, p.z - g.z) < HOP_DIST * 0.35){ pickTarget(g); return; }
+
+    g.fromX = g.x; g.fromZ = g.z;
+    g.toX = p.x;   g.toZ = p.z;
+    g.ry = Math.atan2(ux, uz);
+    g.hop = 0;
+    g.hopping = true;
   }
 
   return {
     mode: 'local',
-
-    // 접속 기능이 붙기 전까지 내 상태는 아무 데도 가지 않는다.
     sendState(){},
     say(){},
 
     update(dt){
-      for (const npc of npcs){
-        if (npc.wait > 0){
-          npc.wait -= dt;
-        } else {
-          const dx = npc.tx - npc.x;
-          const dz = npc.tz - npc.z;
-          const d = Math.hypot(dx, dz);
-
-          if (d < 0.5){
-            npc.wait = 1 + Math.random() * 4;
-            pickTarget(npc);
+      for (const g of guests){
+        if (g.hopping){
+          g.hop += dt / HOP_TIME;
+          if (g.hop >= 1){
+            g.hop = 0;
+            g.hopping = false;
+            g.x = g.toX; g.z = g.toZ;
+            g.rest = 0.25 + Math.random() * 1.5;
           } else {
-            const step = Math.min(2.4 * dt, d);
-            const p = resolve(world, npc.x + (dx / d) * step, npc.z + (dz / d) * step);
-            // 밀려나 제자리면 가려던 곳을 포기한다 (벽에 붙어 버티지 않게)
-            if (Math.hypot(p.x - npc.x, p.z - npc.z) < step * 0.25) pickTarget(npc);
-            npc.x = p.x;
-            npc.z = p.z;
-            npc.ry = Math.atan2(dx, dz);
+            g.x = g.fromX + (g.toX - g.fromX) * g.hop;
+            g.z = g.fromZ + (g.toZ - g.fromZ) * g.hop;
           }
+        } else {
+          g.rest -= dt;
+          if (g.rest <= 0) startHop(g);
         }
 
-        handlers.onState(npc.id, { x: npc.x, z: npc.z, ry: npc.ry });
+        handlers.onState(g.id, {
+          x: g.x,
+          y: g.hopping ? Math.sin(g.hop * Math.PI) * HOP_HEIGHT : 0,
+          z: g.z,
+          ry: g.ry,
+          hop: g.hopping ? g.hop : 0
+        });
 
-        npc.sayIn -= dt;
-        if (npc.sayIn <= 0){
-          npc.sayIn = 9 + Math.random() * 16;
-          handlers.onSay(npc.id, LINES[Math.floor(Math.random() * LINES.length)]);
+        g.sayIn -= dt;
+        if (g.sayIn <= 0){
+          g.sayIn = 11 + Math.random() * 18;
+          handlers.onSay(g.id, LINES[Math.floor(Math.random() * LINES.length)]);
         }
       }
     }

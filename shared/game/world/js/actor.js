@@ -1,74 +1,165 @@
 import * as THREE from 'three';
+import { toon, makeBlob } from './look.js';
 
-// 캐릭터는 외부 모델 파일 없이 기본 도형만으로 만든다.
-// 내려받을 것이 없으니 바로 뜨고, 색만 바꿔 사람을 구분한다.
-export function createActor({ color = 0x4F93D9 } = {}){
+/*
+ * 머리가 크고 몸이 작은, 동글동글한 캐릭터.
+ * 얼굴 지름(0.64)이 몸 높이(0.32)의 두 배다.
+ */
+
+const BODY_H = 0.32;          // 몸 높이
+const HEAD_R = BODY_H;        // 머리 반지름 → 지름은 몸의 두 배
+const LEG_H  = 0.17;
+const BODY_Y = LEG_H + BODY_H / 2;
+const HEAD_Y = BODY_Y + BODY_H / 2 + HEAD_R * 0.72;
+export const HEAD_TOP = HEAD_Y + HEAD_R;
+
+const ball = new THREE.SphereGeometry(1, 16, 12);
+const eyeGeo = new THREE.SphereGeometry(0.042, 10, 8);
+
+function piece(group, geo, mat, x, y, z, sx, sy, sz){
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  m.scale.set(sx, sy ?? sx, sz ?? sx);
+  group.add(m);
+  return m;
+}
+
+export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A } = {}){
   const group = new THREE.Group();
+  const skin = toon(0xF7DCC4);
+  const cloth = toon(color);
+  const hairMat = toon(hair);
+  const dark = toon(0x3C3A42);
+  const blush = toon(0xF2A9B4);
 
-  const skinMat = new THREE.MeshLambertMaterial({ color: 0xF0C9A0 });
-  const bodyMat = new THREE.MeshLambertMaterial({ color });
-  const legMat  = new THREE.MeshLambertMaterial({ color: new THREE.Color(color).multiplyScalar(0.55) });
-  // 팔이 몸통과 같은 색이면 한 덩어리로 보인다. 살짝 어둡게 해 구분한다.
-  const armMat  = new THREE.MeshLambertMaterial({ color: new THREE.Color(color).multiplyScalar(0.82) });
+  group.add(makeBlob(0.3));
 
-  function part(geo, mat, x, y, z){
-    const m = new THREE.Mesh(geo, mat);
-    m.position.set(x, y, z);
-    m.castShadow = true;
-    group.add(m);
-    return m;
-  }
+  // 다리 — 짧고 동글한 발
+  const legL = piece(group, ball, cloth, -0.085, LEG_H / 2, 0, 0.082, LEG_H / 2, 0.095);
+  const legR = piece(group, ball, cloth,  0.085, LEG_H / 2, 0, 0.082, LEG_H / 2, 0.095);
 
-  // 다리와 팔은 관절에서 돌아야 하므로, 형상을 아래로 내려 축을 위쪽 끝에 둔다.
-  const legGeo = new THREE.BoxGeometry(0.22, 0.62, 0.24);
-  legGeo.translate(0, -0.31, 0);
-  const armGeo = new THREE.BoxGeometry(0.17, 0.55, 0.18);
-  armGeo.translate(0, -0.275, 0);
+  // 몸 — 작고 동그랗게
+  piece(group, ball, cloth, 0, BODY_Y, 0, 0.19, BODY_H / 2, 0.165);
 
-  const legL = part(legGeo, legMat, -0.14, 0.72, 0);
-  const legR = part(legGeo, legMat,  0.14, 0.72, 0);
-  const armL = part(armGeo, armMat, -0.36, 1.30, 0);
-  const armR = part(armGeo, armMat,  0.36, 1.30, 0);
+  // 팔 — 몸에 붙은 작은 방울
+  const armL = piece(group, ball, cloth, -0.185, BODY_Y + 0.03, 0, 0.062, 0.085, 0.062);
+  const armR = piece(group, ball, cloth,  0.185, BODY_Y + 0.03, 0, 0.062, 0.085, 0.062);
 
-  part(new THREE.BoxGeometry(0.56, 0.64, 0.30), bodyMat, 0, 1.04, 0);
-  const head = part(new THREE.SphereGeometry(0.23, 16, 12), skinMat, 0, 1.53, 0);
+  // 머리 — 몸의 두 배
+  const head = new THREE.Group();
+  head.position.y = HEAD_Y;
+  group.add(head);
 
-  // 코 — 어느 쪽을 보고 있는지 한눈에 알 수 있게. 모델은 +Z 를 향한다.
-  part(new THREE.BoxGeometry(0.1, 0.1, 0.1), skinMat, 0, 1.5, 0.22);
+  piece(head, ball, skin, 0, 0, 0, HEAD_R, HEAD_R * 0.96, HEAD_R * 0.92);
+  // 머리칼 — 머리보다 조금 크게 덮어야 모자처럼 보인다. 작게 하면
+  // 머리 안으로 파묻혀 깎인 자국처럼 보인다. 얼굴은 드러나게 뒤로 민다.
+  piece(head, ball, hairMat, 0, HEAD_R * 0.22, -HEAD_R * 0.16,
+        HEAD_R * 1.04, HEAD_R * 0.88, HEAD_R * 0.92);
 
-  const HEAD_TOP = 1.82;   // 말풍선을 띄울 높이
-  let phase = 0;
+  const fz = HEAD_R * 0.84;   // 얼굴이 향하는 면 (+Z)
+  piece(head, eyeGeo, dark, -0.105, 0.015, fz, 1, 1.15, 0.7);
+  piece(head, eyeGeo, dark,  0.105, 0.015, fz, 1, 1.15, 0.7);
+  piece(head, ball, blush, -0.175, -0.07, fz * 0.86, 0.055, 0.035, 0.03);
+  piece(head, ball, blush,  0.175, -0.07, fz * 0.86, 0.055, 0.035, 0.03);
+  piece(head, ball, skin, 0, -0.04, fz * 1.02, 0.034, 0.03, 0.03);   // 코
+
+  let idle = Math.random() * 6;
 
   return {
     group,
-    head,
     headTop: HEAD_TOP,
 
-    // speed: 초당 이동 거리. 걸을수록 팔다리가 빨리 움직인다.
-    update(dt, speed){
-      const moving = speed > 0.15;
-      phase += dt * (moving ? 2.1 + speed * 1.5 : 1.6);
-      const swing = moving ? Math.sin(phase) * 0.62 : Math.sin(phase) * 0.04;
-      legL.rotation.x =  swing;
-      legR.rotation.x = -swing;
-      armL.rotation.x = -swing * 0.8;
-      armR.rotation.x =  swing * 0.8;
-      group.position.y = moving ? Math.abs(Math.sin(phase)) * 0.055 : 0;
+    /**
+     * hop: 0 = 땅, 1 = 가장 높은 지점. 뛰는 동안 몸이 늘고 발이 모인다.
+     */
+    update(dt, hop){
+      idle += dt;
+      const airborne = hop > 0.001;
+
+      if (airborne){
+        // 뜰 때 늘어나고, 꼭대기에서 원래대로, 내릴 때 다시 늘어난다
+        const stretch = 1 + Math.sin(hop * Math.PI) * 0.1;
+        group.scale.set(2 - stretch, stretch, 2 - stretch);
+        const tuck = Math.sin(hop * Math.PI) * 0.45;
+        legL.rotation.x = -tuck;
+        legR.rotation.x = -tuck;
+        armL.rotation.z =  tuck * 0.9;
+        armR.rotation.z = -tuck * 0.9;
+        head.position.y = HEAD_Y + Math.sin(hop * Math.PI) * 0.015;
+      } else {
+        // 가만히 있을 때 숨 쉬듯 아주 천천히
+        const breathe = Math.sin(idle * 1.5) * 0.012;
+        group.scale.set(1 - breathe, 1 + breathe, 1 - breathe);
+        legL.rotation.x = legR.rotation.x = 0;
+        armL.rotation.z = armR.rotation.z = 0;
+        head.position.y = HEAD_Y + breathe * 0.4;
+      }
     },
 
     dispose(){
-      group.traverse(o => { if (o.isMesh){ o.geometry.dispose(); o.material.dispose(); } });
+      group.traverse(o => { if (o.isMesh && o.material.map) o.material.dispose(); });
     }
   };
 }
 
-// 이름이 같으면 늘 같은 색이 나오도록.
-export function colorFor(name){
-  const PALETTE = [
-    0x4F93D9, 0xE0804F, 0x5FA86B, 0xB569B5,
-    0xD9B23F, 0x50AFA8, 0xD4606B, 0x7E6FD1
-  ];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return PALETTE[h % PALETTE.length];
+/* ── 강아지 ── */
+
+export const DOG_HEAD_TOP = 0.56;
+
+export function createDog({ color = 0xEBC99A } = {}){
+  const group = new THREE.Group();
+  const fur = toon(color);
+  const dark = toon(0x3C3A42);
+  const nose = toon(0x5B4A42);
+
+  group.add(makeBlob(0.24));
+
+  const LEGY = 0.08;
+  const legs = [];
+  for (const [x, z] of [[-0.085, 0.1], [0.085, 0.1], [-0.085, -0.1], [0.085, -0.1]]){
+    legs.push(piece(group, ball, fur, x, LEGY / 2 + 0.01, z, 0.047, LEGY, 0.047));
+  }
+
+  piece(group, ball, fur, 0, 0.21, -0.02, 0.145, 0.125, 0.185);   // 몸통
+
+  const head = new THREE.Group();
+  head.position.set(0, 0.34, 0.15);
+  group.add(head);
+  piece(head, ball, fur, 0, 0, 0, 0.145, 0.135, 0.13);
+  piece(head, ball, fur, 0, -0.035, 0.115, 0.075, 0.062, 0.062);   // 주둥이
+  piece(head, ball, nose, 0, -0.02, 0.17, 0.032, 0.028, 0.026);
+  piece(head, eyeGeo, dark, -0.062, 0.03, 0.105, 0.78, 0.9, 0.6);
+  piece(head, eyeGeo, dark,  0.062, 0.03, 0.105, 0.78, 0.9, 0.6);
+  piece(head, ball, fur, -0.115, 0.055, -0.02, 0.05, 0.085, 0.035);  // 귀
+  piece(head, ball, fur,  0.115, 0.055, -0.02, 0.05, 0.085, 0.035);
+
+  const tail = piece(group, ball, fur, 0, 0.27, -0.18, 0.04, 0.075, 0.04);
+  tail.rotation.x = -0.6;
+
+  let t = Math.random() * 6;
+
+  return {
+    group,
+    headTop: DOG_HEAD_TOP,
+
+    update(dt, hop){
+      t += dt;
+      tail.rotation.z = Math.sin(t * 9) * 0.5;   // 꼬리는 늘 흔든다
+      if (hop > 0.001){
+        const s = 1 + Math.sin(hop * Math.PI) * 0.09;
+        group.scale.set(2 - s, s, 2 - s);
+        const tuck = Math.sin(hop * Math.PI) * 0.5;
+        for (const l of legs) l.rotation.x = -tuck;
+        head.rotation.x = -tuck * 0.3;
+      } else {
+        group.scale.set(1, 1, 1);
+        for (const l of legs) l.rotation.x = 0;
+        head.rotation.x = Math.sin(t * 1.8) * 0.04;
+      }
+    },
+
+    dispose(){
+      group.traverse(o => { if (o.isMesh && o.material.map) o.material.dispose(); });
+    }
+  };
 }
