@@ -225,17 +225,50 @@ export function createPet(spec){
   else if (spec.tail === 'long')  tail.rotation.x = -0.45;
   else                            tail.rotation.x = -0.9;
 
+  // 반가워하기가 끝나면 이 각도로 되돌린다
+  const tailRestX = tail.rotation.x;
+
   const HEAD_TOP = (head.position.y + headR * 1.5) * spec.scale + 0.06;
-  let t = Math.random() * 6, step = 0;
+  const GREET_TIME = 2.4;
+  let t = Math.random() * 6, step = 0, greetLeft = 0;
 
   return {
     group,
     headTop: HEAD_TOP,
     label: spec.breedName,
 
+    /** 주인을 만났을 때. 평소 꼬리질과 확실히 달라야 한다. */
+    startGreet(){ greetLeft = GREET_TIME; },
+    greeting(){ return greetLeft > 0; },
+
     /** speed: 초당 걷는 거리. */
     update(dt, speed){
       t += dt;
+
+      if (greetLeft > 0){
+        greetLeft -= dt;
+        const k = Math.min(1, greetLeft / 0.5);   // 끝에서 잦아든다
+        if (spec.kind === 'cat'){
+          // 고양이는 꼬리를 곧추세우고 천천히 흔들며 머리를 기울인다
+          tail.rotation.x = -1.5;
+          tail.rotation.z = Math.sin(t * 7) * 0.3 * k;
+          head.rotation.x = 0;
+          head.rotation.z = Math.sin(t * 2.4) * 0.14 * k;
+          group.position.y = Math.abs(Math.sin(t * 3)) * 0.012 * k;
+        } else {
+          // 강아지는 꼬리를 세차게 흔들고 깡충거린다
+          tail.rotation.x = tailRestX - 0.35 * k;
+          tail.rotation.z = Math.sin(t * 22) * 0.95 * k;
+          head.rotation.x = -0.14 * k;
+          head.rotation.z = 0;
+          group.position.y = Math.abs(Math.sin(t * 9)) * 0.055 * k;
+        }
+        for (const l of legs) l.position.y = legRest;
+        return;
+      }
+
+      tail.rotation.x = tailRestX;
+      head.rotation.z = 0;
       tail.rotation.z = Math.sin(t * (spec.kind === 'cat' ? 4 : 9)) *
                         (spec.kind === 'cat' ? 0.22 : 0.5);
 

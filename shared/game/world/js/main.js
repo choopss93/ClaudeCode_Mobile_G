@@ -12,6 +12,10 @@ import { SKY, colorFor, hairFor, wind } from '#look';
 const SPEED = 3.1;           // 전속력으로 걸을 때 초당 거리
 const TURN = 11;             // 몸이 방향을 따라 도는 빠르기
 // 거니는 빠르기는 품종마다 다르다 (pets.js 의 walkSpeed). 사람보다 늘 느리다.
+const GREET_RANGE = 4.2;     // 주인이 이만큼 가까워지면 알아본다
+                             // (좁게 잡으면 스쳐 지나가느라 좀처럼 못 알아본다)
+const GREET_CHANCE = 0.85;   // 알아봤을 때 반가워할 확률
+const GREET_AGAIN = 9;       // 한 번 반긴 뒤 다시 반기기까지 (초)
 const MEET_CHANCE = 0.8;     // 다음 갈 곳을 바로 내 근처로 잡을 확률
 const MEET_NEAR = 12;        // 그 "내 근처" 의 넓이
 const MEET_FAR = 26;         // 멀리 갈 때도 이 안에서만 — 넓은 들판 끝까지
@@ -208,7 +212,7 @@ function begin(myName, petName, petSpec, friends){
     let timer = null;
     return {
       el,
-      say(text){
+      say(text, ms){
         bub.textContent = text;
         bub.hidden = false;
         bub.classList.remove('fade');
@@ -216,7 +220,7 @@ function begin(myName, petName, petSpec, friends){
         timer = setTimeout(() => {
           bub.classList.add('fade');
           timer = setTimeout(() => { bub.hidden = true; }, 420);
-        }, BUBBLE_MS);
+        }, ms || BUBBLE_MS);
       },
       remove(){ clearTimeout(timer); el.remove(); }
     };
@@ -241,16 +245,18 @@ function begin(myName, petName, petSpec, friends){
     const a = Math.random() * Math.PI * 2;
     let x, z;
     // 멀리 가든 가까이 오든 늘 내 자리를 가운데 삼는다. 그래야 다시 만난다.
-    const d = Math.random() < MEET_CHANCE
-      ? 2.5 + Math.random() * MEET_NEAR
-      : MEET_NEAR + Math.random() * (MEET_FAR - MEET_NEAR);
+    // 때로는 바로 코앞을 목적지로 삼는다 — 그래야 주인을 알아볼 일이 생긴다
+    const roll = Math.random();
+    const d = roll < 0.3 ? 1 + Math.random() * 2.5
+            : roll < MEET_CHANCE ? 3.5 + Math.random() * (MEET_NEAR - 3.5)
+            : MEET_NEAR + Math.random() * (MEET_FAR - MEET_NEAR);
     x = me.group.position.x + Math.cos(a) * d;
     z = me.group.position.z + Math.sin(a) * d;
     const at = resolve(world, x, z);
     e.tx = at.x; e.tz = at.z;
   }
 
-  function addPet(spec, name){
+  function addPet(spec, name, owner){
     const actor = createPet(spec);
     // 들어서자마자 만날 수 있도록 곁에서 시작한다
     const a = Math.random() * Math.PI * 2;
@@ -262,13 +268,14 @@ function begin(myName, petName, petSpec, friends){
     scene.add(actor.group);
 
     const e = { actor, label: makeLabel(name, 'pet'), tx: at.x, tz: at.z,
-                speed: spec.speed, rest: Math.random() * 1.5 };
+                speed: spec.speed, rest: Math.random() * 1.5,
+                owner: owner || null, greetWait: 2 };
     wander(e);
     pets.push(e);
     return e;
   }
 
-  addPet(petSpec, petName);
+  addPet(petSpec, petName, me.group);          // 이 아이의 주인은 나다
   for (const f of friends || []) addPet(resolvePet(f), f.name);
 
   /* ── 다른 사람들 ── */
@@ -281,7 +288,7 @@ function begin(myName, petName, petSpec, friends){
       const entry = { actor, label: makeLabel(info.name), s: { x:0, y:0, z:0, ry:0, speed:0 }, started: false };
 
       // 손님의 반려동물도 주인을 따라다니지 않고 정원을 거닌다
-      if (info.pet) addPet(resolvePet(info.pet), info.dog || '친구');
+      if (info.pet) addPet(resolvePet(info.pet), info.dog || '친구', actor.group);
       peers.set(id, entry);
       updateCount();
     },
@@ -469,8 +476,30 @@ function begin(myName, petName, petSpec, friends){
     }
     me.update(dt, mySpeed);
 
-    /* 반려동물 — 저마다 거닌다 */
+    /* 반려동물 — 저마다 거닐다, 주인을 만나면 반가워한다 */
     for (const e of pets){
+      if (e.greetWait > 0) e.greetWait -= dt;
+
+      // 주인이 곁에 오면 알아본다. 한 번 반긴 뒤에는 잠시 쉬었다 다시.
+      if (e.owner && e.greetWait <= 0 && !e.actor.greeting()){
+        const ox = e.owner.position.x - e.actor.group.position.x;
+        const oz = e.owner.position.z - e.actor.group.position.z;
+        if (Math.hypot(ox, oz) < GREET_RANGE){
+          e.greetWait = GREET_AGAIN;
+          if (Math.random() < GREET_CHANCE){
+            e.actor.startGreet();
+            e.actor.group.rotation.y = Math.atan2(ox, oz);   // 주인을 바라본다
+            e.label.say('♥', 2600);
+          }
+        }
+      }
+
+      // 반가워하는 동안에는 걸음을 멈춘다
+      if (e.actor.greeting()){
+        e.actor.update(dt, 0);
+        continue;
+      }
+
       if (e.rest > 0){
         e.rest -= dt;
         e.actor.update(dt, 0);
