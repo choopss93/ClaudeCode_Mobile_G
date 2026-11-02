@@ -50,13 +50,13 @@ function begin(myName, dogName){
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SKY);
-  scene.fog = new THREE.Fog(SKY, 30, 68);
+  scene.fog = new THREE.Fog(SKY, 34, 74);
 
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 160);
 
   // 그림자 맵 없이 빛 둘로만. 일러스트처럼 납작하고 가볍다.
-  scene.add(new THREE.HemisphereLight(0xFFFFFF, 0x9FC48C, 1.25));
-  const sun = new THREE.DirectionalLight(0xFFF6E2, 1.15);
+  scene.add(new THREE.HemisphereLight(0xFFFFFF, 0xD6F5C4, 1.35));
+  const sun = new THREE.DirectionalLight(0xFFFBF0, 1.0);
   sun.position.set(6, 12, 8);
   scene.add(sun);
 

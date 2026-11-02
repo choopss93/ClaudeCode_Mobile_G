@@ -9,7 +9,8 @@ import * as THREE from 'three';
  */
 
 // 토온 음영의 단계. 세 칸이라 면이 셋으로만 나뉜다.
-const steps = new Uint8Array([90, 175, 255]);
+// 가장 어두운 칸을 높게 잡아야 그늘진 면도 화사하게 남는다.
+const steps = new Uint8Array([155, 215, 255]);
 const gradientMap = new THREE.DataTexture(steps, steps.length, 1, THREE.RedFormat);
 gradientMap.minFilter = THREE.NearestFilter;
 gradientMap.magFilter = THREE.NearestFilter;
@@ -43,9 +44,9 @@ function blobTexture(){
   c.width = c.height = size;
   const g = c.getContext('2d');
   const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  grad.addColorStop(0,    'rgba(60,70,55,0.38)');
-  grad.addColorStop(0.55, 'rgba(60,70,55,0.18)');
-  grad.addColorStop(1,    'rgba(60,70,55,0)');
+  grad.addColorStop(0,    'rgba(90,110,80,0.24)');
+  grad.addColorStop(0.55, 'rgba(90,110,80,0.11)');
+  grad.addColorStop(1,    'rgba(90,110,80,0)');
   g.fillStyle = grad;
   g.fillRect(0, 0, size, size);
   blobTex = new THREE.CanvasTexture(c);
@@ -71,12 +72,12 @@ export function makeBlob(radius){
 
 /* ── 색 ── */
 
-export const SKY = 0xDCEFF6;
+export const SKY = 0xAEE5FA;
 
 // 무지개 일곱 빛깔. 파스텔로 눌러 눈이 편하게.
 export const RAINBOW = [
-  0xF28B82, 0xF7B267, 0xF6DD72, 0x9BD178,
-  0x7EC8E3, 0x8B9FE8, 0xC49BE0
+  0xFF7B83, 0xFFA94D, 0xFFE05C, 0x6FE07A,
+  0x4FD2F5, 0x8294FF, 0xD98CFF
 ];
 
 function hashOf(name){
@@ -87,21 +88,21 @@ function hashOf(name){
 
 /** 머리칼. 옷과 같은 색이면 뒤에서 볼 때 한 덩어리로 뭉친다. */
 export function hairFor(name){
-  const HAIR = [0x6B4A3A, 0x463A36, 0x8A5A3C, 0x3E3A3C, 0xA9764A, 0x5E4636];
+  const HAIR = [0xA9693F, 0x7A5343, 0xC98A4E, 0x5E4A48, 0xD9A05B, 0x8F5E38];
   return HAIR[hashOf(name + 'hair') % HAIR.length];
 }
 
 /** 강아지 털. 파란 강아지는 없으니 따뜻한 색에서만 고른다. */
 export function furFor(name){
-  const FUR = [0xEBC99A, 0xD9A878, 0xF2E4CE, 0xB08E6E, 0xCFC4B4, 0xE8D2A8];
+  const FUR = [0xFFDCA8, 0xF7C184, 0xFFF3E0, 0xD9A878, 0xEFE6D8, 0xFFE9BC];
   return FUR[hashOf(name + 'fur') % FUR.length];
 }
 
 /** 이름이 같으면 늘 같은 색. */
 export function colorFor(name){
   const PALETTE = [
-    0xF2A2A2, 0xF6C48A, 0xF3E29A, 0xA8D9A0,
-    0x9BD2E0, 0xA9B2E8, 0xD3AEE6, 0xF0B9D4
+    0xFF8F9E, 0xFFBD63, 0xFFE878, 0x8FE88A,
+    0x6FD9F0, 0x96A6FF, 0xDE9CF2, 0xFF9ED0
   ];
   return PALETTE[hashOf(name) % PALETTE.length];
 }

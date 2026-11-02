@@ -26,11 +26,11 @@ function piece(group, geo, mat, x, y, z, sx, sy, sz){
 
 export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A } = {}){
   const group = new THREE.Group();
-  const skin = toon(0xF7DCC4);
+  const skin = toon(0xFFE4CB);
   const cloth = toon(color);
   const hairMat = toon(hair);
-  const dark = toon(0x3C3A42);
-  const blush = toon(0xF2A9B4);
+  const dark = toon(0x4A4350);
+  const blush = toon(0xFF9BAE);
 
   group.add(makeBlob(0.3));
 
@@ -109,8 +109,8 @@ export const DOG_HEAD_TOP = 0.56;
 export function createDog({ color = 0xEBC99A } = {}){
   const group = new THREE.Group();
   const fur = toon(color);
-  const dark = toon(0x3C3A42);
-  const nose = toon(0x5B4A42);
+  const dark = toon(0x4A4350);
+  const nose = toon(0x8A6A5C);
 
   group.add(makeBlob(0.24));
 

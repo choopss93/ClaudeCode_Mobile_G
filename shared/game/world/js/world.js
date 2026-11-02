@@ -28,13 +28,13 @@ export function createWorld(){
   /* ── 잔디 ── */
   const lawn = new THREE.Mesh(
     new THREE.CircleGeometry(WORLD_RADIUS, 56),
-    toon(0xA8D98B)
+    toon(0x9EE87A)
   );
   lawn.rotation.x = -Math.PI / 2;
   group.add(lawn);
 
   // 가운데 빈터 — 모이는 자리
-  const clearing = new THREE.Mesh(new THREE.CircleGeometry(4.6, 40), toon(0xF2E6C9));
+  const clearing = new THREE.Mesh(new THREE.CircleGeometry(4.6, 40), toon(0xFFF9E8));
   clearing.rotation.x = -Math.PI / 2;
   clearing.position.y = 0.01;
   group.add(clearing);
@@ -55,13 +55,13 @@ export function createWorld(){
 
   /* ── 연못 ── */
   const POND = { x: -9.5, z: 6.5, r: 3.1 };
-  const water = new THREE.Mesh(new THREE.CircleGeometry(POND.r, 32), toon(0x8FD3E8));
+  const water = new THREE.Mesh(new THREE.CircleGeometry(POND.r, 32), toon(0x6FDCF5));
   water.rotation.x = -Math.PI / 2;
   water.position.set(POND.x, 0.02, POND.z);
   group.add(water);
   const rim = new THREE.Mesh(
     new THREE.TorusGeometry(POND.r + 0.12, 0.22, 6, 32),
-    toon(0xD9CDB2)
+    toon(0xF5E7C4)
   );
   rim.rotation.x = -Math.PI / 2;
   rim.position.set(POND.x, 0.1, POND.z);
@@ -74,7 +74,7 @@ export function createWorld(){
     const bx = Math.cos(ang) * 11.5;
     const bz = Math.sin(ang) * 11.5;
 
-    const bed = new THREE.Mesh(new THREE.CircleGeometry(2, 20), toon(0x8FBF75));
+    const bed = new THREE.Mesh(new THREE.CircleGeometry(2, 20), toon(0x8AE069));
     bed.rotation.x = -Math.PI / 2;
     bed.position.set(bx, 0.012, bz);
     group.add(bed);
@@ -85,15 +85,15 @@ export function createWorld(){
       const fx = bx + Math.cos(a) * d;
       const fz = bz + Math.sin(a) * d;
       const h = 0.3 + rnd() * 0.2;
-      put(rod, 0x6FA857, fx, h / 2, fz, 0.022, h, 0.022);
+      put(rod, 0x6FD15C, fx, h / 2, fz, 0.022, h, 0.022);
       put(ball, c, fx, h + 0.07, fz, 0.13, 0.1, 0.13);
-      put(ball, 0xFFF4D6, fx, h + 0.105, fz, 0.05, 0.04, 0.05);   // 꽃술
+      put(ball, 0xFFFAE4, fx, h + 0.105, fz, 0.05, 0.04, 0.05);   // 꽃술
     }
     // 꽃은 지나다닐 수 있게 충돌체를 두지 않는다
   });
 
   /* ── 나무와 덤불 ── */
-  const GREENS = [0x79BF6B, 0x8ECB7A, 0x6AAE60];
+  const GREENS = [0x76DB5F, 0x92EC7C, 0x63CC56];
   for (let i = 0; i < 16; i++){
     const ang = rnd() * Math.PI * 2;
     const dist = 6.5 + rnd() * (WORLD_RADIUS - 9);
@@ -108,7 +108,7 @@ export function createWorld(){
 
     if (rnd() > 0.42){
       const th = 0.9 + rnd() * 0.6;
-      put(rod, 0xB08968, x, th / 2, z, 0.12, th, 0.12);
+      put(rod, 0xD1A277, x, th / 2, z, 0.12, th, 0.12);
       const r = 0.95 + rnd() * 0.5;
       const g = GREENS[Math.floor(rnd() * GREENS.length)];
       put(ball, g, x, th + r * 0.55, z, r, r * 0.86, r);
@@ -130,20 +130,20 @@ export function createWorld(){
     const dist = 6 + rnd() * (WORLD_RADIUS - 9);
     const x = Math.cos(ang) * dist;
     const z = Math.sin(ang) * dist;
-    put(rod, 0xFBF0DC, x, 0.15, z, 0.072, 0.15, 0.072);
-    put(ball, rnd() > 0.5 ? 0xF2A2A2 : 0xF6C48A, x, 0.3, z, 0.185, 0.125, 0.185);
+    put(rod, 0xFFFAEC, x, 0.15, z, 0.072, 0.15, 0.072);
+    put(ball, rnd() > 0.5 ? 0xFF8F9E : 0xFFC14D, x, 0.3, z, 0.185, 0.125, 0.185);
     colliders.push({ x, z, r: 0.22 });
   }
 
   /* ── 가운데 등불 ── */
-  put(rod, 0xD9CDB2, 0, 0.55, 0, 0.08, 0.55, 0.08);
-  put(ball, 0xFFF0C2, 0, 1.22, 0, 0.3, 0.34, 0.3);
+  put(rod, 0xF5E7C4, 0, 0.55, 0, 0.08, 0.55, 0.08);
+  put(ball, 0xFFF6B8, 0, 1.22, 0, 0.3, 0.34, 0.3);
   colliders.push({ x: 0, z: 0, r: 0.3 });
 
   /* ── 바깥 울타리: 둥근 산울타리 ── */
   const hedge = new THREE.Mesh(
     new THREE.TorusGeometry(WORLD_RADIUS, 0.75, 7, 64),
-    toon(0x6FAE62)
+    toon(0x6FD45C)
   );
   hedge.rotation.x = -Math.PI / 2;
   hedge.position.y = 0.45;
