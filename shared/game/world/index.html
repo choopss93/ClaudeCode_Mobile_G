@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무지개 정원</title>
-<meta name="description" content="강아지와 함께 정원을 깡충깡충 거니는 힐링 게임.">
+<meta name="description" content="강아지나 고양이와 함께 정원을 거니는 힐링 게임.">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#C3EBF8">
 <meta name="mobile-web-app-capable" content="yes">
@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="./icon-180.png">
 <link rel="icon" href="./icon-180.png">
 <meta property="og:title" content="무지개 정원">
-<meta property="og:description" content="강아지와 함께 정원을 깡충깡충 거니는 힐링 게임.">
+<meta property="og:description" content="강아지나 고양이와 함께 정원을 거니는 힐링 게임.">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
@@ -243,12 +243,55 @@
   }
   #start input::placeholder{color:#AEA8BC}
   #start input:focus{outline:0;border-color:#7DDDF4}
-  #start button{
+  #start button[type="submit"]{
     font:inherit;font-size:15px;font-weight:600;
     width:100%;color:#215C45;background:#9BE6C4;
-    border:0;border-radius:999px;min-height:50px;cursor:pointer;margin-top:4px;
+    border:0;border-radius:999px;min-height:50px;cursor:pointer;margin-top:14px;
   }
-  #start button:hover{background:#86DEB5}
+  #start button[type="submit"]:hover{background:#86DEB5}
+  #start label .sel{font-weight:500;color:#9A94AC}
+
+  /* 강아지 / 고양이 */
+  .seg{display:flex;gap:6px;margin-bottom:13px}
+  .seg button{
+    font:inherit;font-size:14px;font-weight:600;flex:1 1 0;
+    color:#7A7490;background:#F2F0F6;
+    border:1.5px solid transparent;border-radius:13px;
+    min-height:46px;cursor:pointer;
+  }
+  .seg button.on{color:#215C45;background:#CFF0E0;border-color:#9BE6C4}
+
+  /* 품종 */
+  .picks{
+    display:flex;flex-wrap:wrap;gap:6px;margin-bottom:13px;
+  }
+  .picks button{
+    font:inherit;font-size:12.5px;font-weight:500;
+    color:#6E6480;background:#F2F0F6;
+    border:1.5px solid transparent;border-radius:999px;
+    padding:0 12px;min-height:38px;cursor:pointer;
+  }
+  .picks button.on{color:#215C45;background:#CFF0E0;border-color:#9BE6C4;font-weight:600}
+
+  /* 털빛 */
+  .coats{display:flex;gap:9px;margin-bottom:4px;flex-wrap:wrap}
+  .coats button{
+    width:46px;height:46px;flex:none;padding:0;
+    border:2px solid #E4E0EA;border-radius:50%;
+    cursor:pointer;position:relative;overflow:hidden;background:none;
+  }
+  .coats button .fill{position:absolute;inset:0;border-radius:50%}
+  .coats button .half{position:absolute;inset:0;width:50%;border-radius:50% 0 0 50%}
+  .coats button .dice{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:17px;color:#7A7490;
+  }
+  .coats button.on{border-color:#4BBF90;box-shadow:0 0 0 3px #CFF0E0}
+
+  @media (hover:none) and (pointer:coarse){
+    .picks button{min-height:44px;font-size:13px;padding:0 14px}
+    .coats button{width:52px;height:52px}
+  }
   #start .note{margin:14px 0 0;font-size:11.5px;color:#9A94AC;line-height:1.6}
   /* 폰에서 어느 판을 보고 있는지 바로 알 수 있게 */
   #start .ver{display:block;margin-top:4px;font-size:10.5px;color:#C0BACB}
@@ -282,12 +325,13 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-02b",
-    "#world": "./js/world.js?v=2026-11-02b",
-    "#actor": "./js/actor.js?v=2026-11-02b",
-    "#controls": "./js/controls.js?v=2026-11-02b",
-    "#net": "./js/net.js?v=2026-11-02b",
-    "#sound": "./js/sound.js?v=2026-11-02b"
+    "#look": "./js/look.js?v=2026-11-02c",
+    "#world": "./js/world.js?v=2026-11-02c",
+    "#actor": "./js/actor.js?v=2026-11-02c",
+    "#controls": "./js/controls.js?v=2026-11-02c",
+    "#net": "./js/net.js?v=2026-11-02c",
+    "#sound": "./js/sound.js?v=2026-11-02c",
+    "#pets": "./js/pets.js?v=2026-11-02c"
   }
 }
 </script>
@@ -339,20 +383,32 @@
       <i style="background:#E3A9FC"></i>
     </div>
     <h1>무지개 정원</h1>
-    <p class="lead">강아지와 함께 천천히 거니는 정원이에요.<br>이름을 알려주시면 문을 열어 드릴게요.</p>
+    <p class="lead">강아지나 고양이와 천천히 거니는 정원이에요.<br>이름을 알려주시면 문을 열어 드릴게요.</p>
 
     <label for="nameInput">당신의 이름</label>
     <input id="nameInput" type="text" maxlength="12" required placeholder="캐릭터 이름이 됩니다">
 
-    <label for="dogInput">강아지 이름</label>
+    <label>누구와 함께 갈까요</label>
+    <div class="seg" id="kind">
+      <button type="button" data-kind="dog" class="on">강아지</button>
+      <button type="button" data-kind="cat">고양이</button>
+    </div>
+
+    <label for="dogInput">이름</label>
     <input id="dogInput" type="text" maxlength="12" required placeholder="곁에서 따라다녀요">
+
+    <label>품종</label>
+    <div class="picks" id="breeds"></div>
+
+    <label>털빛 <span class="sel" id="coatName">화이트</span></label>
+    <div class="coats" id="coats"></div>
 
     <button type="submit">정원으로 들어가기</button>
     <p class="note">서두를 것도, 지는 것도 없는 곳이에요.
-      <span class="ver">2026-11-02b</span></p>
+      <span class="ver">2026-11-02c</span></p>
   </form>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-02b"></script>
+<script type="module" src="./js/main.js?v=2026-11-02c"></script>
 </body>
 </html>

@@ -146,12 +146,6 @@ export function hairFor(name){
   return HAIR[hashOf(name + 'hair') % HAIR.length];
 }
 
-/** 강아지 털. 파란 강아지는 없으니 따뜻한 색에서만 고른다. */
-export function furFor(name){
-  const FUR = [0xFFE3BA, 0xF9CF9E, 0xFFF5E4, 0xE2BC95, 0xF3EBDE, 0xFFEDC9];
-  return FUR[hashOf(name + 'fur') % FUR.length];
-}
-
 /** 이름이 같으면 늘 같은 색. */
 export function colorFor(name){
   const PALETTE = [

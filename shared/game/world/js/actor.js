@@ -107,66 +107,152 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A } = {}){
   };
 }
 
-/* ── 강아지 ── */
+/* ── 반려동물 ──
+   품종 수치(pets.js)로 모양을 지어낸다. 강아지와 고양이는 바탕이 다르고,
+   품종이 그 위에서 몸집·다리·주둥이·귀·꼬리·털을 흔든다. */
 
-export const DOG_HEAD_TOP = 0.56;
+const KIND_BASE = {
+  dog: { bodyL:0.185, bodyW:0.145, bodyH:0.125, legY:0.085, headR:0.145,
+         muzzle:0.075, tailLen:0.075, tailThick:0.040, headFwd:0.150 },
+  cat: { bodyL:0.195, bodyW:0.130, bodyH:0.115, legY:0.095, headR:0.135,
+         muzzle:0.058, tailLen:0.105, tailThick:0.030, headFwd:0.145 }
+};
 
-export function createDog({ color = 0xEBC99A } = {}){
+export function createPet(spec){
+  const K = KIND_BASE[spec.kind] || KIND_BASE.dog;
   const group = new THREE.Group();
-  const fur = toon(color);
-  const dark = toon(0x5C5560);
-  const nose = toon(0xA1877A);
+  const inner = new THREE.Group();        // 품종별 크기를 여기에 건다
+  inner.scale.setScalar(spec.scale);
+  group.add(inner);
 
-  group.add(makeBlob(0.24));
+  const furColor = spec.base;
+  const accentColor = spec.accent || spec.base;
+  const fur = toon(furColor);
+  const mark = toon(accentColor);         // 화이트블랙일 때 귀·꼬리끝·등무늬
+  const dark = toon(0x4A4350);
+  // 털빛이 짙으면 코를 밝게 둬야 보인다
+  const nose = toon(spec.coatKey === 'black' ? 0x8C8498 : 0x8A6A5C);
 
-  const LEGY = 0.08;
+  const bodyL = K.bodyL * spec.body[0];
+  const bodyW = K.bodyW * spec.body[1] * spec.fluff;
+  const bodyH = K.bodyH * spec.body[1] * spec.fluff;
+  const legH  = K.legY * spec.legs;
+  const bodyY = legH + bodyH * 0.72;
+
+  group.add(makeBlob(0.2 * spec.scale * spec.body[0]));
+
+  /* 다리 — 네 개 */
   const legs = [];
-  for (const [x, z] of [[-0.085, 0.1], [0.085, 0.1], [-0.085, -0.1], [0.085, -0.1]]){
-    legs.push(piece(group, ball, fur, x, LEGY / 2 + 0.01, z, 0.047, LEGY, 0.047));
+  const legX = bodyW * 0.62, legZ = bodyL * 0.52;
+  for (const [x, z] of [[-legX, legZ], [legX, legZ], [-legX, -legZ], [legX, -legZ]]){
+    legs.push(piece(inner, ball, fur, x, legH / 2 + 0.01, z,
+                    0.046 * spec.body[1], legH, 0.046 * spec.body[1]));
+  }
+  const legRest = legH / 2 + 0.01;
+
+  /* 몸통 */
+  piece(inner, ball, fur, 0, bodyY, -0.02, bodyW, bodyH, bodyL);
+
+  // 털북숭이면 덤불을 얹어 부풀린다
+  if (spec.fluff > 1.15){
+    const puff = (spec.fluff - 1) * 0.9;
+    piece(inner, ball, fur, 0, bodyY + bodyH * 0.45, -bodyL * 0.35, bodyW * puff, bodyH * puff, bodyL * puff * 0.8);
+    piece(inner, ball, fur, 0, bodyY + bodyH * 0.3, bodyL * 0.3, bodyW * puff * 0.85, bodyH * puff * 0.8, bodyL * puff * 0.7);
   }
 
-  piece(group, ball, fur, 0, 0.21, -0.02, 0.145, 0.125, 0.185);   // 몸통
+  // 화이트블랙 — 등에 무늬 한 점
+  if (spec.accent){
+    piece(inner, ball, mark, 0, bodyY + bodyH * 0.52, -bodyL * 0.18,
+          bodyW * 0.72, bodyH * 0.45, bodyL * 0.52);
+  }
 
+  /* 머리 */
+  const headR = K.headR * spec.head;
   const head = new THREE.Group();
-  head.position.set(0, 0.34, 0.15);
-  group.add(head);
-  piece(head, ball, fur, 0, 0, 0, 0.145, 0.135, 0.13);
-  piece(head, ball, fur, 0, -0.035, 0.115, 0.075, 0.062, 0.062);   // 주둥이
-  piece(head, ball, nose, 0, -0.02, 0.17, 0.032, 0.028, 0.026);
-  piece(head, eyeGeo, dark, -0.062, 0.03, 0.105, 0.78, 0.9, 0.6);
-  piece(head, eyeGeo, dark,  0.062, 0.03, 0.105, 0.78, 0.9, 0.6);
-  piece(head, ball, fur, -0.115, 0.055, -0.02, 0.05, 0.085, 0.035);  // 귀
-  piece(head, ball, fur,  0.115, 0.055, -0.02, 0.05, 0.085, 0.035);
+  head.position.set(0, bodyY + bodyH * 0.55, K.headFwd * spec.body[0] + headR * 0.3);
+  inner.add(head);
 
-  const tail = piece(group, ball, fur, 0, 0.27, -0.18, 0.04, 0.075, 0.04);
-  tail.rotation.x = -0.6;
+  piece(head, ball, fur, 0, 0, 0, headR, headR * 0.94, headR * 0.9);
 
-  const DOG_LEG_Y = LEGY / 2 + 0.01;
+  // 주둥이
+  const mz = K.muzzle * spec.muzzle;
+  if (mz > 0.02){
+    piece(head, ball, fur, 0, -headR * 0.26, headR * 0.72 + mz * 0.4,
+          mz * 0.92, mz * 0.76, mz);
+  }
+  piece(head, ball, nose, 0, -headR * 0.14, headR * 0.76 + mz * 0.95,
+        headR * 0.2, headR * 0.17, headR * 0.16);
+
+  // 눈
+  const eyeZ = headR * 0.72;
+  piece(head, eyeGeo, dark, -headR * 0.42, headR * 0.2, eyeZ, 0.8, 0.95, 0.6);
+  piece(head, eyeGeo, dark,  headR * 0.42, headR * 0.2, eyeZ, 0.8, 0.95, 0.6);
+
+  // 귀 — 모양마다 다르게
+  const er = headR * spec.earSize;
+  const earMat = spec.accent ? mark : fur;
+  for (const side of [-1, 1]){
+    if (spec.ear === 'drop'){
+      // 처진귀 — 옆으로 늘어진다
+      const e = piece(head, ball, earMat, side * headR * 0.78, -headR * 0.05, -headR * 0.05,
+                      er * 0.26, er * 0.62, er * 0.2);
+      e.rotation.z = side * 0.3;
+    } else if (spec.ear === 'fold'){
+      // 접힌귀 — 작고 둥글게 붙는다
+      piece(head, ball, earMat, side * headR * 0.62, headR * 0.6, -headR * 0.08,
+            er * 0.3, er * 0.2, er * 0.2);
+    } else {
+      // 선귀 — 위로 쫑긋. tuft 는 끝에 술이 붙는다
+      const e = piece(head, ball, earMat, side * headR * 0.56, headR * 0.78, -headR * 0.05,
+                      er * 0.3, er * 0.5, er * 0.18);
+      e.rotation.z = side * -0.18;
+      if (spec.ear === 'tuft'){
+        piece(head, ball, earMat, side * headR * 0.56, headR * 1.24, -headR * 0.05,
+              er * 0.1, er * 0.22, er * 0.1);
+      }
+    }
+  }
+
+  /* 꼬리 */
+  const tl = K.tailLen * (spec.tail === 'stub' ? 0.42 : 1) *
+             (spec.tail === 'plume' ? 1.1 : 1);
+  const tt = K.tailThick * (spec.tail === 'plume' ? 1.9 : 1);
+  const tail = piece(inner, ball, spec.accent ? mark : fur,
+                     0, bodyY + bodyH * 0.45, -bodyL - tl * 0.35,
+                     tt, tl, tt);
+  if (spec.tail === 'curl')      tail.rotation.x = -1.25;   // 등으로 말려 올라간다
+  else if (spec.tail === 'plume') tail.rotation.x = -0.75;
+  else if (spec.tail === 'long')  tail.rotation.x = -0.45;
+  else                            tail.rotation.x = -0.9;
+
+  const HEAD_TOP = (head.position.y + headR * 1.5) * spec.scale + 0.06;
   let t = Math.random() * 6, step = 0;
 
   return {
     group,
-    headTop: DOG_HEAD_TOP,
+    headTop: HEAD_TOP,
+    label: spec.breedName,
 
     /** speed: 초당 걷는 거리. */
     update(dt, speed){
       t += dt;
-      tail.rotation.z = Math.sin(t * 9) * 0.5;   // 꼬리는 늘 흔든다
+      tail.rotation.z = Math.sin(t * (spec.kind === 'cat' ? 4 : 9)) *
+                        (spec.kind === 'cat' ? 0.22 : 0.5);
 
       if (speed > 0.05){
         step += dt * (7 + speed * 2.2);
         const sw = Math.sin(step);
         // 앞뒤 다리가 어긋나게 — 네 발 짐승의 걸음새
-        legs[0].position.y = DOG_LEG_Y + Math.max(0,  sw) * 0.05;
-        legs[1].position.y = DOG_LEG_Y + Math.max(0, -sw) * 0.05;
-        legs[2].position.y = DOG_LEG_Y + Math.max(0, -sw) * 0.05;
-        legs[3].position.y = DOG_LEG_Y + Math.max(0,  sw) * 0.05;
+        legs[0].position.y = legRest + Math.max(0,  sw) * 0.05;
+        legs[1].position.y = legRest + Math.max(0, -sw) * 0.05;
+        legs[2].position.y = legRest + Math.max(0, -sw) * 0.05;
+        legs[3].position.y = legRest + Math.max(0,  sw) * 0.05;
         group.position.y = Math.abs(sw) * 0.022;
         head.rotation.x = Math.sin(step * 2) * 0.05;
       } else {
         step = 0;
         group.position.y = 0;
-        for (const l of legs) l.position.y = DOG_LEG_Y;
+        for (const l of legs) l.position.y = legRest;
         head.rotation.x = Math.sin(t * 1.8) * 0.04;
       }
     },

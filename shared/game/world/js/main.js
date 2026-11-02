@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { createWorld, resolve } from '#world';
-import { createActor, createDog } from '#actor';
+import { createActor, createPet } from '#actor';
+import { KINDS, COATS, resolvePet } from '#pets';
 import { createControls } from '#controls';
 import { createLocalNet } from '#net';
 import { createWind } from '#sound';
-import { SKY, colorFor, hairFor, furFor, wind } from '#look';
+import { SKY, colorFor, hairFor, wind } from '#look';
 
 const SPEED = 3.1;           // 전속력으로 걸을 때 초당 거리
 const TURN = 11;             // 몸이 방향을 따라 도는 빠르기
@@ -46,11 +47,88 @@ if (window.visualViewport){
 // 캔버스를 길게 눌렀을 때 뜨는 메뉴가 조작을 끊지 않게
 $('scene').addEventListener('contextmenu', e => e.preventDefault());
 
-/* ── 이름 먼저 ── */
+/* ── 이름과 반려동물 고르기 ── */
+
+const choice = { kind: 'dog', breed: 3, coat: 'white' };
+
 try {
   const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
-  if (saved){ nameIn.value = saved.name || ''; dogIn.value = saved.dog || ''; }
+  if (saved){
+    nameIn.value = saved.name || '';
+    dogIn.value = saved.dog || '';
+    if (KINDS[saved.kind]) choice.kind = saved.kind;
+    if (Number.isInteger(saved.breed)) choice.breed = saved.breed;
+    if (COATS.some(c => c.key === saved.coat)) choice.coat = saved.coat;
+  }
 } catch (_){}
+
+const breedsEl = $('breeds');
+const coatsEl = $('coats');
+const coatNameEl = $('coatName');
+
+function paintBreeds(){
+  const list = KINDS[choice.kind].breeds;
+  if (choice.breed >= list.length) choice.breed = 0;
+  breedsEl.replaceChildren();
+  list.forEach((b, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = b.name;
+    btn.className = i === choice.breed ? 'on' : '';
+    btn.setAttribute('aria-pressed', i === choice.breed ? 'true' : 'false');
+    btn.addEventListener('click', () => { choice.breed = i; paintBreeds(); });
+    breedsEl.appendChild(btn);
+  });
+}
+
+function paintCoats(){
+  coatsEl.replaceChildren();
+  COATS.forEach(c => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = c.key === choice.coat ? 'on' : '';
+    btn.setAttribute('aria-label', c.label);
+    btn.setAttribute('aria-pressed', c.key === choice.coat ? 'true' : 'false');
+
+    if (c.random){
+      btn.innerHTML = '<span class="fill" style="background:' +
+        'conic-gradient(#FFF6EC 0 25%, #5E5866 0 50%, #C0906A 0 75%, #FFD9A0 0)"></span>' +
+        '<span class="dice">?</span>';
+    } else {
+      const hex = '#' + c.base.toString(16).padStart(6, '0');
+      let html = '<span class="fill" style="background:' + hex + '"></span>';
+      if (c.accent){
+        // 화이트블랙은 반반으로 보여 준다
+        html += '<span class="half" style="background:#' +
+          c.accent.toString(16).padStart(6, '0') + '"></span>';
+      }
+      btn.innerHTML = html;
+    }
+    btn.addEventListener('click', () => {
+      choice.coat = c.key;
+      coatNameEl.textContent = c.label;
+      paintCoats();
+    });
+    coatsEl.appendChild(btn);
+  });
+  const cur = COATS.find(c => c.key === choice.coat);
+  if (cur) coatNameEl.textContent = cur.label;
+}
+
+for (const btn of $('kind').querySelectorAll('button[data-kind]')){
+  btn.addEventListener('click', () => {
+    choice.kind = btn.dataset.kind;
+    choice.breed = 0;
+    for (const b of $('kind').querySelectorAll('button[data-kind]')){
+      b.classList.toggle('on', b.dataset.kind === choice.kind);
+    }
+    paintBreeds();
+  });
+  btn.classList.toggle('on', btn.dataset.kind === choice.kind);
+}
+
+paintBreeds();
+paintCoats();
 
 const windSound = createWind();
 const soundBtn = $('sound');
@@ -69,17 +147,22 @@ startForm.addEventListener('submit', e => {
   const name = nameIn.value.trim().slice(0, 12);
   const dog  = dogIn.value.trim().slice(0, 12);
   if (!name || !dog) return;
-  try { localStorage.setItem(STORE, JSON.stringify({ name, dog })); } catch (_){}
+  try {
+    localStorage.setItem(STORE, JSON.stringify({
+      name, dog, kind: choice.kind, breed: choice.breed, coat: choice.coat
+    }));
+  } catch (_){}
   // 브라우저는 누르기 전에는 소리를 내주지 않는다. 이 순간에 시작해야 한다.
   windSound.begin();
   paintSound();
   startEl.hidden = true;
-  begin(name, dog);
+  // 랜덤이면 여기서 한 번만 뽑는다. 들어갈 때마다 달라진다.
+  begin(name, dog, resolvePet(choice));
 });
 if (!TOUCH) nameIn.focus();   // 폰에서는 키보드가 시작 화면을 가린다
 
 /* ── 게임 ── */
-function begin(myName, dogName){
+function begin(myName, petName, petSpec){
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, TOUCH ? 1.75 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -136,12 +219,13 @@ function begin(myName, dogName){
   scene.add(me.group);
   const myLabel = makeLabel(myName);
 
-  const dog = createDog({ color: furFor(dogName) });
+  const dog = createPet(petSpec);
   dog.group.position.set(0.9, 0, 6.4);
   scene.add(dog.group);
-  const dogLabel = makeLabel(dogName, 'pet');
+  const dogLabel = makeLabel(petName, 'pet');
 
-  whoEl.textContent = myName + ' · ' + dogName;
+  whoEl.textContent = myName + ' · ' + petName;
+  whoEl.title = petSpec.breedName + ' · ' + petSpec.coatName;
 
   let dogSpeed = 0;
 
@@ -155,7 +239,7 @@ function begin(myName, dogName){
       const entry = { actor, label: makeLabel(info.name), s: { x:0, y:0, z:0, ry:0, speed:0 }, started: false };
 
       if (info.dog){
-        entry.dog = createDog({ color: furFor(info.dog) });
+        entry.dog = createPet(resolvePet(info.pet || { kind:'dog', breed:3, coat:'white' }));
         scene.add(entry.dog.group);
         entry.dogLabel = makeLabel(info.dog, 'pet');
         entry.dogSpeed = 0;
