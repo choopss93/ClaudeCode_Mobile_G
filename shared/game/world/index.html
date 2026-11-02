@@ -104,6 +104,25 @@
     box-shadow:0 3px 10px rgba(110,120,140,.16);
   }
   a.chip:hover{background:#fff}
+  button.chip{cursor:pointer;font:inherit}
+
+  /* 소리 단추 — 글자 없이 그림만 */
+  .chip.icon{padding:0;width:34px;min-width:34px;justify-content:center}
+  .chip.icon svg{width:19px;height:19px;display:block}
+  .chip.icon .horn{fill:#5E5566}
+  .chip.icon .waves path, .chip.icon .mute path{
+    fill:none;stroke:#5E5566;stroke-width:1.5;stroke-linecap:round;
+  }
+  .chip.icon:not(.on){opacity:.55}
+  .chip.icon:not(.on) .waves{display:none}
+  .chip.icon.on .mute{display:none}
+
+  /* 손가락은 마우스보다 크다 */
+  @media (hover:none) and (pointer:coarse){
+    a.chip, button.chip{min-height:44px}
+    .chip.icon{width:44px;min-width:44px}
+    .chip.icon svg{width:21px;height:21px}
+  }
 
   #hud{
     position:fixed;z-index:5;
@@ -263,11 +282,12 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-02a",
-    "#world": "./js/world.js?v=2026-11-02a",
-    "#actor": "./js/actor.js?v=2026-11-02a",
-    "#controls": "./js/controls.js?v=2026-11-02a",
-    "#net": "./js/net.js?v=2026-11-02a"
+    "#look": "./js/look.js?v=2026-11-02b",
+    "#world": "./js/world.js?v=2026-11-02b",
+    "#actor": "./js/actor.js?v=2026-11-02b",
+    "#controls": "./js/controls.js?v=2026-11-02b",
+    "#net": "./js/net.js?v=2026-11-02b",
+    "#sound": "./js/sound.js?v=2026-11-02b"
   }
 }
 </script>
@@ -282,6 +302,13 @@
   <span class="spacer"></span>
   <span class="chip" id="who">—</span>
   <span class="chip" id="count">1명</span>
+  <button class="chip icon on" id="sound" type="button" aria-pressed="true" aria-label="소리 끄기">
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path class="horn" d="M3.6 7.6h2.8L10 4.4v11.2L6.4 12.4H3.6z"/>
+      <g class="waves"><path d="M12.6 7.6a3.4 3.4 0 0 1 0 4.8"/><path d="M14.8 5.4a6.6 6.6 0 0 1 0 9.2"/></g>
+      <g class="mute"><path d="M13 8.2l3.6 3.6"/><path d="M16.6 8.2L13 11.8"/></g>
+    </svg>
+  </button>
 </div>
 
 <div id="stick" aria-hidden="true">
@@ -322,10 +349,10 @@
 
     <button type="submit">정원으로 들어가기</button>
     <p class="note">서두를 것도, 지는 것도 없는 곳이에요.
-      <span class="ver">2026-11-02a</span></p>
+      <span class="ver">2026-11-02b</span></p>
   </form>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-02a"></script>
+<script type="module" src="./js/main.js?v=2026-11-02b"></script>
 </body>
 </html>
