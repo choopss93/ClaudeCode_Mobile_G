@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>월드 · 게임</title>
+<meta name="description" content="캐릭터가 맵을 돌아다니고 머리 위에 말풍선을 띄우는 3인칭 게임.">
+<meta name="color-scheme" content="light dark">
+<meta property="og:title" content="월드 · 게임">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;overscroll-behavior:none}
+  body{
+    background:#9ED2EA;
+    color:#15181A;
+    font-family:"IBM Plex Sans KR","Apple SD Gothic Neo",system-ui,sans-serif;
+    font-size:14px;
+    -webkit-font-smoothing:antialiased;
+    -webkit-tap-highlight-color:transparent;
+  }
+  /* hidden 이 걸린 요소는 반드시 사라져야 한다. display 를 지정한 요소는
+     hidden 만으로는 숨지 않고, 안 보이는 채로 클릭을 가로챈다. */
+  [hidden]{display:none!important}
+
+  #scene{
+    position:fixed;inset:0;width:100%;height:100%;display:block;
+    touch-action:none;   /* 화면을 끌어도 페이지가 스크롤되지 않게 */
+  }
+
+  /* ── 머리 위 이름표와 말풍선 ── */
+  #labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+  .label{
+    position:absolute;top:0;left:0;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    will-change:transform;
+  }
+  .tag{
+    font-size:11.5px;font-weight:600;color:#fff;
+    background:rgba(20,26,30,.62);
+    border-radius:999px;padding:2px 9px;white-space:nowrap;
+    text-shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+  .bubble{
+    position:relative;
+    max-width:min(240px, 52vw);
+    background:#fff;color:#15181A;
+    font-size:13px;line-height:1.45;font-weight:500;
+    border-radius:13px;padding:8px 12px;
+    box-shadow:0 6px 18px rgba(0,0,0,.26);
+    overflow-wrap:anywhere;text-align:center;
+    animation:pop .18s ease-out;
+    transition:opacity .4s ease, transform .4s ease;
+  }
+  .bubble::after{
+    content:"";position:absolute;left:50%;bottom:-6px;
+    width:0;height:0;transform:translateX(-50%);
+    border-left:7px solid transparent;
+    border-right:7px solid transparent;
+    border-top:7px solid #fff;
+  }
+  .bubble.fade{opacity:0;transform:translateY(-6px)}
+  @keyframes pop{
+    from{opacity:0;transform:scale(.88) translateY(6px)}
+    to{opacity:1;transform:scale(1) translateY(0)}
+  }
+
+  /* ── 화면 위 UI ── */
+  #hud{
+    position:fixed;z-index:5;
+    top:calc(12px + env(safe-area-inset-top, 0px));
+    left:calc(12px + env(safe-area-inset-left, 0px));
+    right:calc(12px + env(safe-area-inset-right, 0px));
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  }
+  .chip{
+    display:inline-flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,.86);
+    border:1px solid rgba(20,26,30,.1);
+    border-radius:999px;padding:6px 12px;min-height:32px;
+    font-size:12px;font-weight:500;color:#2A3035;
+    text-decoration:none;
+    backdrop-filter:blur(8px);
+    box-shadow:0 2px 10px rgba(0,0,0,.1);
+  }
+  a.chip:hover{background:#fff}
+  .chip .dot{width:7px;height:7px;border-radius:50%;background:#C8912F;flex:none}
+  #hud .spacer{flex:1 1 auto}
+
+  #help{
+    position:fixed;z-index:5;
+    left:calc(12px + env(safe-area-inset-left, 0px));
+    bottom:calc(74px + env(safe-area-inset-bottom, 0px));
+    max-width:min(300px, 62vw);
+    font-size:11.5px;line-height:1.6;color:#2A3035;
+    background:rgba(255,255,255,.78);
+    border-radius:10px;padding:7px 11px;
+    backdrop-filter:blur(8px);
+  }
+  #help b{font-weight:600}
+  .touch-only{display:none}
+  @media (hover:none) and (pointer:coarse){
+    .touch-only{display:inline}
+    .mouse-only{display:none}
+  }
+
+  /* ── 대화 입력 ── */
+  #chat{
+    position:fixed;z-index:6;
+    left:50%;transform:translateX(-50%);
+    bottom:calc(14px + env(safe-area-inset-bottom, 0px));
+    width:min(520px, calc(100% - 24px));
+    display:flex;gap:7px;
+  }
+  #chatInput{
+    flex:1 1 auto;min-width:0;
+    font:inherit;font-size:16px;   /* 16px 미만이면 iOS 가 입력칸을 누를 때 화면을 확대한다 */
+    color:#15181A;background:rgba(255,255,255,.93);
+    border:1px solid rgba(20,26,30,.12);
+    border-radius:999px;padding:10px 16px;min-height:44px;
+    box-shadow:0 4px 16px rgba(0,0,0,.14);
+    backdrop-filter:blur(8px);
+  }
+  #chatInput::placeholder{color:#8A9199}
+  #chatInput:focus{outline:2px solid #4F93D9;outline-offset:1px}
+  #chat button{
+    font:inherit;font-size:13px;font-weight:600;
+    color:#fff;background:#3C7FC4;
+    border:0;border-radius:999px;padding:0 18px;min-height:44px;
+    cursor:pointer;flex:none;
+    box-shadow:0 4px 16px rgba(0,0,0,.18);
+  }
+  #chat button:hover{background:#346FAC}
+
+  /* ── 터치 조이스틱 ── */
+  #stick{
+    position:fixed;z-index:4;width:0;height:0;pointer-events:none;
+  }
+  #stick .knob{
+    position:absolute;left:-26px;top:-26px;width:52px;height:52px;
+    border-radius:50%;background:rgba(255,255,255,.5);
+    border:2px solid rgba(255,255,255,.85);
+    box-shadow:0 2px 10px rgba(0,0,0,.2);
+  }
+  #stick::before{
+    content:"";position:absolute;left:-48px;top:-48px;
+    width:96px;height:96px;border-radius:50%;
+    border:2px dashed rgba(255,255,255,.55);
+  }
+
+  /* ── 로딩 ── */
+  #loading{
+    position:fixed;inset:0;z-index:10;
+    display:flex;align-items:center;justify-content:center;
+    background:#9ED2EA;color:#2A3035;font-size:13px;font-weight:500;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .bubble{animation:none}
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./js/vendor/three.module.min.js"
+  }
+}
+</script>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+<div id="labels"></div>
+
+<div id="hud">
+  <a class="chip" href="../">← 게임</a>
+  <span class="spacer"></span>
+  <span class="chip"><span class="dot"></span><span id="mode">불러오는 중</span></span>
+  <span class="chip" id="count">1명</span>
+</div>
+
+<p id="help">
+  <span class="mouse-only"><b>WASD</b> · <b>방향키</b> 이동 · <b>Shift</b> 달리기<br>
+  끌어서 카메라 · 휠로 거리 · <b>Enter</b> 로 대화</span>
+  <span class="touch-only"><b>왼쪽</b>을 끌어 이동 · <b>오른쪽</b>을 끌어 카메라<br>
+  두 손가락으로 거리 조절 · 아래 칸에 말 입력</span>
+</p>
+
+<div id="stick" hidden><div class="knob"></div></div>
+
+<form id="chat" autocomplete="off">
+  <input id="chatInput" type="text" maxlength="60" placeholder="말을 입력하면 머리 위에 뜹니다" aria-label="대화 입력">
+  <button type="submit">말하기</button>
+</form>
+
+<div id="loading">월드를 불러오는 중…</div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

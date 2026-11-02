@@ -25,7 +25,15 @@ my/index.html       2 · 개인 (허브)
 my/admin/index.html 2 · 어드민 — 데이터를 넣고 고치는 쪽
 my/front/index.html 2 · 프론트 — 사용자에게 보이는 쪽
 shared/index.html   3 · 공용 (허브)
-shared/game/index.html  3 · 게임 — 여럿이 같이 하는 게임
+shared/game/index.html        3 · 게임 (목록)
+shared/game/world/            3 · 월드 — 3인칭으로 돌아다니며 말풍선 대화
+  index.html                    화면과 UI
+  js/world.js                   맵 (고정 씨앗으로 생성 — 모두 같은 맵)
+  js/actor.js                   캐릭터와 걷기 동작
+  js/controls.js                키보드 · 마우스 · 터치 조작
+  js/net.js                     접속 자리 (지금은 임시 캐릭터만)
+  js/main.js                    루프와 조립
+  js/vendor/                    Three.js r160 (MIT)
 etc/index.html      4 · 기타
 .nojekyll           Pages의 Jekyll 처리를 끔
 README.md
@@ -71,6 +79,7 @@ Pages를 켜면 이렇게 열립니다.
 | 2 프론트 | `.../ClaudeCode_Mobile_G/my/front/` |
 | 3 공용 | `.../ClaudeCode_Mobile_G/shared/` |
 | 3 게임 | `.../ClaudeCode_Mobile_G/shared/game/` |
+| 3 월드 | `.../ClaudeCode_Mobile_G/shared/game/world/` |
 | 4 기타 | `.../ClaudeCode_Mobile_G/etc/` |
 
 ## Pages 켜는 방법
@@ -85,6 +94,32 @@ Pages를 켜면 이렇게 열립니다.
 
 > Pages로 올린 페이지는 주소를 아는 누구나 볼 수 있습니다.
 > `my/` 도 비공개가 아니므로, 비밀로 둘 내용은 올리지 마세요.
+
+## 월드 게임
+
+`shared/game/world/` — 3인칭으로 맵을 돌아다니고, 입력한 말이 머리 위
+말풍선으로 뜹니다.
+
+**지금은 혼자 플레이입니다.** GitHub Pages 는 정적 파일만 서빙하므로
+플레이어끼리 위치와 말을 주고받으려면 실시간 연결을 바깥에서 빌려와야
+합니다. 그 자리는 `js/net.js` 에 미리 뚫어 두었습니다 — 임시 캐릭터
+세 명이 `onJoin` / `onState` / `onSay` 라는, 진짜 접속자가 쓰게 될
+통로로 들어옵니다.
+
+접속을 붙일 때는 `createLocalNet` 과 같은 모양의 객체를 하나 더 만들어
+`js/main.js` 에서 바꿔 끼우면 됩니다. 게임 쪽 코드는 건드리지 않습니다.
+
+```js
+createXxxNet({ world, handlers }) => {
+  mode,                    // 화면에 표시할 접속 상태
+  sendState({x, z, ry}),   // 내 위치를 남에게 알림
+  say(text),               // 내 말풍선을 남에게 알림
+  update(dt)
+}
+```
+
+Three.js 는 CDN 대신 `js/vendor/` 에 넣었습니다. 바깥 서비스가 멈춰도
+게임이 열리고, 인터넷 없이 로컬에서도 그대로 돕니다.
 
 ## 공간 이름 바꾸기
 

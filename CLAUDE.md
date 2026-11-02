@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | 1 | `design/` | 아토믹 디자인 · **매번 확인용** |
 | 2 | `my/` | MY (개인) — `my/admin/` 어드민 · `my/front/` 프론트 |
-| 3 | `shared/` | 공용 (공유 서비스) — `shared/game/` 게임 |
+| 3 | `shared/` | 공용 (공유 서비스) — `shared/game/` 게임, `shared/game/world/` 월드 |
 | 4 | `etc/` | 기타 (임시) |
 
 ## 1번은 "확인하고 작업하는" 자리
@@ -36,6 +36,19 @@
 - Pages 소스는 `main` / `/ (root)`. 작업 브랜치에만 있으면 공개되지 않는다.
 - 폴더 이름이 곧 주소다. 폴더를 바꾸면 허브 `index.html` 의 링크도 같이 고칠 것.
 - **올린 것은 전부 공개된다.** `my/` 도 비공개가 아니므로 비밀로 둘 내용은 올리지 말 것.
+
+## 월드 게임 (`shared/game/world/`)
+
+- 접속 기능은 `js/net.js` 한 곳에만 둔다. 게임 로직은 `onJoin` /
+  `onState` / `onSay` / `onLeave` 통로로만 다른 사람을 안다. 실시간 연결을
+  붙일 때 `createLocalNet` 과 같은 모양의 객체를 만들어 `main.js` 에서
+  바꿔 끼우고, 게임 쪽 코드는 건드리지 않는다.
+- 맵은 고정 씨앗(`world.js`)으로 만든다. 접속자마다 다른 맵이 생기면 안 된다.
+- Three.js 는 `js/vendor/` 안의 파일을 쓴다. CDN 으로 되돌리지 말 것.
+  버전을 올릴 때는 `npm pack three@<버전>` 으로 받아 덮어쓴다.
+- 이 페이지는 `assets/base.css` 를 쓰지 않는 독립 화면이다. 그래서
+  `[hidden]{display:none!important}` 를 페이지 안에 직접 두었다 —
+  빼면 숨긴 요소가 안 보이는 채로 클릭을 가로챈다.
 
 ## 기술 제약
 
