@@ -11,7 +11,7 @@ GitHub Pages는 브랜치 **하나**만 서빙하므로, 공간을 브랜치로 
 | --- | --- | --- |
 | 1 | `design/` | **아토믹 디자인** — 공통 토큰·컴포넌트를 눈으로 확인하는 레퍼런스 |
 | 2 | `my/` | **MY** — 개인. 안에 `admin/`(어드민) · `front/`(프론트) |
-| 3 | `shared/` | **공용** — 여러 사람이 같이 쓰는 공유 서비스 |
+| 3 | `shared/` | **공용** — 여러 사람이 같이 쓰는 공유 서비스. 안에 `game/`(게임) |
 | 4 | `etc/` | **기타** — 실험, 잠깐 쓰고 버릴 것 |
 
 ## 구조
@@ -24,7 +24,8 @@ design/refs/        1 · 확인하고 작업할 원본 자료
 my/index.html       2 · 개인 (허브)
 my/admin/index.html 2 · 어드민 — 데이터를 넣고 고치는 쪽
 my/front/index.html 2 · 프론트 — 사용자에게 보이는 쪽
-shared/index.html   3 · 공용
+shared/index.html   3 · 공용 (허브)
+shared/game/index.html  3 · 게임 — 여럿이 같이 하는 게임
 etc/index.html      4 · 기타
 .nojekyll           Pages의 Jekyll 처리를 끔
 README.md
@@ -69,6 +70,7 @@ Pages를 켜면 이렇게 열립니다.
 | 2 어드민 | `.../ClaudeCode_Mobile_G/my/admin/` |
 | 2 프론트 | `.../ClaudeCode_Mobile_G/my/front/` |
 | 3 공용 | `.../ClaudeCode_Mobile_G/shared/` |
+| 3 게임 | `.../ClaudeCode_Mobile_G/shared/game/` |
 | 4 기타 | `.../ClaudeCode_Mobile_G/etc/` |
 
 ## Pages 켜는 방법

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>게임 · 공용</title>
+<meta name="description" content="여럿이 같이 하는 게임을 두는 곳.">
+<meta name="color-scheme" content="light dark">
+<meta property="og:title" content="게임 · 공용">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<style>
+  /* 공용 공간의 강조색 */
+  :root{ --accent:#8A5A24; --accent-soft:#F2E8DA }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){ --accent:#DCA94E; --accent-soft:#33281A }
+  }
+  :root[data-theme="dark"]{ --accent:#DCA94E; --accent-soft:#33281A }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="back" href="../">← 공용</a>
+    <p class="eyebrow">공용 · 게임</p>
+    <h1>게임</h1>
+    <p class="sub">여럿이 같이 하는 게임을 두는 곳. 링크를 받은 사람이 바로 열어 참여합니다.</p>
+  </header>
+
+  <main class="panel">
+    <div class="empty">
+      <b>아직 비어 있어요</b>
+      어떤 게임을 만들지 알려주시면 여기에 넣겠습니다.
+    </div>
+  </main>
+
+  <footer>
+    이 페이지는 <code>shared/game/index.html</code> 입니다.
+    게임을 여러 개 둘 거라면 <code>shared/game/이름/</code> 으로 하나씩 나누고
+    이 페이지를 목록으로 쓰면 됩니다.
+  </footer>
+</div>
+</body>
+</html>
