@@ -34,9 +34,7 @@ const LINES = [
   '같이 쉬었다 갈래?'
 ];
 
-const HOP_DIST = 1.25;
-const HOP_TIME = 0.42;
-export const HOP_HEIGHT = 0.5;
+const GUEST_SPEED = 1.5;      // 손님은 느긋하게 거닌다
 
 export function createLocalNet({ world, handlers }){
   const guests = [];
@@ -48,8 +46,7 @@ export function createLocalNet({ world, handlers }){
       x: Math.cos(ang) * 5.5,
       z: Math.sin(ang) * 5.5,
       ry: 0,
-      fromX: 0, fromZ: 0, toX: 0, toZ: 0,
-      hop: 0, hopping: false,
+      speed: 0,
       rest: 0.6 + Math.random() * 1.6,
       sayIn: 6 + Math.random() * 10,
       tx: 0, tz: 0
@@ -66,26 +63,6 @@ export function createLocalNet({ world, handlers }){
     g.tx = p.x; g.tz = p.z;
   }
 
-  function startHop(g){
-    const dx = g.tx - g.x, dz = g.tz - g.z;
-    const d = Math.hypot(dx, dz);
-    if (d < HOP_DIST * 0.8){ pickTarget(g); return; }
-
-    // 네 방향 중 목적지에 가까워지는 쪽으로만 뛴다
-    const ux = Math.abs(dx) > Math.abs(dz) ? Math.sign(dx) : 0;
-    const uz = ux === 0 ? Math.sign(dz) : 0;
-    const p = resolve(world, g.x + ux * HOP_DIST, g.z + uz * HOP_DIST);
-
-    // 벽에 막혀 거의 제자리면 목적지를 바꾼다
-    if (Math.hypot(p.x - g.x, p.z - g.z) < HOP_DIST * 0.35){ pickTarget(g); return; }
-
-    g.fromX = g.x; g.fromZ = g.z;
-    g.toX = p.x;   g.toZ = p.z;
-    g.ry = Math.atan2(ux, uz);
-    g.hop = 0;
-    g.hopping = true;
-  }
-
   return {
     mode: 'local',
     sendState(){},
@@ -93,29 +70,30 @@ export function createLocalNet({ world, handlers }){
 
     update(dt){
       for (const g of guests){
-        if (g.hopping){
-          g.hop += dt / HOP_TIME;
-          if (g.hop >= 1){
-            g.hop = 0;
-            g.hopping = false;
-            g.x = g.toX; g.z = g.toZ;
-            g.rest = 0.25 + Math.random() * 1.5;
-          } else {
-            g.x = g.fromX + (g.toX - g.fromX) * g.hop;
-            g.z = g.fromZ + (g.toZ - g.fromZ) * g.hop;
-          }
-        } else {
+        if (g.rest > 0){
           g.rest -= dt;
-          if (g.rest <= 0) startHop(g);
+          g.speed = 0;
+        } else {
+          const dx = g.tx - g.x, dz = g.tz - g.z;
+          const d = Math.hypot(dx, dz);
+
+          if (d < 0.4){
+            // 도착했으니 잠시 쉬었다 다른 데로
+            g.rest = 1 + Math.random() * 3.5;
+            g.speed = 0;
+            pickTarget(g);
+          } else {
+            const step = Math.min(GUEST_SPEED * dt, d);
+            const p = resolve(world, g.x + (dx / d) * step, g.z + (dz / d) * step);
+            // 덤불에 막혀 거의 제자리면 가려던 곳을 포기한다
+            if (Math.hypot(p.x - g.x, p.z - g.z) < step * 0.3) pickTarget(g);
+            g.x = p.x; g.z = p.z;
+            g.ry = Math.atan2(dx, dz);
+            g.speed = GUEST_SPEED;
+          }
         }
 
-        handlers.onState(g.id, {
-          x: g.x,
-          y: g.hopping ? Math.sin(g.hop * Math.PI) * HOP_HEIGHT : 0,
-          z: g.z,
-          ry: g.ry,
-          hop: g.hopping ? g.hop : 0
-        });
+        handlers.onState(g.id, { x: g.x, y: 0, z: g.z, ry: g.ry, speed: g.speed });
 
         g.sayIn -= dt;
         if (g.sayIn <= 0){

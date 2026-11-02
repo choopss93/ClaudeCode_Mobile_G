@@ -43,11 +43,16 @@
   }
   .hand{font-family:"Gaegu","IBM Plex Sans KR",cursive}
 
+  /* 아이폰 사파리는 주소창이 접히고 펴지는 동안 100% 와 실제로 보이는
+     높이가 어긋난다. 그만큼 화면이 늘어나 보이므로 dvh 로 맞춘다.
+     그래도 어긋나는 순간이 있어, main.js 가 캔버스를 직접 재서 쓴다. */
   #scene{
-    position:fixed;inset:0;width:100%;height:100%;display:block;
+    position:fixed;left:0;top:0;display:block;
+    width:100vw;height:100vh;
+    width:100dvw;height:100dvh;
     touch-action:none;
   }
-  #hud, #pad, #help, #chat button, .label{
+  #hud, #stick, #help, #chat button, .label{
     user-select:none;-webkit-user-select:none;
   }
 
@@ -109,32 +114,36 @@
   }
   #hud .spacer{flex:1 1 auto}
 
-  /* ── 방향 패드 ── */
-  #pad{
+  /* ── 조이스틱 ──
+     평소에는 왼쪽 아래에 옅게 떠 있고, 손가락을 화면 왼쪽 아무 데나 대면
+     그 자리로 옮겨 온다. 손을 떼면 제자리로 돌아간다. */
+  #stick{
     position:fixed;z-index:6;
-    left:calc(16px + env(safe-area-inset-left, 0px));
-    bottom:calc(78px + env(safe-area-inset-bottom, 0px));
-    display:grid;
-    grid-template-columns:repeat(3, 46px);
-    grid-template-rows:repeat(3, 46px);
-    gap:5px;
-    transition:opacity .18s ease;
+    left:calc(78px + env(safe-area-inset-left, 0px));
+    bottom:calc(132px + env(safe-area-inset-bottom, 0px));
+    width:0;height:0;
+    opacity:.5;
     touch-action:none;
+    transition:opacity .18s ease;
   }
-  #pad button{
-    grid-area:var(--at);
-    font:inherit;font-size:17px;line-height:1;
-    color:#6E6480;background:rgba(255,255,255,.92);
-    border:0;border-radius:15px;
-    cursor:pointer;
-    box-shadow:0 3px 10px rgba(110,120,140,.18);
-    transition:transform .08s ease, background .12s ease;
+  #stick.on{opacity:1}
+  #stick .ring{
+    position:absolute;left:50%;top:50%;
+    width:128px;height:128px;margin:-64px 0 0 -64px;
+    border-radius:50%;
+    background:rgba(255,255,255,.3);
+    border:2px solid rgba(255,255,255,.75);
+    box-shadow:0 3px 14px rgba(110,120,140,.18);
   }
-  #pad button.on{transform:scale(.9);background:#FFF5CC}
-  #pad [data-dir="f"]{--at:1 / 2}
-  #pad [data-dir="l"]{--at:2 / 1}
-  #pad [data-dir="r"]{--at:2 / 3}
-  #pad [data-dir="b"]{--at:3 / 2}
+  #stick .knob{
+    position:absolute;left:50%;top:50%;
+    width:52px;height:52px;
+    border-radius:50%;
+    background:rgba(255,255,255,.94);
+    box-shadow:0 3px 12px rgba(110,120,140,.3);
+    transform:translate(-50%, -50%);
+  }
+  #stick:not(.on) .knob{transition:transform .16s ease}
 
   #help{
     position:fixed;z-index:5;
@@ -217,7 +226,7 @@
   #start .note{margin:14px 0 0;font-size:11.5px;color:#9A94AC;line-height:1.6}
 
   /* 키보드가 올라온 동안에는 가릴 것을 치운다 */
-  body.kb #pad, body.kb #help{opacity:0;pointer-events:none}
+  body.kb #stick, body.kb #help{opacity:0;pointer-events:none}
 
   #loading{
     position:fixed;inset:0;z-index:10;
@@ -227,19 +236,15 @@
 
   @media (prefers-reduced-motion: reduce){
     .bubble{animation:none}
-    #pad button{transition:none}
+    #stick, #stick .knob{transition:none}
   }
   .touch-only{display:none}
   @media (hover:none) and (pointer:coarse){
     .touch-only{display:inline}
     .mouse-only{display:none}
-    /* 손가락은 마우스보다 크다 */
-    #pad{grid-template-columns:repeat(3, 56px);grid-template-rows:repeat(3, 56px)}
-    #pad button{font-size:20px;border-radius:18px}
   }
   @media (max-height:560px){
     #help{display:none}
-    #pad{grid-template-columns:repeat(3, 46px);grid-template-rows:repeat(3, 46px)}
   }
 </style>
 <script type="importmap">
@@ -262,17 +267,15 @@
   <span class="chip" id="count">1명</span>
 </div>
 
-<div id="pad">
-  <button type="button" data-dir="f" aria-label="앞으로 점프">▲</button>
-  <button type="button" data-dir="l" aria-label="왼쪽으로 점프">◀</button>
-  <button type="button" data-dir="r" aria-label="오른쪽으로 점프">▶</button>
-  <button type="button" data-dir="b" aria-label="뒤로 점프">▼</button>
+<div id="stick" aria-hidden="true">
+  <div class="ring"></div>
+  <div class="knob" id="knob"></div>
 </div>
 
 <p id="help">
-  <span class="mouse-only"><b>WASD</b> · <b>방향키</b> 로 깡충<br>
+  <span class="mouse-only"><b>WASD</b> · <b>방향키</b> 로 걷기<br>
   끌어서 둘러보기 · <b>Enter</b> 로 말하기</span>
-  <span class="touch-only"><b>화살표</b> 로 깡충<br>끌어서 둘러보기</span>
+  <span class="touch-only"><b>왼쪽</b> 을 밀어 걷기<br><b>오른쪽</b> 을 끌어 둘러보기</span>
 </p>
 
 <form id="chat" autocomplete="off">

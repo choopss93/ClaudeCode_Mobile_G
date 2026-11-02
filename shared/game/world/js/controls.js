@@ -1,74 +1,125 @@
 /*
- * 조작: 앞뒤양옆 네 방향 점프만.
+ * 조작: 둥근 조이스틱으로 어느 방향이든 걸어다닌다.
  *
- * 누른 방향은 한 번 소비되고 사라진다. 뛰는 중에 들어온 입력은 하나만
- * 기억해 뒀다가 착지하는 순간 이어서 뛴다 — 연달아 누르면 리듬이 끊기지
- * 않는다.
+ * 손가락은 화면 왼쪽 아무 데나 대면 그 자리에 조이스틱이 생기고, 민
+ * 방향으로 걷는다. 많이 밀수록 빨리 걷는다. 오른쪽을 끌면 카메라가 돈다.
+ * 마우스는 왼쪽 아래 조이스틱을 끌거나 WASD 를 쓴다.
  */
 
-const KEY_DIR = {
-  KeyW:'f', ArrowUp:'f',
-  KeyS:'b', ArrowDown:'b',
-  KeyA:'l', ArrowLeft:'l',
-  KeyD:'r', ArrowRight:'r'
+const KEY_VEC = {
+  KeyW:[0,1], ArrowUp:[0,1],
+  KeyS:[0,-1], ArrowDown:[0,-1],
+  KeyA:[-1,0], ArrowLeft:[-1,0],
+  KeyD:[1,0], ArrowRight:[1,0]
 };
+
+const MAX = 40;          // 손잡이가 벗어날 수 있는 거리 (테두리 안에 머물 만큼)
+const DEAD = 0.14;       // 이만큼 안쪽은 흔들림으로 보고 무시한다
 
 function typing(){
   const el = document.activeElement;
   return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
 }
 
-export function createControls(surface, { pad } = {}){
-  const state = { yaw: 0, pitch: 0.5, dist: 6.2 };
-  let queued = null;
+export function createControls(surface, { stick, knob } = {}){
+  const state = {
+    move: { x: 0, z: 0 },   // 카메라 기준 좌우 · 앞뒤. 길이가 곧 속도(0~1)
+    yaw: 0,
+    pitch: 0.5,
+    dist: 6.2
+  };
 
-  function push(dir){ queued = dir; }
+  const keys = new Set();
+  let grip = null;        // {id, cx, cy, dx, dy} — 조이스틱을 쥐고 있는 손가락
+  const look = new Map(); // 카메라를 돌리고 있는 손가락들
 
-  /* ── 키보드 ── */
-  addEventListener('keydown', e => {
-    if (typing() || e.repeat) return;
-    const dir = KEY_DIR[e.code];
-    if (dir){ e.preventDefault(); push(dir); }
-  });
+  /* ── 조이스틱 ── */
 
-  /* ── 화면 위 방향 패드 ── */
-  if (pad){
-    for (const btn of pad.querySelectorAll('button[data-dir]')){
-      // pointerdown 으로 받아야 누르는 즉시 뛴다
-      btn.addEventListener('pointerdown', e => {
-        e.preventDefault();
-        push(btn.dataset.dir);
-        btn.classList.add('on');
-      });
-      const off = () => btn.classList.remove('on');
-      btn.addEventListener('pointerup', off);
-      btn.addEventListener('pointercancel', off);
-      btn.addEventListener('pointerleave', off);
-    }
+  function homeCenter(){
+    stick.style.left = '';
+    stick.style.top = '';
+    const r = stick.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }
 
-  /* ── 카메라: 끌어서 돌리기 ── */
-  const drag = new Map();
+  function placeAt(x, y){
+    stick.style.left = x + 'px';
+    stick.style.top = y + 'px';
+  }
+
+  function drawKnob(dx, dy){
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  }
+
+  function take(e, cx, cy){
+    grip = { id: e.pointerId, cx, cy, dx: 0, dy: 0 };
+    stick.classList.add('on');
+    drawKnob(0, 0);
+  }
+
+  function release(){
+    grip = null;
+    stick.classList.remove('on');
+    homeCenter();          // 제자리로 돌아간다
+    drawKnob(0, 0);
+  }
+
   surface.addEventListener('pointerdown', e => {
-    drag.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!grip){
+      // 손가락은 왼쪽 아무 데나. 짚은 자리에 조이스틱이 생긴다.
+      if (e.pointerType === 'touch' && e.clientX < innerWidth * 0.5){
+        placeAt(e.clientX, e.clientY);
+        take(e, e.clientX, e.clientY);
+        surface.setPointerCapture(e.pointerId);
+        return;
+      }
+      // 마우스는 왼쪽 아래 제자리 조이스틱을 잡아 끈다
+      const h = homeCenter();
+      if (Math.hypot(e.clientX - h.x, e.clientY - h.y) < MAX * 1.5){
+        take(e, h.x, h.y);
+        surface.setPointerCapture(e.pointerId);
+        return;
+      }
+    }
+    look.set(e.pointerId, { x: e.clientX, y: e.clientY });
     surface.setPointerCapture(e.pointerId);
   });
+
   surface.addEventListener('pointermove', e => {
-    const prev = drag.get(e.pointerId);
+    if (grip && e.pointerId === grip.id){
+      let dx = e.clientX - grip.cx;
+      let dy = e.clientY - grip.cy;
+      const d = Math.hypot(dx, dy);
+      if (d > MAX){ dx = dx / d * MAX; dy = dy / d * MAX; }
+      grip.dx = dx; grip.dy = dy;
+      drawKnob(dx, dy);
+      return;
+    }
+    const prev = look.get(e.pointerId);
     if (!prev) return;
     state.yaw   -= (e.clientX - prev.x) * 0.005;
     state.pitch -= (e.clientY - prev.y) * 0.004;
     state.pitch = Math.max(0.16, Math.min(1.1, state.pitch));
-    drag.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    look.set(e.pointerId, { x: e.clientX, y: e.clientY });
   });
-  const drop = e => drag.delete(e.pointerId);
-  surface.addEventListener('pointerup', drop);
-  surface.addEventListener('pointercancel', drop);
+
+  function letGo(e){
+    if (grip && e.pointerId === grip.id) release();
+    look.delete(e.pointerId);
+  }
+  surface.addEventListener('pointerup', letGo);
+  surface.addEventListener('pointercancel', letGo);
+
+  /* ── 키보드 ── */
+  addEventListener('keydown', e => {
+    if (typing() || e.repeat) return;
+    if (KEY_VEC[e.code]){ keys.add(e.code); e.preventDefault(); }
+  });
+  addEventListener('keyup', e => keys.delete(e.code));
+  addEventListener('blur', () => keys.clear());   // 창을 벗어나면 눌린 채 남는다
 
   /* ── 거리 ── */
-  function zoom(delta){
-    state.dist = Math.max(3.5, Math.min(12, state.dist + delta));
-  }
+  function zoom(d){ state.dist = Math.max(3.5, Math.min(12, state.dist + d)); }
   surface.addEventListener('wheel', e => {
     e.preventDefault();
     zoom(Math.sign(e.deltaY) * 0.8);
@@ -86,26 +137,34 @@ export function createControls(surface, { pad } = {}){
   }, { passive: true });
   surface.addEventListener('touchend', () => { pinch = 0; });
 
-  return {
-    state,
-    /** 기다리던 방향을 꺼내 쓴다. 꺼내면 비워진다. */
-    takeHop(){
-      const d = queued;
-      queued = null;
-      return d;
-    },
-    isTyping: typing
-  };
-}
+  /* ── 매 프레임 ── */
+  function update(){
+    let x = 0, z = 0;
 
-/** 'f' | 'b' | 'l' | 'r' 을 카메라가 보는 방향 기준의 x, z 로. */
-export function dirToVector(dir, yaw){
-  const sin = Math.sin(yaw), cos = Math.cos(yaw);
-  switch (dir){
-    case 'f': return { x: -sin, z: -cos };
-    case 'b': return { x:  sin, z:  cos };
-    case 'l': return { x: -cos, z:  sin };
-    case 'r': return { x:  cos, z: -sin };
+    for (const code of keys){
+      const [kx, kz] = KEY_VEC[code];
+      x += kx; z += kz;
+    }
+    if (x || z){
+      const n = Math.hypot(x, z);
+      x /= n; z /= n;            // 키보드는 늘 전속력
+    }
+
+    if (grip){
+      const gx = grip.dx / MAX;
+      const gz = -grip.dy / MAX;      // 화면 위쪽이 앞이다
+      if (Math.hypot(gx, gz) > DEAD){ x = gx; z = gz; }
+    }
+
+    const len = Math.hypot(x, z);
+    if (len > 1){ x /= len; z /= len; }
+    state.move.x = x;
+    state.move.z = z;
+    return state;
   }
-  return { x: 0, z: 0 };
+
+  homeCenter();
+  drawKnob(0, 0);
+
+  return { state, update, isTyping: typing };
 }

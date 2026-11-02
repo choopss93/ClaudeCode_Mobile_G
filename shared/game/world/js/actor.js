@@ -63,35 +63,40 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A } = {}){
   piece(head, ball, blush,  0.175, -0.07, fz * 0.86, 0.055, 0.035, 0.03);
   piece(head, ball, skin, 0, -0.04, fz * 1.02, 0.034, 0.03, 0.03);   // 코
 
-  let idle = Math.random() * 6;
+  const LEG_Y = LEG_H / 2;
+  let phase = 0, idle = Math.random() * 6;
 
   return {
     group,
     headTop: HEAD_TOP,
 
-    /**
-     * hop: 0 = 땅, 1 = 가장 높은 지점. 뛰는 동안 몸이 늘고 발이 모인다.
-     */
-    update(dt, hop){
+    /** speed: 초당 걷는 거리. 0 이면 가만히 서 있다. */
+    update(dt, speed){
       idle += dt;
-      const airborne = hop > 0.001;
+      const moving = speed > 0.05;
 
-      if (airborne){
-        // 뜰 때 늘어나고, 꼭대기에서 원래대로, 내릴 때 다시 늘어난다
-        const stretch = 1 + Math.sin(hop * Math.PI) * 0.1;
-        group.scale.set(2 - stretch, stretch, 2 - stretch);
-        const tuck = Math.sin(hop * Math.PI) * 0.45;
-        legL.rotation.x = -tuck;
-        legR.rotation.x = -tuck;
-        armL.rotation.z =  tuck * 0.9;
-        armR.rotation.z = -tuck * 0.9;
-        head.position.y = HEAD_Y + Math.sin(hop * Math.PI) * 0.015;
+      if (moving){
+        // 다리가 공 모양이라 돌려 봐야 표가 안 난다. 번갈아 들어 올린다.
+        phase += dt * (5.5 + speed * 1.9);
+        const sw = Math.sin(phase);
+        legL.position.y = LEG_Y + Math.max(0, sw) * 0.07;
+        legR.position.y = LEG_Y + Math.max(0, -sw) * 0.07;
+        armL.rotation.x = -sw * 0.5;
+        armR.rotation.x =  sw * 0.5;
+
+        // 걸음마다 살짝 통통 — 머리가 크니 몸이 조금 늦게 따라온다
+        group.position.y = Math.abs(sw) * 0.035;
+        const squash = 1 + Math.sin(phase * 2) * 0.025;
+        group.scale.set(2 - squash, squash, 2 - squash);
+        head.position.y = HEAD_Y - Math.sin(phase * 2 - 0.6) * 0.012;
       } else {
         // 가만히 있을 때 숨 쉬듯 아주 천천히
+        phase = 0;
         const breathe = Math.sin(idle * 1.5) * 0.012;
+        group.position.y = 0;
         group.scale.set(1 - breathe, 1 + breathe, 1 - breathe);
-        legL.rotation.x = legR.rotation.x = 0;
-        armL.rotation.z = armR.rotation.z = 0;
+        legL.position.y = legR.position.y = LEG_Y;
+        armL.rotation.x = armR.rotation.x = 0;
         head.position.y = HEAD_Y + breathe * 0.4;
       }
     },
@@ -136,24 +141,32 @@ export function createDog({ color = 0xEBC99A } = {}){
   const tail = piece(group, ball, fur, 0, 0.27, -0.18, 0.04, 0.075, 0.04);
   tail.rotation.x = -0.6;
 
-  let t = Math.random() * 6;
+  const DOG_LEG_Y = LEGY / 2 + 0.01;
+  let t = Math.random() * 6, step = 0;
 
   return {
     group,
     headTop: DOG_HEAD_TOP,
 
-    update(dt, hop){
+    /** speed: 초당 걷는 거리. */
+    update(dt, speed){
       t += dt;
       tail.rotation.z = Math.sin(t * 9) * 0.5;   // 꼬리는 늘 흔든다
-      if (hop > 0.001){
-        const s = 1 + Math.sin(hop * Math.PI) * 0.09;
-        group.scale.set(2 - s, s, 2 - s);
-        const tuck = Math.sin(hop * Math.PI) * 0.5;
-        for (const l of legs) l.rotation.x = -tuck;
-        head.rotation.x = -tuck * 0.3;
+
+      if (speed > 0.05){
+        step += dt * (7 + speed * 2.2);
+        const sw = Math.sin(step);
+        // 앞뒤 다리가 어긋나게 — 네 발 짐승의 걸음새
+        legs[0].position.y = DOG_LEG_Y + Math.max(0,  sw) * 0.05;
+        legs[1].position.y = DOG_LEG_Y + Math.max(0, -sw) * 0.05;
+        legs[2].position.y = DOG_LEG_Y + Math.max(0, -sw) * 0.05;
+        legs[3].position.y = DOG_LEG_Y + Math.max(0,  sw) * 0.05;
+        group.position.y = Math.abs(sw) * 0.022;
+        head.rotation.x = Math.sin(step * 2) * 0.05;
       } else {
-        group.scale.set(1, 1, 1);
-        for (const l of legs) l.rotation.x = 0;
+        step = 0;
+        group.position.y = 0;
+        for (const l of legs) l.position.y = DOG_LEG_Y;
         head.rotation.x = Math.sin(t * 1.8) * 0.04;
       }
     },
