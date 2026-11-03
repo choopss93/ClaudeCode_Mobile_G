@@ -9,6 +9,18 @@ import { toon, makeBlob } from '#look';
 const BODY_H = 0.32;          // 몸 높이
 const HEAD_R = BODY_H;        // 머리 반지름 → 지름은 몸의 두 배
 const LEG_H  = 0.17;
+
+/* 등불이 둘레를 밝히는 정도. 밤에 캐릭터와 그 둘레가 환히 보이되, 멀리는
+   어둡게 남아 밤인 줄 알게 하는 선에서 잡았다.
+   - 세기는 three r155 부터 단위가 바뀌어 예전 감각보다 큰 값이 든다.
+   - 멀어짐(`decay`)은 1 로 둔다. 2(실제 물리값)로 두면 바로 곁의 캐릭터만
+     하얗게 타고 두어 걸음 밖 땅은 깜깜해서, 정작 둘레가 안 보인다.
+   - 빛은 등불이 아니라 머리 위(2.4m)에 둔다. 등불 자리에 두면 거리 차가
+     커서 또 캐릭터만 탄다. 그림자를 쓰지 않으므로 티가 나지 않는다. */
+const LAMP = 5;               // 불을 켰을 때의 세기
+const LAMP_REACH = 16;        // 빛이 닿는 거리 (m)
+const LAMP_DECAY = 1;         // 멀어질수록 줄어드는 가파르기
+const LAMP_COLOR = 0xFFECC4;  // 너무 짙으면 머리칼이 주황으로 뜬다
 const BODY_Y = LEG_H + BODY_H / 2;
 const HEAD_Y = BODY_Y + BODY_H / 2 + HEAD_R * 0.72;
 export const HEAD_TOP = HEAD_Y + HEAD_R;
@@ -25,7 +37,8 @@ function piece(group, geo, mat, x, y, z, sx, sy, sz){
   return m;
 }
 
-export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false } = {}){
+export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
+                              lamp = false } = {}){
   const group = new THREE.Group();
   const skin = toon(0xFFE9D4);
   const cloth = toon(color);
@@ -102,6 +115,21 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false } 
   lantern.add(halo);
   lantern.visible = false;
 
+  /* 등불이 둘레를 밝힌다.
+     - 빛은 **내 캐릭터에만** 단다. 사람마다 달면 서른 명이 들어왔을 때
+       빛이 서른 개가 되어 셰이더가 버티지 못한다. 남의 등불은 불빛만
+       보인다.
+     - 등불 밑에 달지 않고 `group` 에 단다. 등불은 밝을 때 `visible=false`
+       가 되는데, 안 보이는 가지 밑의 빛은 빛 목록에서 통째로 빠진다.
+       그러면 밤낮이 바뀔 때마다 모든 재질이 다시 컴파일돼 화면이 멎는다.
+       늘 달아 두고 **세기만** 0 과 LAMP 사이로 옮긴다. */
+  let glow = null;
+  if (lamp){
+    glow = new THREE.PointLight(LAMP_COLOR, 0, LAMP_REACH, LAMP_DECAY);
+    glow.position.set(0.15, 2.4, 0);      // 머리 위 — 까닭은 위 설명
+    group.add(glow);
+  }
+
   // 머리 — 몸의 두 배
   const head = new THREE.Group();
   head.position.y = HEAD_Y;
@@ -142,6 +170,7 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false } 
     setHand(dark){
       pinwheel.visible = !dark;
       lantern.visible = !!dark;
+      if (glow) glow.intensity = dark ? LAMP : 0;
     },
 
     /** speed: 초당 걷는 거리. 0 이면 가만히 서 있다. */

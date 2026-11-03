@@ -290,7 +290,8 @@ function begin(myName, petName, petSpec, friends, myLook){
   }
 
   /* ── 나와 내 강아지 ── */
-  const me = createActor({ color: colorFor(myName), hair: hairFor(myName),
+  // 등불 빛은 내 캐릭터에만 단다 (actor.js 의 lamp 설명 참고)
+  const me = createActor({ lamp: true, color: colorFor(myName), hair: hairFor(myName),
                           long: myLook === 'long' });
   // 무지개 다리 바깥 끝에서 시작한다. 앞으로 쭉 건너가면 들판이다.
   me.group.position.set(START.x, 0, START.z);
