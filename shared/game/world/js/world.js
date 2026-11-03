@@ -319,6 +319,7 @@ export function createWorld(){
   group.add(makeBridge());
   group.add(makeIsle());
   group.add(makeCloudSea());
+  group.add(makeHaze());
 
   return { group, colliders, radius: WORLD_RADIUS, bridge: BRIDGE, isle: ISLE };
 }
@@ -452,6 +453,9 @@ function makeCloudSea(){
     return Math.min(a, b, c);
   }
 
+  // 작은 섬 뒤쪽은 구름이 아니라 안개다 (makeHaze). 거기엔 두지 않는다.
+  const behind = z => z >= ISLE.z - 0.5;
+
   // 가장자리 한 자리. rnd()*rnd() 를 쓰면 뭍에 바짝 붙은 쪽이 촘촘해진다.
   function rimSpot(){
     const r = rnd();
@@ -488,7 +492,7 @@ function makeCloudSea(){
 
   for (let i = 0, tries = 0; i < RIM && tries < RIM * 20; tries++){
     const [x, z] = rimSpot();
-    if (offLand(x, z) < 0.4) continue;
+    if (offLand(x, z) < 0.4 || behind(z)) continue;
     place(x, z, 0.75 + rnd() * 1.7, 0.34 - rnd() * 0.9);
     i++;
   }
@@ -498,7 +502,7 @@ function makeCloudSea(){
     const d = Math.sqrt(rnd()) * SEA_REACH;          // 넓은 바깥까지 고르게
     const x = Math.cos(a) * d, z = Math.sin(a) * d;
     const off = offLand(x, z);
-    if (off < 1.2) continue;
+    if (off < 1.2 || behind(z)) continue;
     /* 멀수록 높이 쌓는다. 다 같은 높이로 깔면 위에서 내려다보는 꼴이 되어
        연잎이 떠 있는 못처럼 보인다 — 한 번 그렇게 만들어 봤다. 멀리서
        솟아올라야 사방이 구름으로 둘러싸인 것이 된다. */
@@ -510,6 +514,56 @@ function makeCloudSea(){
   puff.count = n;
   puff.instanceMatrix.needsUpdate = true;
   g.add(puff);
+
+  return g;
+}
+
+/* 작은 섬 뒤쪽의 안개.
+   구름처럼 덩이로 두면 "넘어갈 데가 있나" 싶어 보인다. 저쪽은 갈 수 없는
+   곳이니 아예 뿌옇게 지워 버리는 편이 낫다.
+
+   비치는 흰 막을 여러 겹 겹친다. 한 겹을 짙게 하면 벽처럼 딱딱해지고,
+   옅은 겹을 포개면 멀수록 자연스럽게 짙어져 안개가 된다.
+   - 다리 쪽(-Z)은 비워 둔다. 거기는 건너갈 길이라 가리면 안 된다.
+   - 깊이를 쓰지 않아야(depthWrite:false) 겹끼리 서로 지우지 않는다.
+   - 빛을 받는 재질(toonUnique)이라야 밤에 같이 어두워진다. 안 그러면
+     깜깜한 밤에 흰 벽만 환하게 남는다. */
+function makeHaze(){
+  const g = new THREE.Group();
+  /* 낮게 두면 안개 **위로** 하늘이 보여 가로줄이 생긴다. 넉넉히 높인다. */
+  const H = 30;
+  const ARC = Math.PI;                // 반 바퀴, 섬 뒤쪽만
+  const SHELLS = [7, 10, 14, 19, 25, 33, 43];
+
+  SHELLS.forEach((r, i) => {
+    // 겹마다 끝나는 각도를 조금씩 어긋나게 — 같은 자리에서 끝나면
+    // 가장자리가 포개져 세로줄로 도드라진다.
+    const m = new THREE.Mesh(
+      new THREE.CylinderGeometry(r, r, H, 28, 1, true,
+                                 -Math.PI / 2 - i * 0.05, ARC + i * 0.1),
+      toonUnique(0xFFFFFF, {
+        transparent: true,
+        opacity: 0.22 + i * 0.02,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      })
+    );
+    m.position.set(ISLE.x, H / 2 - 6, ISLE.z);
+    m.renderOrder = 3;
+    g.add(m);
+  });
+
+  /* 바닥 쪽 — 겹 사이로 아래가 들여다보이지 않게 뿌연 바닥을 깐다 */
+  /* 원판은 실린더와 각도 기준이 다르다. 눕히고 나면 +Z 쪽 반원은
+     thetaStart = -π 다 (실린더는 -π/2). 같은 값을 쓰면 엉뚱한 쪽이 덮인다. */
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(46, 36, -Math.PI, ARC),
+    toonUnique(0xFFFFFF, { transparent: true, opacity: 0.9, depthWrite: false })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(ISLE.x, -0.75, ISLE.z);
+  floor.renderOrder = 2;
+  g.add(floor);
 
   return g;
 }
