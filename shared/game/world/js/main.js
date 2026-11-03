@@ -14,6 +14,11 @@ const TURN = 11;             // 몸이 방향을 따라 도는 빠르기
 // 거니는 빠르기는 품종마다 다르다 (pets.js 의 walkSpeed). 사람보다 늘 느리다.
 const GREET_RANGE = 4.2;     // 주인이 이만큼 가까워지면 알아본다
                              // (좁게 잡으면 스쳐 지나가느라 좀처럼 못 알아본다)
+const FOLLOW_GO = 2.4;       // 만난 뒤 — 이만큼 떨어지면 따라나선다
+const FOLLOW_STOP = 1.5;     // 이만큼 가까우면 멈춰 선다
+const FOLLOW_LOSE = 24;      // 이만큼 벌어지면 놓친 것으로 보고 다시 거닌다
+const FOLLOW_TROT = 1.75;    // 따라올 때는 종종걸음. 그래도 사람보다 느리다.
+const FOLLOW_MAX = 2.9;      // 사람(3.1)을 앞지르지 않도록 여기서 막는다
 const GREET_CHANCE = 0.85;   // 알아봤을 때 반가워할 확률
 const GREET_AGAIN = 9;       // 한 번 반긴 뒤 다시 반기기까지 (초)
 const MEET_CHANCE = 0.8;     // 다음 갈 곳을 바로 내 근처로 잡을 확률
@@ -291,8 +296,11 @@ function begin(myName, petName, petSpec, friends, myLook){
     if (owner && owner !== me.group) family.push(owner);
 
     const e = { actor, label: makeLabel(name, 'pet'), tx: at.x, tz: at.z,
-                speed: spec.speed, rest: Math.random() * 1.5,
-                family, greetWait: 2 };
+                speed: spec.speed,
+                trot: Math.min(spec.speed * FOLLOW_TROT, FOLLOW_MAX),
+                rest: Math.random() * 1.5,
+                family, greetWait: 2,
+                follows: null };        // 한 번 만나면 그 사람을 따라나선다
     wander(e);
     pets.push(e);
     return e;
@@ -508,6 +516,7 @@ function begin(myName, petName, petSpec, friends, myLook){
           const oz = who.position.z - e.actor.group.position.z;
           if (Math.hypot(ox, oz) >= GREET_RANGE) continue;
           e.greetWait = GREET_AGAIN;
+          e.follows = who;                                   // 만났으니 이제 따라다닌다
           if (Math.random() < GREET_CHANCE){
             e.actor.startGreet();
             e.actor.group.rotation.y = Math.atan2(ox, oz);   // 그 사람을 바라본다
@@ -521,6 +530,28 @@ function begin(myName, petName, petSpec, friends, myLook){
       if (e.actor.greeting()){
         e.actor.update(dt, 0);
         continue;
+      }
+
+      /* 만난 사람을 따라다닌다. 사람이 빨라 멀찍이 벌어지면 놓친 것으로
+         보고 다시 정원을 거닌다 — 그러면 또 만날 일이 생긴다. */
+      if (e.follows){
+        const at = e.actor.group.position;
+        const dx = e.follows.position.x - at.x;
+        const dz = e.follows.position.z - at.z;
+        const gap = Math.hypot(dx, dz);
+
+        if (gap > FOLLOW_LOSE){
+          e.follows = null;
+          e.rest = 0.5;
+          wander(e);
+        } else if (gap > FOLLOW_GO){
+          const step = Math.min(e.trot, (gap - FOLLOW_STOP) / Math.max(dt, 1e-4));
+          e.actor.update(dt, walk(e.actor.group, dx / gap, dz / gap, step, dt));
+          continue;
+        } else {
+          e.actor.update(dt, 0);
+          continue;
+        }
       }
 
       if (e.rest > 0){
