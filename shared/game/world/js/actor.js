@@ -25,7 +25,7 @@ function piece(group, geo, mat, x, y, z, sx, sy, sz){
   return m;
 }
 
-export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A } = {}){
+export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false } = {}){
   const group = new THREE.Group();
   const skin = toon(0xFFE9D4);
   const cloth = toon(color);
@@ -112,6 +112,17 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A } = {}){
   // 머리 안으로 파묻혀 깎인 자국처럼 보인다. 얼굴은 드러나게 뒤로 민다.
   piece(head, ball, hairMat, 0, HEAD_R * 0.22, -HEAD_R * 0.16,
         HEAD_R * 1.04, HEAD_R * 0.88, HEAD_R * 0.92);
+
+  // 긴 머리 — 게임에서는 뒷모습을 주로 보므로, 뒤에서도 구분되게 옆과 뒤로
+  // 흘러내리게 한다. 옷 색은 이름에서 나오므로 머리 모양만 다르다.
+  if (long){
+    for (const side of [-1, 1]){
+      piece(head, ball, hairMat, side * HEAD_R * 0.84, -HEAD_R * 0.42, -HEAD_R * 0.04,
+            HEAD_R * 0.3, HEAD_R * 0.62, HEAD_R * 0.34);
+    }
+    piece(head, ball, hairMat, 0, -HEAD_R * 0.46, -HEAD_R * 0.6,
+          HEAD_R * 0.74, HEAD_R * 0.58, HEAD_R * 0.44);
+  }
 
   const fz = HEAD_R * 0.84;   // 얼굴이 향하는 면 (+Z)
   piece(head, eyeGeo, dark, -0.105, 0.015, fz, 1, 1.15, 0.7);

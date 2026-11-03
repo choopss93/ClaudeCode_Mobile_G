@@ -381,15 +381,15 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-02h",
-    "#world": "./js/world.js?v=2026-11-02h",
-    "#actor": "./js/actor.js?v=2026-11-02h",
-    "#controls": "./js/controls.js?v=2026-11-02h",
-    "#net": "./js/net.js?v=2026-11-02h",
-    "#sound": "./js/sound.js?v=2026-11-02h",
-    "#pets": "./js/pets.js?v=2026-11-02h",
-    "#petcode": "./js/petcode.js?v=2026-11-02h",
-    "#daylight": "./js/daylight.js?v=2026-11-02h"
+    "#look": "./js/look.js?v=2026-11-02i",
+    "#world": "./js/world.js?v=2026-11-02i",
+    "#actor": "./js/actor.js?v=2026-11-02i",
+    "#controls": "./js/controls.js?v=2026-11-02i",
+    "#net": "./js/net.js?v=2026-11-02i",
+    "#sound": "./js/sound.js?v=2026-11-02i",
+    "#pets": "./js/pets.js?v=2026-11-02i",
+    "#petcode": "./js/petcode.js?v=2026-11-02i",
+    "#daylight": "./js/daylight.js?v=2026-11-02i"
   }
 }
 </script>
@@ -466,6 +466,12 @@
     <label for="nameInput">당신의 이름</label>
     <input id="nameInput" type="text" maxlength="12" required placeholder="캐릭터 이름이 됩니다">
 
+    <label>캐릭터</label>
+    <div class="seg" id="gender">
+      <button type="button" data-look="short" class="on">남자</button>
+      <button type="button" data-look="long">여자</button>
+    </div>
+
     <label>누구와 함께 갈까요</label>
     <div class="seg" id="kind">
       <button type="button" data-kind="dog" class="on">강아지</button>
@@ -487,10 +493,10 @@
 
     <button type="submit">정원으로 들어가기</button>
     <p class="note">서두를 것도, 지는 것도 없는 곳이에요.
-      <span class="ver">2026-11-02h</span></p>
+      <span class="ver">2026-11-02i</span></p>
   </form>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-02h"></script>
+<script type="module" src="./js/main.js?v=2026-11-02i"></script>
 </body>
 </html>

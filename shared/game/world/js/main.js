@@ -59,13 +59,14 @@ $('scene').addEventListener('contextmenu', e => e.preventDefault());
 
 /* ── 이름과 반려동물 고르기 ── */
 
-const choice = { kind: 'dog', breed: 3, coat: 'white' };
+const choice = { look: 'short', kind: 'dog', breed: 3, coat: 'white' };
 
 try {
   const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
   if (saved){
     nameIn.value = saved.name || '';
     dogIn.value = saved.dog || '';
+    if (saved.look === 'short' || saved.look === 'long') choice.look = saved.look;
     if (KINDS[saved.kind]) choice.kind = saved.kind;
     if (Number.isInteger(saved.breed)) choice.breed = saved.breed;
     if (COATS.some(c => c.key === saved.coat)) choice.coat = saved.coat;
@@ -125,6 +126,16 @@ function paintCoats(){
   if (cur) coatNameEl.textContent = cur.label;
 }
 
+for (const btn of $('gender').querySelectorAll('button[data-look]')){
+  btn.addEventListener('click', () => {
+    choice.look = btn.dataset.look;
+    for (const o of $('gender').querySelectorAll('button[data-look]')){
+      o.classList.toggle('on', o.dataset.look === choice.look);
+    }
+  });
+  btn.classList.toggle('on', btn.dataset.look === choice.look);
+}
+
 for (const btn of $('kind').querySelectorAll('button[data-kind]')){
   btn.addEventListener('click', () => {
     choice.kind = btn.dataset.kind;
@@ -159,7 +170,8 @@ startForm.addEventListener('submit', e => {
   if (!name || !dog) return;
   try {
     localStorage.setItem(STORE, JSON.stringify({
-      name, dog, kind: choice.kind, breed: choice.breed, coat: choice.coat
+      name, dog, look: choice.look,
+      kind: choice.kind, breed: choice.breed, coat: choice.coat
     }));
   } catch (_){}
   // 브라우저는 누르기 전에는 소리를 내주지 않는다. 이 순간에 시작해야 한다.
@@ -167,12 +179,12 @@ startForm.addEventListener('submit', e => {
   paintSound();
   startEl.hidden = true;
   // 랜덤이면 여기서 한 번만 뽑는다. 들어갈 때마다 달라진다.
-  begin(name, dog, resolvePet(choice), readCodes($('friendCodes').value));
+  begin(name, dog, resolvePet(choice), readCodes($('friendCodes').value), choice.look);
 });
 if (!TOUCH) nameIn.focus();   // 폰에서는 키보드가 시작 화면을 가린다
 
 /* ── 게임 ── */
-function begin(myName, petName, petSpec, friends){
+function begin(myName, petName, petSpec, friends, myLook){
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, TOUCH ? 1.75 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -232,7 +244,8 @@ function begin(myName, petName, petSpec, friends){
   }
 
   /* ── 나와 내 강아지 ── */
-  const me = createActor({ color: colorFor(myName), hair: hairFor(myName) });
+  const me = createActor({ color: colorFor(myName), hair: hairFor(myName),
+                          long: myLook === 'long' });
   me.group.position.set(0, 0, 5.5);
   me.group.rotation.y = Math.PI;
   scene.add(me.group);
@@ -293,7 +306,8 @@ function begin(myName, petName, petSpec, friends){
 
   const handlers = {
     onJoin(id, info){
-      const actor = createActor({ color: colorFor(info.name), hair: hairFor(info.name) });
+      const actor = createActor({ color: colorFor(info.name), hair: hairFor(info.name),
+                                  long: info.look === 'long' });
       scene.add(actor.group);
       actor.setHand(look.dark > 0.5);
       const entry = { actor, label: makeLabel(info.name), s: { x:0, y:0, z:0, ry:0, speed:0 }, started: false };

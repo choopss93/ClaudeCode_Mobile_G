@@ -19,8 +19,8 @@ import { resolve } from '#world';
  */
 
 const GUESTS = [
-  { name: '햇살',   dog: '구름', pet: { kind:'dog', breed:4, coat:'brown'  } },  // 웰시코기
-  { name: '민들레', dog: '단비', pet: { kind:'cat', breed:7, coat:'tuxedo' } }   // 메인쿤
+  { name: '햇살',   look: 'short', dog: '구름', pet: { kind:'dog', breed:4, coat:'brown'  } },  // 웰시코기
+  { name: '민들레', look: 'long',  dog: '단비', pet: { kind:'cat', breed:7, coat:'tuxedo' } }   // 메인쿤
 ];
 
 const LINES = [
@@ -53,7 +53,7 @@ export function createLocalNet({ world, handlers }){
     };
     pickTarget(guest);
     guests.push(guest);
-    handlers.onJoin(guest.id, { name: g.name, dog: g.dog, pet: g.pet });
+    handlers.onJoin(guest.id, { name: g.name, look: g.look, dog: g.dog, pet: g.pet });
   });
 
   function pickTarget(g){
