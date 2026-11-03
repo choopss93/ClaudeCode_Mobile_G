@@ -8,6 +8,7 @@ import { CAPACITY, PUBLIC, makeChannel, readChannel, showChannel,
 import { lookNow, createStars, applyLook } from '#daylight';
 import { createControls } from '#controls';
 import { createLocalNet } from '#net';
+import { createLiveNet } from '#live';
 import { createWind } from '#sound';
 import { SKY, colorFor, hairFor, wind } from '#look';
 
@@ -336,7 +337,14 @@ function begin(myName, petName, petSpec, friends, myLook){
     e.tx = at.x; e.tz = at.z;
   }
 
-  function addPet(spec, name, owner){
+  /* 걷게 하면서 그 빠르기를 적어 둔다. 내 아이의 걸음은 남의 화면에서
+     다리를 움직이는 값이 되므로, 흘려버리면 미끄러져 보인다. */
+  function step(e, dt, speed){
+    e.lastSpeed = speed;
+    e.actor.update(dt, speed);
+  }
+
+  function addPet(spec, name, owner, remote){
     const actor = createPet(spec);
     // 들어서자마자 곁에 있으면 찾아다닐 일이 없다. 정원 어딘가 멀찍이 둔다 —
     // 거닐다 만나거나, 이름을 부르면 된다.
@@ -352,12 +360,14 @@ function begin(myName, petName, petSpec, friends, myLook){
     const family = [me.group];
     if (owner && owner !== me.group) family.push(owner);
 
-    const e = { actor, name, label: makeLabel(name, 'pet'), tx: at.x, tz: at.z,
+    const e = { actor, name, spec, label: makeLabel(name, 'pet'), tx: at.x, tz: at.z,
                 speed: spec.speed,
                 trot: Math.min(spec.speed * FOLLOW_TROT, FOLLOW_MAX),
                 rest: Math.random() * 1.5,
                 family,
                 owner: owner || null,   // 따라다니는 상대는 이 사람뿐이다
+                remote: !!remote,       // 주인의 기기에서 사는 아이 — 여기서는 놓기만 한다
+                lastSpeed: 0,
                 greetWait: 2,
                 follows: null,          // 만나 반긴 뒤 제 주인을 따라나선다
                 called: false };        // 이름을 부르면 곧장 달려온다
@@ -366,7 +376,7 @@ function begin(myName, petName, petSpec, friends, myLook){
     return e;
   }
 
-  addPet(petSpec, petName, me.group);          // 이 아이의 주인은 나다
+  const myPet = addPet(petSpec, petName, me.group);   // 이 아이의 주인은 나다
   for (const f of friends || []) addPet(resolvePet(f), f.name);
 
   /* ── 다른 사람들 ── */
@@ -378,10 +388,16 @@ function begin(myName, petName, petSpec, friends, myLook){
                                   long: info.look === 'long' });
       scene.add(actor.group);
       actor.setHand(look.dark > 0.5);
-      const entry = { actor, label: makeLabel(info.name), s: { x:0, y:0, z:0, ry:0, speed:0 }, started: false };
+      const entry = { actor, label: makeLabel(info.name), s: { x:0, y:0, z:0, ry:0, speed:0 },
+                      started: false, pet: null };
 
-      // 손님의 반려동물도 주인을 따라다니지 않고 정원을 거닌다
-      if (info.pet) addPet(resolvePet(info.pet), info.dog || '친구', actor.group);
+      // 거니는 손님의 아이는 여기서 거닐지만, 접속한 사람의 아이는 그
+      // 사람의 기기에서 살아 있다 (info.remote). 그래야 둘이 같은 한
+      // 마리를 본다 — 받은 쪽에서 따로 거닐게 하면 화면마다 다른 데 있다.
+      if (info.pet){
+        entry.pet = addPet(resolvePet(info.pet), info.dog || '친구',
+                           actor.group, info.remote);
+      }
       peers.set(id, entry);
       updateCount();
     },
@@ -393,6 +409,18 @@ function begin(myName, petName, petSpec, friends, myLook){
         p.actor.group.position.set(s.x, 0, s.z);
         p.started = true;
       }
+
+      // 주인이 보내 준 아이의 자리
+      if (s.pet && p.pet){
+        const e = p.pet;
+        e.rx = s.pet.x; e.rz = s.pet.z; e.rry = s.pet.ry;
+        e.rsp = s.pet.speed; e.rgreet = s.pet.greet;
+        if (!e.rStarted){
+          e.rStarted = true;
+          e.actor.group.position.set(s.pet.x, 0, s.pet.z);
+          e.actor.group.rotation.y = s.pet.ry;
+        }
+      }
     },
     onSay(id, text){
       const p = peers.get(id);
@@ -402,19 +430,50 @@ function begin(myName, petName, petSpec, friends, myLook){
       const p = peers.get(id);
       if (!p) return;
       scene.remove(p.actor.group); p.actor.dispose(); p.label.remove();
+
+      // 그 사람의 아이도 함께 간다. 두고 가면 주인이 없어 자리를 보내
+      // 주는 사람도 없으니, 정원에 그대로 멈춰 서 있게 된다.
+      if (p.pet){
+        const i = pets.indexOf(p.pet);
+        if (i >= 0) pets.splice(i, 1);
+        scene.remove(p.pet.actor.group);
+        p.pet.actor.dispose();
+        p.pet.label.remove();
+      }
+
       peers.delete(id);
       updateCount();
     }
   };
 
   // net 보다 먼저 불린다 (손님이 들어올 때). net 을 들여다보지 말 것.
-  function updateCount(){
+  function updateCount(){ paintCount(); }
+
+  function paintCount(){
     const n = peers.size + 1;
     countEl.textContent = n + ' / ' + CAPACITY;
-    countEl.title = n >= CAPACITY ? '자리가 찼어요' : '';
+    const where = n >= CAPACITY ? '자리가 찼어요' : '';
+    countEl.title = where ? where + ' · ' + netSaid : netSaid;
+    const hint = $('chHow');
+    if (hint) hint.textContent = netSaid;
   }
 
-  const net = createLocalNet({ world, handlers, channel });
+  // 접속 상태. strollers 가 손님을 넣을 때 updateCount 가 이것을
+  // 들여다보므로 반드시 먼저 만들어 둔다 (안 그러면 TDZ 오류가 난다).
+  let netSaid = '잇는 중';
+
+  // 거니는 손님들. 열린 정원에만 있고 내가 판 채널은 조용하다.
+  const strollers = createLocalNet({ world, handlers, channel });
+
+  // 같은 채널에 들어온 실제 사람들. 못 붙어도 정원은 그대로 거닐 수 있다.
+  const net = createLiveNet({
+    handlers, channel,
+    me: { name: myName, look: myLook, dog: petName,
+          // '랜덤' 을 그대로 보내면 받는 쪽에서 다른 털빛이 된다.
+          // 이미 뽑힌 값을 보내야 같은 아이가 된다.
+          pet: { kind: petSpec.kind, breed: choice.breed, coat: petSpec.coatKey } },
+    onStatus(s){ netSaid = s; paintCount(); }
+  });
   updateCount();
 
   /* ── 조작 ── */
@@ -422,7 +481,7 @@ function begin(myName, petName, petSpec, friends, myLook){
 
   /* ── 반려동물 코드 ── */
   const myCode = makeCode({
-    kind: petSpec.kind, breed: choice.breed, coat: choice.coat, name: petName
+    kind: petSpec.kind, breed: choice.breed, coat: petSpec.coatKey, name: petName
   });
   $('myCode').textContent = myCode;
   $('myPetName').textContent = petName;
@@ -602,6 +661,30 @@ function begin(myName, petName, petSpec, friends, myLook){
 
     /* 반려동물 — 저마다 거닐다, 주인을 만나면 반가워한다 */
     for (const e of pets){
+      /* 남의 아이는 주인의 기기에서 살아 있다. 여기서는 보내온 자리로
+         옮기기만 한다 — 따로 거닐게 하면 화면마다 다른 데 있게 된다. */
+      if (e.remote){
+        const g = e.actor.group;
+        if (!e.rStarted){ e.actor.update(dt, 0); continue; }
+        const k = Math.min(1, dt * 14);
+        g.position.x += (e.rx - g.position.x) * k;
+        g.position.z += (e.rz - g.position.z) * k;
+        let turn = e.rry - g.rotation.y;
+        turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+        g.rotation.y += turn * Math.min(1, dt * TURN);
+        // 반기는 것도 주인이 알려 준다. 한 번 시작하면 끝까지 두고,
+        // 주인이 그만둘 때까지는 다시 걸지 않는다.
+        if (e.rgreet){
+          if (!e.greetSeen){
+            e.greetSeen = true;
+            e.actor.startGreet();
+            e.label.say('♥', 2600);
+          }
+        } else e.greetSeen = false;
+        e.actor.update(dt, e.rsp || 0);
+        continue;
+      }
+
       if (e.greetWait > 0) e.greetWait -= dt;
 
       // 가족이 곁에 오면 알아본다. 한 번 반긴 뒤에는 잠시 쉬었다 다시.
@@ -627,7 +710,7 @@ function begin(myName, petName, petSpec, friends, myLook){
 
       // 반가워하는 동안에는 걸음을 멈춘다
       if (e.actor.greeting()){
-        e.actor.update(dt, 0);
+        step(e, dt, 0);
         continue;
       }
 
@@ -638,7 +721,7 @@ function begin(myName, petName, petSpec, friends, myLook){
         const dz = me.group.position.z - at.z;
         const gap = Math.hypot(dx, dz);
         if (gap > GREET_RANGE){
-          e.actor.update(dt, walk(e.actor.group, dx / gap, dz / gap, e.trot, dt));
+          step(e, dt, walk(e.actor.group, dx / gap, dz / gap, e.trot, dt));
           continue;
         }
         // 다 왔다. 쉬는 참이었어도 바로 반기도록 기다림을 지운다.
@@ -660,18 +743,20 @@ function begin(myName, petName, petSpec, friends, myLook){
           e.rest = 0.5;
           wander(e);
         } else if (gap > FOLLOW_GO){
-          const step = Math.min(e.trot, (gap - FOLLOW_STOP) / Math.max(dt, 1e-4));
-          e.actor.update(dt, walk(e.actor.group, dx / gap, dz / gap, step, dt));
+          // 멈출 자리를 지나치지 않을 만큼만. 도우미 step 과 이름이
+          // 겹치면 안 된다 — 지역 변수가 가려서 그 자리에서 터진다.
+          const pace = Math.min(e.trot, (gap - FOLLOW_STOP) / Math.max(dt, 1e-4));
+          step(e, dt, walk(e.actor.group, dx / gap, dz / gap, pace, dt));
           continue;
         } else {
-          e.actor.update(dt, 0);
+          step(e, dt, 0);
           continue;
         }
       }
 
       if (e.rest > 0){
         e.rest -= dt;
-        e.actor.update(dt, 0);
+        step(e, dt, 0);
         continue;
       }
       const at = e.actor.group.position;
@@ -682,14 +767,26 @@ function begin(myName, petName, petSpec, friends, myLook){
         const near = Math.hypot(me.group.position.x - at.x, me.group.position.z - at.z) < 3.2;
         e.rest = near ? 2.5 + Math.random() * 4 : 0.6 + Math.random() * 2.4;
         wander(e);
-        e.actor.update(dt, 0);
+        step(e, dt, 0);
       } else {
-        e.actor.update(dt, walk(e.actor.group, dx / d, dz / d, e.speed, dt));
+        step(e, dt, walk(e.actor.group, dx / d, dz / d, e.speed, dt));
       }
     }
 
     /* 다른 사람들 */
-    net.update(dt);
+    strollers.update(dt);       // 거니는 손님
+    net.update(dt);             // 접속한 사람
+
+    /* 내 모습과 내 아이의 자리를 알린다. 아이는 주인인 내 기기에서만
+       살아 있으므로, 내가 보내지 않으면 남의 화면에서는 멈춰 있다. */
+    net.sendState(
+      { x: me.group.position.x, z: me.group.position.z,
+        ry: me.group.rotation.y, speed: mySpeed },
+      myPet ? { x: myPet.actor.group.position.x,
+                z: myPet.actor.group.position.z,
+                ry: myPet.actor.group.rotation.y,
+                speed: myPet.lastSpeed,
+                greet: myPet.actor.greeting() } : null);
     for (const p of peers.values()){
       const k = Math.min(1, dt * 14);
       const g = p.actor.group;
