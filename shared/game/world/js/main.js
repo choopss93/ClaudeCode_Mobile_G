@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createWorld, resolve, START } from '#world';
-import { createActor, createPet } from '#actor';
+import { createActor, createPet, TRICKS, HAND_SPOT } from '#actor';
 import { KINDS, COATS, resolvePet } from '#pets';
 import { makeCode, readCodes } from '#petcode';
 import { CAPACITY, PUBLIC, makeChannel, readChannel, showChannel,
@@ -370,7 +370,8 @@ function begin(myName, petName, petSpec, friends, myLook){
                 lastSpeed: 0,
                 greetWait: 2,
                 follows: null,          // 만나 반긴 뒤 제 주인을 따라나선다
-                called: false };        // 이름을 부르면 곧장 달려온다
+                called: false,          // 이름을 부르면 곧장 달려온다
+                order: null };          // 시킨 재주 — 와서 하고 간다
     wander(e);
     pets.push(e);
     return e;
@@ -405,6 +406,7 @@ function begin(myName, petName, petSpec, friends, myLook){
       const p = peers.get(id);
       if (!p) return;
       p.s = s;
+      if (s.reach) p.actor.reach(0.6);
       if (!p.started){
         p.actor.group.position.set(s.x, 0, s.z);
         p.started = true;
@@ -414,7 +416,7 @@ function begin(myName, petName, petSpec, friends, myLook){
       if (s.pet && p.pet){
         const e = p.pet;
         e.rx = s.pet.x; e.rz = s.pet.z; e.rry = s.pet.ry;
-        e.rsp = s.pet.speed; e.rgreet = s.pet.greet;
+        e.rsp = s.pet.speed; e.rgreet = s.pet.greet; e.rtrick = s.pet.trick;
         if (!e.rStarted){
           e.rStarted = true;
           e.actor.group.position.set(s.pet.x, 0, s.pet.z);
@@ -553,6 +555,39 @@ function begin(myName, petName, petSpec, friends, myLook){
     return came;
   }
 
+  /* 재주 시키기.
+     "코" 와 "손" 은 한 글자라 다른 말 안에 쉽게 끼어든다 (코드 · 손님).
+     앞뒤가 글자가 아닐 때만 그 말로 본다. */
+  const SAYS = [
+    ['sit',  /앉아|앉자|앉어|앉으/],
+    ['down', /엎드|엎디/],
+    ['nose', /(^|[^가-힣A-Za-z])코([^가-힣A-Za-z]|$)/],
+    ['paw',  /(^|[^가-힣A-Za-z])손([^가-힣A-Za-z]|$)/]
+  ];
+
+  function readTrick(text){
+    for (const [kind, re] of SAYS) if (re.test(text)) return kind;
+    return null;
+  }
+
+  /* 누구에게 시키는가 — 이름을 부르면 그 아이, 아니면 내 아이.
+     남의 아이에게도 이름을 부르면 시킬 수 있다. */
+  function order(text){
+    const kind = readTrick(text);
+    if (!kind) return false;
+    const named = pets.filter(e => e.name && text.includes(e.name));
+    const who = named.length ? named : pets.filter(e => e.owner === me.group && !e.remote);
+    if (!who.length) return false;
+    for (const e of who){
+      e.order = kind;
+      e.called = false;      // 부름이 아니라 시킴이다
+      e.follows = null;
+      e.rest = 0;
+      e.label.say(TRICKS[kind].word, 1700);
+    }
+    return true;
+  }
+
   chatForm.addEventListener('submit', e => {
     e.preventDefault();
     const text = chatIn.value.trim().slice(0, 60);
@@ -561,7 +596,8 @@ function begin(myName, petName, petSpec, friends, myLook){
     if (!text) return;
     myLabel.say(text);
     net.say(text);
-    callByName(text);
+    // 재주가 먼저다. "콩이야 앉아" 면 부르는 대신 와서 앉는다.
+    if (!order(text)) callByName(text);
   });
   // 폰에는 Enter 키가 없으니 키보드 단축키는 마우스 쪽에서만 쓴다
   addEventListener('keydown', e => {
@@ -674,14 +710,81 @@ function begin(myName, petName, petSpec, friends, myLook){
         g.rotation.y += turn * Math.min(1, dt * TURN);
         // 반기는 것도 주인이 알려 준다. 한 번 시작하면 끝까지 두고,
         // 주인이 그만둘 때까지는 다시 걸지 않는다.
-        if (e.rgreet){
-          if (!e.greetSeen){
-            e.greetSeen = true;
-            e.actor.startGreet();
-            e.label.say('♥', 2600);
+        /* 주인이 보내 준 재주. 꾸러미가 올 때마다 짧게 다시 걸어서,
+           주인 쪽 소식이 끊기면 저절로 풀리게 한다. */
+        if (e.rtrick){
+          if (e.trickSeen !== e.rtrick){
+            e.trickSeen = e.rtrick;
+            e.label.say(TRICKS[e.rtrick] ? TRICKS[e.rtrick].word : '', 1700);
           }
-        } else e.greetSeen = false;
+          e.actor.doTrick(e.rtrick, 0.6);
+        } else {
+          e.trickSeen = null;
+          if (e.rgreet){
+            if (!e.greetSeen){
+              e.greetSeen = true;
+              e.actor.startGreet();
+              e.label.say('♥', 2600);
+            }
+          } else e.greetSeen = false;
+        }
         e.actor.update(dt, e.rsp || 0);
+        continue;
+      }
+
+      /* 재주를 부리는 동안에는 걸음을 멈춘다 */
+      if (e.actor.trickNow()){
+        step(e, dt, 0);
+        continue;
+      }
+
+      /* 시킨 재주 — 와서 한다.
+         "앉아 · 엎드려" 는 두어 걸음 앞까지, "코 · 손" 은 닿을 만큼
+         바짝 와야 한다. 제자리에서 하게 두면 저 멀리서 앉아 버려
+         보이지도 않는다. */
+      if (e.order){
+        const spec = TRICKS[e.order];
+        const mine = me.group.position;
+        let tx = mine.x, tz = mine.z;
+        if (spec.hand){
+          // 내민 손 곁으로. 캐릭터가 바라보는 쪽을 기준으로 왼앞이다.
+          const a = me.group.rotation.y;
+          const cos = Math.cos(a), sin = Math.sin(a);
+          tx += HAND_SPOT.x * cos + HAND_SPOT.z * sin;
+          tz += -HAND_SPOT.x * sin + HAND_SPOT.z * cos;
+        }
+        const at = e.actor.group.position;
+        const gap = Math.hypot(tx - at.x, tz - at.z);
+        if (gap > spec.near){
+          /* 아이는 들판을 벗어나지 않는다. 그냥 나를 향해 걸리면
+             `resolve` 가 다리도 작은 섬도 걸을 수 있는 자리로 봐서,
+             다리를 건너 작은 섬까지 따라온다. */
+          const to = inGarden(tx, tz);
+          const toGap = Math.hypot(to.x - at.x, to.z - at.z);
+          // 갈 자리가 들판 밖으로 밀렸다면 내가 다리나 작은 섬에 있는 것이다
+          const out = Math.hypot(to.x - tx, to.z - tz) > 0.6;
+          if (out && toGap < 0.6){
+            e.order = null;       // 들판 끝까지 왔는데도 못 닿는다
+            e.rest = 0.8;
+            wander(e);
+            step(e, dt, 0);
+            continue;
+          }
+          /* 포기하는 거리를 코·손이 닿아야 할 거리(0.3m)보다 넓게 잡으면
+             거의 다 와서 그만둔다. 밀렸는지로만 판단해야 한다. */
+          step(e, dt, walk(e.actor.group, (to.x - at.x) / toGap,
+                           (to.z - at.z) / toGap, e.trot, dt));
+          continue;
+        }
+        // 자리에 왔으면 나를 바라본다
+        e.actor.group.rotation.y = Math.atan2(mine.x - at.x, mine.z - at.z);
+        e.actor.doTrick(e.order);
+        // 코와 손은 받아 주는 쪽이 있어야 한다
+        if (spec.hand) me.reach(spec.hold);
+        e.order = null;
+        e.greetWait = GREET_AGAIN;      // 재주 끝에 곧바로 반기면 겹친다
+        e.follows = e.owner;
+        step(e, dt, 0);
         continue;
       }
 
@@ -721,7 +824,18 @@ function begin(myName, petName, petSpec, friends, myLook){
         const dz = me.group.position.z - at.z;
         const gap = Math.hypot(dx, dz);
         if (gap > GREET_RANGE){
-          step(e, dt, walk(e.actor.group, dx / gap, dz / gap, e.trot, dt));
+          // 부름도 들판 안까지다 (시킴과 같은 까닭)
+          const to = inGarden(me.group.position.x, me.group.position.z);
+          const near = Math.hypot(to.x - at.x, to.z - at.z);
+          if (near > 0.45){
+            step(e, dt, walk(e.actor.group, (to.x - at.x) / near,
+                             (to.z - at.z) / near, e.trot, dt));
+            continue;
+          }
+          e.called = false;      // 들판 끝까지 왔는데도 멀다 — 내가 밖에 있다
+          e.rest = 0.8;
+          wander(e);
+          step(e, dt, 0);
           continue;
         }
         // 다 왔다. 쉬는 참이었어도 바로 반기도록 기다림을 지운다.
@@ -786,7 +900,9 @@ function begin(myName, petName, petSpec, friends, myLook){
                 z: myPet.actor.group.position.z,
                 ry: myPet.actor.group.rotation.y,
                 speed: myPet.lastSpeed,
-                greet: myPet.actor.greeting() } : null);
+                greet: myPet.actor.greeting(),
+                trick: myPet.actor.trickNow() } : null,
+      me.reaching());
     for (const p of peers.values()){
       const k = Math.min(1, dt * 14);
       const g = p.actor.group;

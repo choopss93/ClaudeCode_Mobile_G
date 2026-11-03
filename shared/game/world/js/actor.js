@@ -17,6 +17,19 @@ const LEG_H  = 0.17;
      하얗게 타고 두어 걸음 밖 땅은 깜깜해서, 정작 둘레가 안 보인다.
    - 빛은 등불이 아니라 머리 위(2.4m)에 둔다. 등불 자리에 두면 거리 차가
      커서 또 캐릭터만 탄다. 그림자를 쓰지 않으므로 티가 나지 않는다. */
+/* 재주 — 반려동물이 말을 알아듣고 하는 것들. 몇 초 동안 그 자세로 있다. */
+export const TRICKS = {
+  sit:  { word: '앉아',   hold: 7,   near: 2.4 },
+  down: { word: '엎드려', hold: 7,   near: 2.4 },
+  // 코와 손은 닿을 만큼 바짝 와야 하고, 내민 손 곁으로 온다 (hand).
+  // 몸 바로 앞으로 오면 큰 머리에 가려 카메라에서 안 보인다.
+  nose: { word: '코',     hold: 2.4, near: 0.3, hand: true },
+  paw:  { word: '손',     hold: 2.8, near: 0.3, hand: true }
+};
+
+/** 내민 왼손이 있는 자리 (캐릭터 기준). 재주를 받아 줄 때 여기로 온다. */
+export const HAND_SPOT = { x: -0.68, z: 0.45 };
+
 const LAMP = 5;               // 불을 켰을 때의 세기
 const LAMP_REACH = 16;        // 빛이 닿는 거리 (m)
 const LAMP_DECAY = 1;         // 멀어질수록 줄어드는 가파르기
@@ -161,6 +174,7 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
 
   const LEG_Y = LEG_H / 2;
   let phase = 0, idle = Math.random() * 6;
+  let reachLeft = 0;        // 반려동물에게 손을 내밀고 있는 시간
 
   return {
     group,
@@ -172,6 +186,12 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
       lantern.visible = !!dark;
       if (glow) glow.intensity = dark ? LAMP : 0;
     },
+
+    /* 반려동물이 "코" · "손" 을 할 때 이쪽도 손을 내민다. 혼자만 재주를
+       부리면 허공에 대고 하는 꼴이라, 받아 주는 쪽이 있어야 한다.
+       든 손은 오른손이므로 내미는 것은 왼손이다. */
+    reach(sec){ reachLeft = Math.max(reachLeft, sec || 2); },
+    reaching(){ return reachLeft > 0; },
 
     /** speed: 초당 걷는 거리. 0 이면 가만히 서 있다. */
     update(dt, speed){
@@ -205,6 +225,23 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
         legL.position.y = legR.position.y = LEG_Y;
         armL.rotation.x = armR.rotation.x = 0;
         head.position.y = HEAD_Y + breathe * 0.4;
+      }
+
+      // 손 내밀기는 걸음보다 뒤에 둔다 — 앞에 두면 팔 흔들기가 덮어쓴다
+      if (reachLeft > 0){
+        reachLeft -= dt;
+        const k = Math.min(1, reachLeft / 0.3);
+        armL.rotation.x = -1.15 * k;     // 앞아래로 내민다
+        /* 바깥으로 벌리는 부호는 팔마다 다르다. 오른팔(+x)은 음수,
+           왼팔(-x)은 양수라야 바깥이다. 반대로 주면 몸 앞으로 접혀
+           큰 머리에 가려 아무것도 안 보인다. */
+        armL.rotation.z = 0.5 * k;
+        /* 팔을 돌리기만 하면 티가 안 난다. 팔이 몸과 같은 색이고 짧아서
+           몸에 묻힌다. 내미는 동안 길게 늘여야 알아볼 수 있다. */
+        armL.scale.y = 1 + 0.75 * k;
+      } else {
+        armL.rotation.z = 0;
+        armL.scale.y = 1;
       }
     },
 
@@ -338,6 +375,7 @@ export function createPet(spec){
   const HEAD_TOP = (head.position.y + headR * 1.5) * spec.scale + 0.06;
   const GREET_TIME = 2.4;
   let t = Math.random() * 6, step = 0, greetLeft = 0;
+  let trick = null, trickLeft = 0;      // 앉아 · 엎드려 · 코 · 손
 
   return {
     group,
@@ -348,9 +386,70 @@ export function createPet(spec){
     startGreet(){ greetLeft = GREET_TIME; },
     greeting(){ return greetLeft > 0; },
 
+    /* 재주. 남의 기기에서는 주인이 보내 주는 것을 그대로 받아 거는데,
+       그때는 짧은 시간만 주고 꾸러미가 올 때마다 다시 건다. 주인 쪽
+       소식이 끊기면 저절로 풀리게 하려는 것이다. */
+    doTrick(kind, sec){
+      if (!TRICKS[kind]) return;
+      trick = kind;
+      trickLeft = sec || TRICKS[kind].hold;
+      greetLeft = 0;                    // 재주가 반가워하기보다 먼저다
+    },
+    stopTrick(){ trick = null; trickLeft = 0; },
+    trickNow(){ return trickLeft > 0 ? trick : null; },
+
     /** speed: 초당 걷는 거리. */
     update(dt, speed){
       t += dt;
+
+      /* 재주 — 몇 초 동안 그 자세로 있는다. 몸통을 통째로 젖히거나
+         내리는 쪽이 다리를 하나씩 접는 것보다 훨씬 또렷하게 읽힌다. */
+      if (trickLeft > 0){
+        trickLeft -= dt;
+        const k = Math.min(1, trickLeft / 0.35);   // 끝에서 스르르 풀린다
+
+        inner.rotation.x = 0;
+        inner.position.y = 0;
+        head.rotation.z = 0;
+        head.rotation.x = 0;
+        group.position.y = 0;
+        for (const l of legs) l.position.y = legRest;
+        legs[1].position.z = legZ;
+        tail.rotation.x = tailRestX;
+        tail.rotation.z = Math.sin(t * (spec.kind === 'cat' ? 4 : 11)) *
+                          (spec.kind === 'cat' ? 0.22 : 0.45);
+
+        /* inner 에는 품종 배율(spec.scale)이 걸려 있다. 그 안쪽 값
+           (bodyY · legH) 으로 inner 자신을 옮기려면 배율을 곱해야 한다.
+           안 곱하면 작은 아이일수록 크게 어긋나 땅에 파묻힌다. */
+        const S = spec.scale;
+
+        if (trick === 'sit'){
+          inner.rotation.x = -0.52 * k;             // 엉덩이를 내린다
+          inner.position.y = bodyY * 0.16 * S * k;
+          head.rotation.x = 0.34 * k;               // 젖혀진 만큼 고개는 바로
+        } else if (trick === 'down'){
+          inner.position.y = -legH * 0.8 * S * k;   // 배를 바닥에 붙인다
+          head.rotation.x = 0.1 * k;
+        } else if (trick === 'nose'){
+          head.rotation.x = -0.6 * k;               // 코를 들어 올린다
+          group.position.y = Math.abs(Math.sin(t * 6)) * 0.018 * k;
+        } else if (trick === 'paw'){
+          inner.rotation.x = -0.45 * k;             // 앉은 채로
+          inner.position.y = bodyY * 0.14 * S * k;
+          // 앞발 하나를 높이 든다. 작은 몸이라 크게 들어야 알아본다.
+          legs[1].position.y = legRest + legH * 1.25 * k;
+          legs[1].position.z = legZ + legH * 0.7 * k;
+          head.rotation.x = 0.26 * k;
+        }
+
+        if (trickLeft <= 0) trick = null;
+        return;
+      }
+
+      inner.rotation.x = 0;
+      inner.position.y = 0;
+      legs[1].position.z = legZ;
 
       if (greetLeft > 0){
         greetLeft -= dt;
