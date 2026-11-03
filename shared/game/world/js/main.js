@@ -9,7 +9,6 @@ import { lookNow, createStars, applyLook } from '#daylight';
 import { createControls } from '#controls';
 import { createLocalNet } from '#net';
 import { createLiveNet } from '#live';
-import { createWind } from '#sound';
 import { SKY, colorFor, hairFor, wind } from '#look';
 
 const SPEED = 3.1;           // 전속력으로 걸을 때 초당 거리
@@ -200,18 +199,6 @@ for (const btn of $('kind').querySelectorAll('button[data-kind]')){
 paintBreeds();
 paintCoats();
 
-const windSound = createWind();
-const soundBtn = $('sound');
-
-function paintSound(){
-  const on = windSound.wanted();
-  soundBtn.classList.toggle('on', on);
-  soundBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
-  soundBtn.setAttribute('aria-label', on ? '소리 끄기' : '소리 켜기');
-}
-soundBtn.addEventListener('click', () => { windSound.toggle(); paintSound(); });
-paintSound();
-
 startForm.addEventListener('submit', e => {
   e.preventDefault();
   const name = nameIn.value.trim().slice(0, 12);
@@ -223,9 +210,6 @@ startForm.addEventListener('submit', e => {
       kind: choice.kind, breed: choice.breed, coat: choice.coat
     }));
   } catch (_){}
-  // 브라우저는 누르기 전에는 소리를 내주지 않는다. 이 순간에 시작해야 한다.
-  windSound.begin();
-  paintSound();
   if (chMode === 'join'){
     const got = readChannel(chCodeEl.value);
     if (!got){
