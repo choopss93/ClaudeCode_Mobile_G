@@ -196,6 +196,11 @@ function begin(myName, petName, petSpec, friends){
   const world = createWorld();
   scene.add(world.group);
 
+  // 시간대 — 손에 드는 것도 여기에 따른다. handlers 보다 먼저 있어야 한다.
+  let look = lookNow();
+  let skyWait = 0;
+  whenEl.textContent = look.label;
+
   /* ── 이름표와 말풍선 ── */
   function makeLabel(name, kind){
     const el = document.createElement('div');
@@ -231,6 +236,7 @@ function begin(myName, petName, petSpec, friends){
   me.group.position.set(0, 0, 5.5);
   me.group.rotation.y = Math.PI;
   scene.add(me.group);
+  me.setHand(look.dark > 0.5);
   const myLabel = makeLabel(myName);
 
   whoEl.textContent = myName + ' · ' + petName;
@@ -267,9 +273,13 @@ function begin(myName, petName, petSpec, friends){
     actor.group.position.set(at.x, 0, at.z);
     scene.add(actor.group);
 
+    // 정원의 모든 아이에게 나는 가족이다. 주인이 따로 있으면 그 사람도.
+    const family = [me.group];
+    if (owner && owner !== me.group) family.push(owner);
+
     const e = { actor, label: makeLabel(name, 'pet'), tx: at.x, tz: at.z,
                 speed: spec.speed, rest: Math.random() * 1.5,
-                owner: owner || null, greetWait: 2 };
+                family, greetWait: 2 };
     wander(e);
     pets.push(e);
     return e;
@@ -285,6 +295,7 @@ function begin(myName, petName, petSpec, friends){
     onJoin(id, info){
       const actor = createActor({ color: colorFor(info.name), hair: hairFor(info.name) });
       scene.add(actor.group);
+      actor.setHand(look.dark > 0.5);
       const entry = { actor, label: makeLabel(info.name), s: { x:0, y:0, z:0, ry:0, speed:0 }, started: false };
 
       // 손님의 반려동물도 주인을 따라다니지 않고 정원을 거닌다
@@ -446,10 +457,6 @@ function begin(myName, petName, petSpec, friends){
   if (window.visualViewport) visualViewport.addEventListener('resize', resize);
 
   /* ── 루프 ── */
-  let look = lookNow();
-  let skyWait = 0;
-  whenEl.textContent = look.label;
-
   const camWant = new THREE.Vector3();
   const camAim = new THREE.Vector3();
   let last = performance.now();
@@ -480,17 +487,19 @@ function begin(myName, petName, petSpec, friends){
     for (const e of pets){
       if (e.greetWait > 0) e.greetWait -= dt;
 
-      // 주인이 곁에 오면 알아본다. 한 번 반긴 뒤에는 잠시 쉬었다 다시.
-      if (e.owner && e.greetWait <= 0 && !e.actor.greeting()){
-        const ox = e.owner.position.x - e.actor.group.position.x;
-        const oz = e.owner.position.z - e.actor.group.position.z;
-        if (Math.hypot(ox, oz) < GREET_RANGE){
+      // 가족이 곁에 오면 알아본다. 한 번 반긴 뒤에는 잠시 쉬었다 다시.
+      if (e.greetWait <= 0 && !e.actor.greeting()){
+        for (const who of e.family){
+          const ox = who.position.x - e.actor.group.position.x;
+          const oz = who.position.z - e.actor.group.position.z;
+          if (Math.hypot(ox, oz) >= GREET_RANGE) continue;
           e.greetWait = GREET_AGAIN;
           if (Math.random() < GREET_CHANCE){
             e.actor.startGreet();
-            e.actor.group.rotation.y = Math.atan2(ox, oz);   // 주인을 바라본다
+            e.actor.group.rotation.y = Math.atan2(ox, oz);   // 그 사람을 바라본다
             e.label.say('♥', 2600);
           }
+          break;
         }
       }
 
@@ -553,6 +562,10 @@ function begin(myName, petName, petSpec, friends){
       skyWait = 2;
       look = lookNow();
       if (look.label !== whenEl.textContent) whenEl.textContent = look.label;
+      // 어두우면 등불, 밝으면 바람개비
+      const dark = look.dark > 0.5;
+      me.setHand(dark);
+      for (const p of peers.values()) p.actor.setHand(dark);
       if (themeMeta){
         themeMeta.setAttribute('content', '#' + look.sky.toString(16).padStart(6, '0'));
       }

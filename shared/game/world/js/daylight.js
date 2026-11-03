@@ -16,31 +16,31 @@ const LOOKS = {
     sky:0x2E3858, fogNear:18, fogFar:64,
     // 밤이라도 누가 어디 있는지는 보여야 한다. 너무 깎으면 캐릭터가 묻힌다.
     hemiSky:0x6C7AA6, hemiGround:0x3C4642, hemi:0.78,
-    sun:0xA8B4D8, sunPower:0.4, sunHeight:0.55, stars:1
+    sun:0xA8B4D8, sunPower:0.4, sunHeight:0.55, stars:1, dark:1
   },
   dawn: {
     label:'새벽',
     sky:0xC9B4CE, fogNear:22, fogFar:70,
     hemiSky:0xE2CBD6, hemiGround:0x8CA188, hemi:0.9,
-    sun:0xFFC4A8, sunPower:0.55, sunHeight:0.14, stars:0.3
+    sun:0xFFC4A8, sunPower:0.55, sunHeight:0.14, stars:0.3, dark:0.62
   },
   morning: {
     label:'아침',
     sky:0xCDEBF8, fogNear:32, fogFar:92,
     hemiSky:0xFFFFFF, hemiGround:0xD6F5C4, hemi:1.25,
-    sun:0xFFF0D6, sunPower:0.95, sunHeight:0.42, stars:0
+    sun:0xFFF0D6, sunPower:0.95, sunHeight:0.42, stars:0, dark:0.05
   },
   day: {
     label:'낮',
     sky:0xC3EBF8, fogNear:38, fogFar:104,
     hemiSky:0xFFFFFF, hemiGround:0xD6F5C4, hemi:1.35,
-    sun:0xFFFBF0, sunPower:1.0, sunHeight:0.95, stars:0
+    sun:0xFFFBF0, sunPower:1.0, sunHeight:0.95, stars:0, dark:0
   },
   sunset: {
     label:'노을',
     sky:0xF6C3A0, fogNear:26, fogFar:78,
     hemiSky:0xFFD9BC, hemiGround:0xEDC9A4, hemi:1.05,
-    sun:0xFF9E72, sunPower:0.8, sunHeight:0.12, stars:0.08
+    sun:0xFF9E72, sunPower:0.8, sunHeight:0.12, stars:0.08, dark:0.34
   }
 };
 
@@ -94,7 +94,8 @@ export function lookNow(){
     hemi:      mix(A.hemi, B.hemi, t),
     sunPower:  mix(A.sunPower, B.sunPower, t),
     sunHeight: mix(A.sunHeight, B.sunHeight, t),
-    stars:     mix(A.stars, B.stars, t)
+    stars:     mix(A.stars, B.stars, t),
+    dark:      mix(A.dark, B.dark, t)
   };
 }
 

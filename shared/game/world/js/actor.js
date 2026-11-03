@@ -15,6 +15,7 @@ export const HEAD_TOP = HEAD_Y + HEAD_R;
 
 const ball = new THREE.SphereGeometry(1, 16, 12);
 const eyeGeo = new THREE.SphereGeometry(0.042, 10, 8);
+const rod = new THREE.CylinderGeometry(1, 1, 1, 6);
 
 function piece(group, geo, mat, x, y, z, sx, sy, sz){
   const m = new THREE.Mesh(geo, mat);
@@ -41,9 +42,65 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A } = {}){
   // 몸 — 작고 동그랗게
   piece(group, ball, cloth, 0, BODY_Y, 0, 0.19, BODY_H / 2, 0.165);
 
-  // 팔 — 몸에 붙은 작은 방울
-  const armL = piece(group, ball, cloth, -0.185, BODY_Y + 0.03, 0, 0.062, 0.085, 0.062);
-  const armR = piece(group, ball, cloth,  0.185, BODY_Y + 0.03, 0, 0.062, 0.085, 0.062);
+  // 팔 — 어깨에서 돌아가는 무리로 둔다. 방울 하나만 두면 돌려도 표가 안 나고,
+  // 손에 든 것도 같이 흔들리지 않는다.
+  function makeArm(side){
+    const a = new THREE.Group();
+    a.position.set(side * 0.185, BODY_Y + 0.115, 0);
+    group.add(a);
+    piece(a, ball, cloth, 0, -0.085, 0, 0.062, 0.085, 0.062);
+    return a;
+  }
+  const armL = makeArm(-1);
+  const armR = makeArm(1);
+  armR.rotation.z = -0.34;        // 든 팔은 바깥으로 벌린다
+
+  /* 오른손 — 밝을 땐 바람개비, 어두울 땐 등불.
+     머리가 몸보다 크고 넓어, 몸 옆에 그냥 두면 통째로 가려진다. 아이가
+     바람개비를 치켜들듯 길게 올리고 바깥으로 기울여 머리 옆으로 내보낸다. */
+  const hand = new THREE.Group();
+  hand.position.set(0.055, -0.17, 0.02);
+  armR.add(hand);
+
+  /* 바람개비 */
+  const pinwheel = new THREE.Group();
+  pinwheel.rotation.z = -0.26;    // 머리에서 비켜나도록
+  hand.add(pinwheel);
+  piece(pinwheel, rod, toon(0xC9A77E), 0, 0.33, 0, 0.011, 0.66, 0.011);   // 자루
+  const vanes = new THREE.Group();
+  vanes.position.set(0, 0.68, 0.02);
+  pinwheel.add(vanes);
+  const VANE = [0xFF9CA0, 0xFFE783, 0x94E799, 0x7DDDF4];
+  VANE.forEach((c, i) => {
+    const v = new THREE.Group();
+    v.rotation.z = (i / VANE.length) * Math.PI * 2;
+    vanes.add(v);
+    piece(v, ball, toon(c), 0, 0.075, 0, 0.034, 0.075, 0.014);
+  });
+  piece(vanes, ball, toon(0xFFFBF2), 0, 0, 0.012, 0.022, 0.022, 0.014);   // 가운데 못
+
+  /* 등불 — 나무 자루 끝에 노란 불빛이 매달렸다 */
+  const lantern = new THREE.Group();
+  lantern.rotation.z = -0.3;
+  lantern.rotation.x = -0.22;     // 앞으로도 조금 내밀어 길을 비춘다
+  hand.add(lantern);
+  piece(lantern, rod, toon(0xB08A62), 0, 0.27, 0, 0.012, 0.54, 0.012);    // 나무 자루
+  piece(lantern, rod, toon(0x8A7258), 0.035, 0.545, 0, 0.055, 0.012, 0.012); // 끝의 가로대
+  piece(lantern, rod, toon(0x8A7258), 0.07, 0.505, 0, 0.006, 0.08, 0.006);   // 매단 줄
+
+  // 불빛은 빛을 받지 않는 재질이라야 어두울 때도 환하다
+  const flame = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ color: 0xFFE089 }));
+  flame.position.set(0.07, 0.425, 0);
+  flame.scale.set(0.058, 0.07, 0.058);
+  lantern.add(flame);
+  const halo = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({
+    color: 0xFFEFB4, transparent: true, opacity: 0.32, depthWrite: false
+  }));
+  halo.position.copy(flame.position);
+  halo.scale.set(0.14, 0.15, 0.14);
+  halo.renderOrder = 1;
+  lantern.add(halo);
+  lantern.visible = false;
 
   // 머리 — 몸의 두 배
   const head = new THREE.Group();
@@ -70,10 +127,20 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A } = {}){
     group,
     headTop: HEAD_TOP,
 
+    /** 어두우면 등불, 밝으면 바람개비. */
+    setHand(dark){
+      pinwheel.visible = !dark;
+      lantern.visible = !!dark;
+    },
+
     /** speed: 초당 걷는 거리. 0 이면 가만히 서 있다. */
     update(dt, speed){
       idle += dt;
       const moving = speed > 0.05;
+
+      // 바람개비 — 걸으면 바람을 받아 빠르게 돈다. 서 있으면 산들바람에
+      // 천천히 돌 뿐이다.
+      if (pinwheel.visible) vanes.rotation.z += dt * (0.5 + speed * 2.9);
 
       if (moving){
         // 다리가 공 모양이라 돌려 봐야 표가 안 난다. 번갈아 들어 올린다.
@@ -81,8 +148,8 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A } = {}){
         const sw = Math.sin(phase);
         legL.position.y = LEG_Y + Math.max(0, sw) * 0.07;
         legR.position.y = LEG_Y + Math.max(0, -sw) * 0.07;
-        armL.rotation.x = -sw * 0.5;
-        armR.rotation.x =  sw * 0.5;
+        armL.rotation.x = -sw * 0.55;
+        armR.rotation.x =  sw * 0.4;    // 든 손은 덜 흔든다
 
         // 걸음마다 살짝 통통 — 머리가 크니 몸이 조금 늦게 따라온다
         group.position.y = Math.abs(sw) * 0.035;
