@@ -282,9 +282,10 @@ function begin(myName, petName, petSpec, friends, myLook){
 
   function addPet(spec, name, owner){
     const actor = createPet(spec);
-    // 들어서자마자 만날 수 있도록 곁에서 시작한다
+    // 들어서자마자 곁에 있으면 찾아다닐 일이 없다. 정원 어딘가 멀찍이 둔다 —
+    // 거닐다 만나거나, 이름을 부르면 된다.
     const a = Math.random() * Math.PI * 2;
-    const d = 2.5 + Math.random() * 4;
+    const d = 10 + Math.random() * (world.radius - 14);
     const at = resolve(world,
       me.group.position.x + Math.cos(a) * d,
       me.group.position.z + Math.sin(a) * d);
@@ -295,12 +296,13 @@ function begin(myName, petName, petSpec, friends, myLook){
     const family = [me.group];
     if (owner && owner !== me.group) family.push(owner);
 
-    const e = { actor, label: makeLabel(name, 'pet'), tx: at.x, tz: at.z,
+    const e = { actor, name, label: makeLabel(name, 'pet'), tx: at.x, tz: at.z,
                 speed: spec.speed,
                 trot: Math.min(spec.speed * FOLLOW_TROT, FOLLOW_MAX),
                 rest: Math.random() * 1.5,
                 family, greetWait: 2,
-                follows: null };        // 한 번 만나면 그 사람을 따라나선다
+                follows: null,          // 한 번 만나면 그 사람을 따라나선다
+                called: false };        // 이름을 부르면 곧장 달려온다
     wander(e);
     pets.push(e);
     return e;
@@ -400,6 +402,20 @@ function begin(myName, petName, petSpec, friends, myLook){
   });
 
   /* ── 대화 ── */
+  /** 적은 말 안에 이름이 들어 있으면 그 아이가 달려온다. */
+  function callByName(text){
+    const came = [];
+    for (const e of pets){
+      if (!e.name || !text.includes(e.name)) continue;
+      e.called = true;
+      e.follows = null;      // 부름이 먼저다
+      e.rest = 0;
+      e.label.say('!', 1800);
+      came.push(e.name);
+    }
+    return came;
+  }
+
   chatForm.addEventListener('submit', e => {
     e.preventDefault();
     const text = chatIn.value.trim().slice(0, 60);
@@ -408,6 +424,7 @@ function begin(myName, petName, petSpec, friends, myLook){
     if (!text) return;
     myLabel.say(text);
     net.say(text);
+    callByName(text);
   });
   // 폰에는 Enter 키가 없으니 키보드 단축키는 마우스 쪽에서만 쓴다
   addEventListener('keydown', e => {
@@ -530,6 +547,21 @@ function begin(myName, petName, petSpec, friends, myLook){
       if (e.actor.greeting()){
         e.actor.update(dt, 0);
         continue;
+      }
+
+      /* 이름을 들었으면 아무리 멀어도 곧장 달려온다. */
+      if (e.called){
+        const at = e.actor.group.position;
+        const dx = me.group.position.x - at.x;
+        const dz = me.group.position.z - at.z;
+        const gap = Math.hypot(dx, dz);
+        if (gap > GREET_RANGE){
+          e.actor.update(dt, walk(e.actor.group, dx / gap, dz / gap, e.trot, dt));
+          continue;
+        }
+        // 다 왔다. 쉬는 참이었어도 바로 반기도록 기다림을 지운다.
+        e.called = false;
+        e.greetWait = 0;
       }
 
       /* 만난 사람을 따라다닌다. 사람이 빨라 멀찍이 벌어지면 놓친 것으로
