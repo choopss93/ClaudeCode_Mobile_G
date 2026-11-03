@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createWorld, resolve } from '#world';
+import { createWorld, resolve, START } from '#world';
 import { createActor, createPet } from '#actor';
 import { KINDS, COATS, resolvePet } from '#pets';
 import { makeCode, readCodes } from '#petcode';
@@ -308,7 +308,8 @@ function begin(myName, petName, petSpec, friends, myLook){
   /* ── 나와 내 강아지 ── */
   const me = createActor({ color: colorFor(myName), hair: hairFor(myName),
                           long: myLook === 'long' });
-  me.group.position.set(0, 0, 5.5);
+  // 무지개 다리 바깥 끝에서 시작한다. 앞으로 쭉 건너가면 들판이다.
+  me.group.position.set(START.x, 0, START.z);
   me.group.rotation.y = Math.PI;
   scene.add(me.group);
   me.setHand(look.dark > 0.5);
@@ -322,19 +323,34 @@ function begin(myName, petName, petSpec, friends, myLook){
      내 근처로 잡아 자주 마주치게 한다. */
   const pets = [];
 
+  /* 아이들이 가운데 삼을 자리. 내가 들판 안에 있으면 나를, 다리 위에
+     있으면 들판 한가운데를 삼는다. 안 그러면 내가 다리에 서 있는 동안
+     모두 입구에만 몰린다 — 건너가 보면 들판에서 놀고 있어야 한다. */
+  const middle = { x: 0, z: 0 };
+  function around(){
+    const p = me.group.position;
+    return Math.hypot(p.x, p.z) < world.radius - 6 ? p : middle;
+  }
+
   function wander(e){
     const a = Math.random() * Math.PI * 2;
-    let x, z;
-    // 멀리 가든 가까이 오든 늘 내 자리를 가운데 삼는다. 그래야 다시 만난다.
+    // 멀리 가든 가까이 오든 늘 그 가운데를 삼는다. 그래야 다시 만난다.
     // 때로는 바로 코앞을 목적지로 삼는다 — 그래야 주인을 알아볼 일이 생긴다
     const roll = Math.random();
     const d = roll < 0.3 ? 1 + Math.random() * 2.5
             : roll < MEET_CHANCE ? 3.5 + Math.random() * (MEET_NEAR - 3.5)
             : MEET_NEAR + Math.random() * (MEET_FAR - MEET_NEAR);
-    x = me.group.position.x + Math.cos(a) * d;
-    z = me.group.position.z + Math.sin(a) * d;
-    const at = resolve(world, x, z);
+    const c = around();
+    const at = inGarden(c.x + Math.cos(a) * d, c.z + Math.sin(a) * d);
     e.tx = at.x; e.tz = at.z;
+  }
+
+  /* 반려동물은 들판에서 논다. 다리 위로 보내지 않는다. */
+  function inGarden(x, z){
+    const keep = world.radius - 5;
+    const d = Math.hypot(x, z);
+    if (d > keep){ x = (x / d) * keep; z = (z / d) * keep; }
+    return resolve(world, x, z);
   }
 
   /* 걷게 하면서 그 빠르기를 적어 둔다. 내 아이의 걸음은 남의 화면에서
@@ -346,13 +362,12 @@ function begin(myName, petName, petSpec, friends, myLook){
 
   function addPet(spec, name, owner, remote){
     const actor = createPet(spec);
-    // 들어서자마자 곁에 있으면 찾아다닐 일이 없다. 정원 어딘가 멀찍이 둔다 —
-    // 거닐다 만나거나, 이름을 부르면 된다.
+    // 들어서자마자 곁에 있으면 찾아다닐 일이 없다. 들판 어딘가 멀찍이 둔다 —
+    // 다리를 건너가 만나거나, 이름을 부르면 된다.
     const a = Math.random() * Math.PI * 2;
     const d = 10 + Math.random() * (world.radius - 14);
-    const at = resolve(world,
-      me.group.position.x + Math.cos(a) * d,
-      me.group.position.z + Math.sin(a) * d);
+    const c = around();
+    const at = inGarden(c.x + Math.cos(a) * d, c.z + Math.sin(a) * d);
     actor.group.position.set(at.x, 0, at.z);
     scene.add(actor.group);
 

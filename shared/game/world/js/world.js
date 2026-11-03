@@ -9,6 +9,20 @@ function seeded(seed){
 
 export const WORLD_RADIUS = 44;   // 거닐 맛이 나도록 넓게
 
+/* 무지개 다리 — 정원으로 들어서는 길.
+   처음 들어서면 여기 바깥 끝에 서 있고, 앞으로 쭉 건너가면 들판이다.
+   카메라가 처음 보는 쪽이 -Z 이므로 다리는 +Z 쪽에 둔다. 그래야 가만히
+   앞으로만 밀어도 정원 쪽으로 걷는다. */
+export const BRIDGE = {
+  half: 2.1,                        // 난간 사이 반너비
+  near: WORLD_RADIUS - 3,           // 들판 쪽 끝 — 잔디에 조금 걸친다
+  far:  WORLD_RADIUS + 22,          // 바깥 끝 — 여기서 시작한다
+  gap: 0.16                         // 산울타리를 터 놓는 각도
+};
+
+/** 처음 서는 자리. 다리 바깥 끝에서 조금 안쪽. */
+export const START = { x: 0, z: BRIDGE.far - 1.6 };
+
 export function createWorld(){
   const rnd = seeded(20260314);
   const group = new THREE.Group();
@@ -283,16 +297,91 @@ export function createWorld(){
   tufts.instanceColor.needsUpdate = true;
   group.add(tufts);
 
-  /* ── 바깥 울타리: 둥근 산울타리 ── */
+  /* ── 바깥 울타리: 둥근 산울타리 ──
+     다리가 닿는 자리는 터 놓는다. 막아 두면 다 건너와서 벽을 만난다.
+     토러스는 각도 0 에서 시작하므로, 먼저 제자리에서 돌려 트인 곳을
+     +Z 쪽(= 지역 각도 -π/2)에 오게 한 뒤 눕힌다. */
+  const hedgeAt = new THREE.Group();
   const hedge = new THREE.Mesh(
-    new THREE.TorusGeometry(WORLD_RADIUS, 0.75, 7, 64),
+    new THREE.TorusGeometry(WORLD_RADIUS, 0.75, 7, 64, Math.PI * 2 - BRIDGE.gap),
     toon(0x94DE83)
   );
-  hedge.rotation.x = -Math.PI / 2;
-  hedge.position.y = 0.45;
-  group.add(hedge);
+  hedge.rotation.z = -Math.PI / 2 + BRIDGE.gap / 2;
+  hedgeAt.add(hedge);
+  hedgeAt.rotation.x = -Math.PI / 2;
+  hedgeAt.position.y = 0.45;
+  group.add(hedgeAt);
 
-  return { group, colliders, radius: WORLD_RADIUS };
+  /* ── 무지개 다리 ── */
+  group.add(makeBridge());
+
+  return { group, colliders, radius: WORLD_RADIUS, bridge: BRIDGE };
+}
+
+/* 무지개 다리. 바닥은 땅에 닿게 두고, 난간과 양옆의 구름으로 "건너는
+   것" 처럼 보이게 한다. 바닥을 띄우면 사람·반려동물·다른 접속자의 높이를
+   모두 따로 다뤄야 해서, 얻는 것에 비해 손댈 데가 너무 많아진다. */
+function makeBridge(){
+  const g = new THREE.Group();
+  const len = BRIDGE.far - BRIDGE.near;
+  const midZ = (BRIDGE.far + BRIDGE.near) / 2;
+  const w = BRIDGE.half * 2;
+
+  // 일곱 빛깔을 길이 방향으로 나란히 깐다
+  const bandW = w / RAINBOW.length;
+  RAINBOW.forEach((c, i) => {
+    const band = new THREE.Mesh(new THREE.BoxGeometry(bandW, 0.16, len), toon(c));
+    band.position.set(-BRIDGE.half + bandW * (i + 0.5), 0.05, midZ);
+    g.add(band);
+  });
+
+  // 난간 — 가로대 둘에 기둥을 세운다. 흰색으로 두어 무지개는 바닥에만.
+  for (const side of [-1, 1]){
+    for (const y of [0.72, 0.46]){
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, len), toon(0xFFFFFF));
+      rail.position.set(side * BRIDGE.half, y, midZ);
+      g.add(rail);
+    }
+  }
+
+  const dummy = new THREE.Object3D();
+  const posts = Math.max(2, Math.round(len / 2.4)) + 1;
+  const post = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.075, 0.075, 0.84, 6), toon(0xFFFFFF), posts * 2);
+  let n = 0;
+  for (let i = 0; i < posts; i++){
+    const z = BRIDGE.near + (len * i) / (posts - 1);
+    for (const side of [-1, 1]){
+      dummy.position.set(side * BRIDGE.half, 0.42, z);
+      dummy.updateMatrix();
+      post.setMatrixAt(n++, dummy.matrix);
+    }
+  }
+  post.instanceMatrix.needsUpdate = true;
+  g.add(post);
+
+  /* 양옆의 구름 — 다리 곁의 들판을 덮어 "건너는" 느낌을 낸다.
+     크게 두면 바위처럼 보인다. 작은 것을 낮게 여럿 깔아야 구름이 된다.
+     처음 서는 자리 둘레는 비워 둔다 — 안 그러면 코앞을 가린다. */
+  const PUFFS = 96;
+  const puff = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(1, 9, 7), toon(0xFFFFFF), PUFFS);
+  const rnd = seeded(77215);
+  for (let i = 0; i < PUFFS; i++){
+    const side = i % 2 ? 1 : -1;
+    const z = BRIDGE.near - 2 + rnd() * (len + 1);
+    const out = BRIDGE.half + 0.5 + rnd() * 4.6;
+    const r = 0.6 + rnd() * 1.1;
+    dummy.position.set(side * out, -0.3 + rnd() * 0.34, z);
+    dummy.scale.set(r, r * 0.56, r);
+    dummy.updateMatrix();
+    puff.setMatrixAt(i, dummy.matrix);
+  }
+  dummy.scale.set(1, 1, 1);
+  puff.instanceMatrix.needsUpdate = true;
+  g.add(puff);
+
+  return g;
 }
 
 /** 정원 안에 머물게 하고, 덤불·연못을 통과하지 못하게 밀어낸다. */
@@ -309,6 +398,20 @@ export function resolve(world, x, z, bodyRadius = 0.26){
   }
   const edge = world.radius - bodyRadius - 0.8;
   const d = Math.hypot(x, z);
-  if (d > edge){ x = (x / d) * edge; z = (z / d) * edge; }
-  return { x, z };
+  if (d <= edge) return { x, z };
+
+  /* 들판 밖 — 다리 위라면 난간 안쪽으로만 둔다.
+     다리에서 멀면(|x| 가 큰 들판 가장자리) 평소처럼 둥글게 가둔다.
+     이 가림이 없으면 z 가 비슷하다는 이유로 들판 저쪽 끝에 선 사람이
+     다리 입구로 끌려온다. */
+  const b = world.bridge;
+  if (b && z >= b.near && Math.abs(x) <= b.half + 2.6){
+    const lim = b.half - bodyRadius - 0.1;
+    return {
+      x: Math.max(-lim, Math.min(lim, x)),
+      z: Math.min(b.far - bodyRadius - 0.3, z)
+    };
+  }
+
+  return { x: (x / d) * edge, z: (z / d) * edge };
 }
