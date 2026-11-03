@@ -533,6 +533,7 @@ function begin(myName, petName, petSpec, friends, myLook){
           const oz = who.position.z - e.actor.group.position.z;
           if (Math.hypot(ox, oz) >= GREET_RANGE) continue;
           e.greetWait = GREET_AGAIN;
+          e.called = false;                                  // 불러서 왔든 아니든, 다 왔다
           e.follows = who;                                   // 만났으니 이제 따라다닌다
           if (Math.random() < GREET_CHANCE){
             e.actor.startGreet();
@@ -560,6 +561,7 @@ function begin(myName, petName, petSpec, friends, myLook){
           continue;
         }
         // 다 왔다. 쉬는 참이었어도 바로 반기도록 기다림을 지운다.
+        // (반기기가 먼저 걸리는 경우에는 위 반기기 쪽에서 이미 지웠다.)
         e.called = false;
         e.greetWait = 0;
       }
