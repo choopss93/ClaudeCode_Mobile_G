@@ -3,6 +3,8 @@ import { createWorld, resolve } from '#world';
 import { createActor, createPet } from '#actor';
 import { KINDS, COATS, resolvePet } from '#pets';
 import { makeCode, readCodes } from '#petcode';
+import { CAPACITY, PUBLIC, makeChannel, readChannel, showChannel,
+         channelFromHash, writeChannelToHash, inviteLink } from '#channel';
 import { lookNow, createStars, applyLook } from '#daylight';
 import { createControls } from '#controls';
 import { createLocalNet } from '#net';
@@ -43,6 +45,7 @@ const chatIn  = $('chatInput');
 const countEl = $('count');
 const whoEl   = $('who');
 const whenEl  = $('when');
+const whereEl = $('where');
 const themeMeta = document.querySelector('meta[name="theme-color"]');
 
 /* ── 폰: 소프트 키보드가 가리는 높이를 재어 UI 를 올린다 ──
@@ -77,6 +80,46 @@ try {
     if (COATS.some(c => c.key === saved.coat)) choice.coat = saved.coat;
   }
 } catch (_){}
+
+/* ── 채널 ──
+   열린 정원 / 내 채널 만들기 / 코드로 들어가기. 링크에 코드가 들어 있으면
+   그대로 그 채널로 들어간다. */
+let channel = channelFromHash() || PUBLIC;
+let chMode = channel === PUBLIC ? 'open' : 'join';
+
+const chCodeEl = $('chCode');
+const chNameEl = $('chName');
+const chHintEl = $('chHint');
+
+const CH_HINT = {
+  open: '누구나 들어오는 정원이에요. 한 채널에 서른 명까지.',
+  mine: '나만의 채널이에요. 코드를 보내면 친구가 들어옵니다.',
+  join: '받은 코드를 적으면 그 채널로 들어갑니다.'
+};
+
+function paintChannel(){
+  for (const b of $('chPick').querySelectorAll('button[data-ch]')){
+    b.classList.toggle('on', b.dataset.ch === chMode);
+  }
+  chCodeEl.hidden = chMode !== 'join';
+  chHintEl.textContent = CH_HINT[chMode];
+  chNameEl.textContent =
+    chMode === 'open' ? '열린 정원'
+    : chMode === 'mine' ? showChannel(channel)
+    : '코드 입력';
+}
+
+for (const btn of $('chPick').querySelectorAll('button[data-ch]')){
+  btn.addEventListener('click', () => {
+    chMode = btn.dataset.ch;
+    if (chMode === 'open') channel = PUBLIC;
+    else if (chMode === 'mine') channel = makeChannel();
+    paintChannel();
+    if (chMode === 'join') chCodeEl.focus();
+  });
+}
+if (chMode === 'join') chCodeEl.value = showChannel(channel);
+paintChannel();
 
 const breedsEl = $('breeds');
 const coatsEl = $('coats');
@@ -182,6 +225,19 @@ startForm.addEventListener('submit', e => {
   // 브라우저는 누르기 전에는 소리를 내주지 않는다. 이 순간에 시작해야 한다.
   windSound.begin();
   paintSound();
+  if (chMode === 'join'){
+    const got = readChannel(chCodeEl.value);
+    if (!got){
+      chHintEl.textContent = '채널 코드를 읽지 못했어요. 다시 확인해 주세요.';
+      chCodeEl.focus();
+      return;
+    }
+    channel = got;
+  } else if (chMode === 'open'){
+    channel = PUBLIC;
+  }
+  writeChannelToHash(channel);
+
   startEl.hidden = true;
   // 랜덤이면 여기서 한 번만 뽑는다. 들어갈 때마다 달라진다.
   begin(name, dog, resolvePet(choice), readCodes($('friendCodes').value), choice.look);
@@ -292,7 +348,7 @@ function begin(myName, petName, petSpec, friends, myLook){
     actor.group.position.set(at.x, 0, at.z);
     scene.add(actor.group);
 
-    // 정원의 모든 아이에게 나는 가족이다. 주인이 따로 있으면 그 사람도.
+    // 반기는 것은 가족 모두에게, 따라다니는 것은 제 주인에게만.
     const family = [me.group];
     if (owner && owner !== me.group) family.push(owner);
 
@@ -300,8 +356,10 @@ function begin(myName, petName, petSpec, friends, myLook){
                 speed: spec.speed,
                 trot: Math.min(spec.speed * FOLLOW_TROT, FOLLOW_MAX),
                 rest: Math.random() * 1.5,
-                family, greetWait: 2,
-                follows: null,          // 한 번 만나면 그 사람을 따라나선다
+                family,
+                owner: owner || null,   // 따라다니는 상대는 이 사람뿐이다
+                greetWait: 2,
+                follows: null,          // 만나 반긴 뒤 제 주인을 따라나선다
                 called: false };        // 이름을 부르면 곧장 달려온다
     wander(e);
     pets.push(e);
@@ -349,9 +407,14 @@ function begin(myName, petName, petSpec, friends, myLook){
     }
   };
 
-  function updateCount(){ countEl.textContent = (peers.size + 1) + '명'; }
+  // net 보다 먼저 불린다 (손님이 들어올 때). net 을 들여다보지 말 것.
+  function updateCount(){
+    const n = peers.size + 1;
+    countEl.textContent = n + ' / ' + CAPACITY;
+    countEl.title = n >= CAPACITY ? '자리가 찼어요' : '';
+  }
 
-  const net = createLocalNet({ world, handlers });
+  const net = createLocalNet({ world, handlers, channel });
   updateCount();
 
   /* ── 조작 ── */
@@ -363,6 +426,21 @@ function begin(myName, petName, petSpec, friends, myLook){
   });
   $('myCode').textContent = myCode;
   $('myPetName').textContent = petName;
+
+  const chLabel = showChannel(channel);
+  whereEl.textContent = chLabel;
+  $('chWho').textContent = chLabel;
+  $('chShown').textContent = channel === PUBLIC ? '열린 정원 — 코드가 없어요' : chLabel;
+
+  $('copyCh').addEventListener('click', async () => {
+    const link = inviteLink(channel);
+    try {
+      await navigator.clipboard.writeText(link);
+      tell('초대 링크를 복사했어요. 이 링크로 들어오면 같은 채널이에요.');
+    } catch (_){
+      window.prompt('이 링크를 복사해 보내세요', link);
+    }
+  });
 
   const panel = $('codePanel');
   const said = $('codeSaid');
@@ -533,8 +611,11 @@ function begin(myName, petName, petSpec, friends, myLook){
           const oz = who.position.z - e.actor.group.position.z;
           if (Math.hypot(ox, oz) >= GREET_RANGE) continue;
           e.greetWait = GREET_AGAIN;
-          e.called = false;                                  // 불러서 왔든 아니든, 다 왔다
-          e.follows = who;                                   // 만났으니 이제 따라다닌다
+          e.called = false;              // 불러서 왔든 아니든, 다 왔다
+          // 반가워하는 것과 따라다니는 것은 다르다. 남의 아이는 나를 보고
+          // 반겨 주지만, 그러고 나면 제 주인에게로 간다. 주인이 정원에
+          // 없으면 다시 혼자 거닌다.
+          e.follows = e.owner;
           if (Math.random() < GREET_CHANCE){
             e.actor.startGreet();
             e.actor.group.rotation.y = Math.atan2(ox, oz);   // 그 사람을 바라본다

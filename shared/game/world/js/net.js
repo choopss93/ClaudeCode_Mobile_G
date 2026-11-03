@@ -1,4 +1,5 @@
 import { resolve } from '#world';
+import { CAPACITY, PUBLIC } from '#channel';
 
 /*
  * 네트워크 자리.
@@ -10,12 +11,18 @@ import { resolve } from '#world';
  * 나중에 실시간 연결을 붙일 때는 아래 모양의 객체를 하나 더 만들어
  * main.js 에서 바꿔 끼우기만 하면 된다. 게임 쪽 코드는 손대지 않는다.
  *
- *   createXxxNet({ world, handlers }) => {
+ *   createXxxNet({ world, handlers, channel }) => {
  *     mode,                         // 화면에 표시할 접속 상태
+ *     channel,                      // 지금 있는 채널
+ *     count(),                      // 나를 포함한 사람 수
+ *     full(),                       // 서른 명이 찼는가
  *     sendState({x, y, z, ry}),     // 내 위치 (y 는 뛴 높이)
  *     say(text),
  *     update(dt)
  *   }
+ *
+ * 한 채널에 CAPACITY(30) 명까지. 지금은 혼자이므로 늘 여유가 있지만,
+ * 자리가 찼을 때 막는 일은 접속을 붙이는 쪽에서 이 `full()` 을 보고 한다.
  */
 
 const GUESTS = [
@@ -36,11 +43,15 @@ const LINES = [
 
 const GUEST_SPEED = 1.5;      // 손님은 느긋하게 거닌다
 
-export function createLocalNet({ world, handlers }){
+export function createLocalNet({ world, handlers, channel = PUBLIC }){
   const guests = [];
 
-  GUESTS.forEach((g, i) => {
-    const ang = (i / GUESTS.length) * Math.PI * 2 + 1.2;
+  // 열린 정원에는 거니는 사람들이 있고, 내가 판 채널은 조용하다 —
+  // 코드를 받은 사람이 들어오기 전까지는.
+  const here = channel === PUBLIC ? GUESTS : [];
+
+  here.forEach((g, i) => {
+    const ang = (i / here.length) * Math.PI * 2 + 1.2;
     const guest = {
       id: 'local-' + i,
       x: Math.cos(ang) * 5.5,
@@ -65,6 +76,10 @@ export function createLocalNet({ world, handlers }){
 
   return {
     mode: 'local',
+    channel,
+    capacity: CAPACITY,
+    count(){ return guests.length + 1; },        // 손님들 + 나
+    full(){ return this.count() >= CAPACITY; },
     sendState(){},
     say(){},
 
