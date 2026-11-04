@@ -5,7 +5,7 @@ import { KINDS, COATS, resolvePet } from '#pets';
 import { makeCode, readCodes } from '#petcode';
 import { CAPACITY, PUBLIC, makeChannel, readChannel, showChannel,
          channelFromHash, writeChannelToHash, inviteLink } from '#channel';
-import { lookNow, createStars, applyLook } from '#daylight';
+import { lookNow, createStars, createSun, applyLook } from '#daylight';
 import { createControls } from '#controls';
 import { createLocalNet } from '#net';
 import { createLiveNet } from '#live';
@@ -249,6 +249,8 @@ function begin(myName, petName, petSpec, friends, myLook){
   scene.add(sun.target);
 
   const stars = createStars(170);
+  const sunDisc = createSun(150);   // 하늘에 보이는 해
+  scene.add(sunDisc);
   scene.add(stars);
 
   const world = createWorld();
@@ -943,7 +945,7 @@ function begin(myName, petName, petSpec, friends, myLook){
         themeMeta.setAttribute('content', '#' + look.sky.toString(16).padStart(6, '0'));
       }
     }
-    applyLook(look, { scene, hemi, sun, stars, follow: t });
+    applyLook(look, { scene, hemi, sun, stars, disc: sunDisc, follow: t });
     sun.target.position.copy(t);
     sun.target.updateMatrixWorld();
 
