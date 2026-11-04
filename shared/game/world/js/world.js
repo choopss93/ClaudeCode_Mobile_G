@@ -51,11 +51,17 @@ export function createWorld(){
   // 들판은 구름 바다에 뜬 섬이다. 울타리 너머는 땅이 아니라 구름이므로
   // 바깥 들판 평면을 두지 않는다. 대신 섬에 두께를 줘서, 가장자리에서
   // 내려다보면 밑이 있는 땅으로 보이게 한다.
+  /* 몸통 윗면을 잔디와 **같은 높이에 두지 말 것.** 두 면이 꼭 같은
+     높이에 겹치면 어느 쪽을 그릴지 매 프레임 갈려서, 걸을 때마다 바닥이
+     파바박 튄다 (z-파이팅). 한 번 그렇게 만들어 잔디색 자리를 몸통색이
+     밀어냈다. 조금 내리고, 대신 윗면을 잔디보다 살짝 넓게 잡아 가장자리에
+     틈이 보이지 않게 한다. */
+  const BODY_DROP = 0.1;
   const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(WORLD_RADIUS, WORLD_RADIUS * 0.56, 7, 56),
+    new THREE.CylinderGeometry(WORLD_RADIUS + 0.15, WORLD_RADIUS * 0.56, 7, 56),
     toon(0x8FCE82)
   );
-  body.position.y = -3.5;
+  body.position.y = -3.5 - BODY_DROP;
   group.add(body);
 
   const lawn = new THREE.Mesh(
@@ -68,7 +74,7 @@ export function createWorld(){
   // 가운데 모이는 자리 — 풀을 짧게 깎은 듯한 옅은 풀빛
   const clearing = new THREE.Mesh(new THREE.CircleGeometry(5.4, 40), toon(0xC4F0A8));
   clearing.rotation.x = -Math.PI / 2;
-  clearing.position.y = 0.01;
+  clearing.position.y = 0.03;      // 잔디와 너무 붙이면 멀리서 깜빡인다
   group.add(clearing);
 
   /* ── 무지개 ── */
@@ -377,14 +383,15 @@ function makeIsle(){
   const ball = new THREE.SphereGeometry(1, 12, 9);
   const rod  = new THREE.CylinderGeometry(1, 1, 1, 6);
 
+  // 여기도 윗면을 겹치지 않게 내린다 (들판 섬과 같은 까닭)
   const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(ISLE.r, ISLE.r * 0.5, 4.4, 28), toon(0x8FCE82));
-  body.position.set(ISLE.x, -2.2, ISLE.z);
+    new THREE.CylinderGeometry(ISLE.r + 0.12, ISLE.r * 0.5, 4.4, 28), toon(0x8FCE82));
+  body.position.set(ISLE.x, -2.32, ISLE.z);
   g.add(body);
 
   const top = new THREE.Mesh(new THREE.CircleGeometry(ISLE.r, 28), toon(0xBEE8AE));
   top.rotation.x = -Math.PI / 2;
-  top.position.set(ISLE.x, 0.01, ISLE.z);
+  top.position.set(ISLE.x, 0.02, ISLE.z);
   g.add(top);
 
   // 작은 꽃 몇 송이. 많이 두면 들판처럼 보여서 몇 송이만.
