@@ -362,6 +362,8 @@ function begin(myName, petName, petSpec, friends, myLook){
     if (owner && owner !== me.group) family.push(owner);
 
     const e = { actor, name, spec, label: makeLabel(name, 'pet'), tx: at.x, tz: at.z,
+                // 몸집만큼 자리를 차지한다 — 서로 통과하지 않게
+                r: 0.2 * spec.scale * spec.body[0] + 0.1,
                 speed: spec.speed,
                 trot: Math.min(spec.speed * FOLLOW_TROT, FOLLOW_MAX),
                 rest: Math.random() * 1.5,
@@ -439,6 +441,7 @@ function begin(myName, petName, petSpec, friends, myLook){
          id 가 작은 쪽으로 정한다 — 양쪽이 같은 답을 내므로 의논이 필요 없다. */
       const entry = { actor, label: makeLabel(info.name), s: { x:0, y:0, z:0, ry:0, speed:0 },
                       started: false,
+
                       petKey: info.pet ? keyOf({ ...info.pet, name: info.dog }) : '' };
       peers.set(id, entry);
       pickDriver();
@@ -506,7 +509,16 @@ function begin(myName, petName, petSpec, friends, myLook){
   let netSaid = '잇는 중';
 
   // 거니는 손님들. 열린 정원에만 있고 내가 판 채널은 조용하다.
-  const strollers = createLocalNet({ world, handlers, channel });
+  const strollers = createLocalNet({
+    world, handlers, channel,
+    // 손님도 사람과 아이를 통과하지 않는다. 자기 자신은 빼고 따진다.
+    place(id, x, z){
+      const p = peers.get(id);
+      const a = resolve(world, x, z);
+      const b = keepApart(p ? p.actor.group : null, a.x, a.z, PERSON_R);
+      return resolve(world, b.x, b.z);
+    }
+  });
 
   // 같은 채널에 들어온 실제 사람들. 못 붙어도 정원은 그대로 거닐 수 있다.
   const net = createLiveNet({
@@ -752,9 +764,48 @@ function begin(myName, petName, petSpec, friends, myLook){
   /* ── 걷기 ──
      한 걸음 옮기고, 덤불을 피해 자리를 바로잡고, 몸을 가는 쪽으로 돌린다.
      실제로 옮겨진 거리를 돌려주므로 벽에 막히면 걸음 동작도 멎는다. */
+  /* ── 서로 통과하지 않기 ──
+     나무 · 덤불 · 버섯 · 연못은 `world.colliders` 가 막는다 (`resolve`).
+     사람과 아이끼리는 그 목록에 없으므로 여기서 따로 밀어낸다.
+     들꽃과 풀포기는 막지 않는다 — 헤치고 지나가야 들판답다.
+
+     밀려나는 것은 **움직이는 쪽만**이다. 다른 사람과 그 아이는 저쪽
+     기기가 자리를 정하므로 여기서 옮기면 서로 밀치며 떨린다. */
+  const PERSON_R = 0.3;
+  const bodies = [];                 // {obj, r}
+  const bodyR = new Map();
+
+  function rebuildBodies(){
+    bodies.length = 0;
+    bodies.push({ obj: me.group, r: PERSON_R });
+    for (const p of peers.values()) bodies.push({ obj: p.actor.group, r: PERSON_R });
+    for (const e of pets) bodies.push({ obj: e.actor.group, r: e.r });
+    bodyR.clear();
+    for (const b of bodies) bodyR.set(b.obj, b.r);
+  }
+
+  function keepApart(obj, x, z, r){
+    for (const b of bodies){
+      if (b.obj === obj) continue;
+      const dx = x - b.obj.position.x, dz = z - b.obj.position.z;
+      const min = r + b.r;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < min * min && d2 > 1e-9){
+        const d = Math.sqrt(d2);
+        x = b.obj.position.x + (dx / d) * min;
+        z = b.obj.position.z + (dz / d) * min;
+      }
+    }
+    return { x, z };
+  }
+
   function walk(obj, dirX, dirZ, speed, dt){
     const from = obj.position;
-    const p = resolve(world, from.x + dirX * speed * dt, from.z + dirZ * speed * dt);
+    const r = bodyR.get(obj) || PERSON_R;
+    let p = resolve(world, from.x + dirX * speed * dt, from.z + dirZ * speed * dt);
+    // 밀려난 자리가 또 덤불 속이거나 들판 밖일 수 있어 한 번 더 다듬는다
+    p = keepApart(obj, p.x, p.z, r);
+    p = resolve(world, p.x, p.z);
     const moved = Math.hypot(p.x - from.x, p.z - from.z);
     from.x = p.x;
     from.z = p.z;
@@ -819,6 +870,7 @@ function begin(myName, petName, petSpec, friends, myLook){
     const dt = Math.min((now - last) / 1000, 0.05);
     last = now;
     const cam = controls.update();   // 눌린 키와 조이스틱을 여기서 읽는다
+    rebuildBodies();                 // 서로 통과하지 않게, 지금 있는 몸들
     lastYaw = cam.yaw;
     if (!driver) stepBall(dt);       // 공은 아이를 맡은 사람이 움직인다
 
@@ -1087,6 +1139,11 @@ function begin(myName, petName, petSpec, friends, myLook){
       g.position.x += (p.s.x - g.position.x) * k;
       g.position.z += (p.s.z - g.position.z) * k;
       g.position.y = p.s.y;
+
+      /* 여기서는 밀어내지 않는다. 거니는 손님은 `place` 가 이미 밀어낸
+         자리를 보내 주고, 접속한 사람은 저쪽 기기가 자리를 정한다.
+         양쪽에서 밀면 서로 밀치며 떨린다. */
+
       let d = p.s.ry - g.rotation.y;
       d = Math.atan2(Math.sin(d), Math.cos(d));
       g.rotation.y += d * k;

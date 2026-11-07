@@ -45,8 +45,12 @@ const LINES = [
 
 const GUEST_SPEED = 1.5;      // 손님은 느긋하게 거닌다
 
-export function createLocalNet({ world, handlers, channel = PUBLIC }){
+/* `place(id, x, z)` — 그 자리에 설 수 있는지 게임 쪽에 물어본다. 사람과
+   아이끼리 통과하지 않아야 하는데, 그건 여기서 알 수 없기 때문이다.
+   주지 않으면 덤불과 들판 가장자리만 따진다. */
+export function createLocalNet({ world, handlers, channel = PUBLIC, place }){
   const guests = [];
+  const stand = place || ((id, x, z) => resolve(world, x, z));
 
   // 열린 정원에는 거니는 사람들이 있고, 내가 판 채널은 조용하다 —
   // 코드를 받은 사람이 들어오기 전까지는.
@@ -101,7 +105,7 @@ export function createLocalNet({ world, handlers, channel = PUBLIC }){
             pickTarget(g);
           } else {
             const step = Math.min(GUEST_SPEED * dt, d);
-            const p = resolve(world, g.x + (dx / d) * step, g.z + (dz / d) * step);
+            const p = stand(g.id, g.x + (dx / d) * step, g.z + (dz / d) * step);
             // 덤불에 막혀 거의 제자리면 가려던 곳을 포기한다
             if (Math.hypot(p.x - g.x, p.z - g.z) < step * 0.3) pickTarget(g);
             g.x = p.x; g.z = p.z;
