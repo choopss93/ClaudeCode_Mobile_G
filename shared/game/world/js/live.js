@@ -20,8 +20,10 @@ import { connectMqtt } from '#mqtt';
  *   ['hi', id, 이름, 머리, 아이이름, [종, 품종, 털빛]]   들어왔음 · 4초마다 다시
  *   ['s',  id, x, z, ry, 빠르기,
  *          아이x, 아이z, 아이ry, 아이빠르기, 반김, 재주, 손내밈,
- *          던지는중, 공x, 공y, 공z, 공상태]
+ *          던진횟수, [[공x, 공y, 공z, 공상태, 공빛깔], …]]
  *          — 아이가 없어도 자리는 다 채운다. 밀리면 뒤엣것을 못 읽는다.
+ *          — 공 목록은 **아이를 맡은 사람만** 채운다. 나머지는 null.
+ *   ['b',  id, x, y, z, vx, vy, vz, 빛깔]   공을 던져 달라는 부탁
  *   ['t',  id, 한 말]
  *   ['bye', id]
  */
@@ -133,10 +135,17 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
             trick: typeof m[11] === 'string' ? m[11] : null } : null;
       handlers.onState(from, {
         x: +m[2] || 0, y: 0, z: +m[3] || 0, ry: +m[4] || 0, speed: +m[5] || 0,
-        pet, reach: !!m[12], throwing: !!m[13],
-        ball: m.length > 14 && m[14] !== null
-          ? { x: +m[14], y: +m[15], z: +m[16], mode: +m[17] || 0 } : null
+        pet, reach: !!m[12], tossSeq: +m[13] || 0,
+        balls: Array.isArray(m[14])
+          ? m[14].map(b => ({ x: +b[0] || 0, y: +b[1] || 0, z: +b[2] || 0,
+                              mode: +b[3] || 0, ci: +b[4] || 0 }))
+          : null
       });
+    } else if (m[0] === 'b'){
+      /* 공을 던져 달라는 부탁. 맡은 사람이 띄워 모두에게 퍼뜨린다. */
+      handlers.onToss(from, { x: +m[2] || 0, y: +m[3] || 0, z: +m[4] || 0,
+                              vx: +m[5] || 0, vy: +m[6] || 0, vz: +m[7] || 0,
+                              ci: +m[8] || 0 });
     } else if (m[0] === 't'){
       if (typeof m[2] === 'string') handlers.onSay(from, m[2].slice(0, 80));
     } else if (m[0] === 'bye'){
@@ -178,7 +187,16 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
     full(){ return this.count() >= CAPACITY; },
 
     /* 내 모습과 내 아이의 자리. 매 프레임 불러도 되게 여기서 솎는다. */
-    sendState(s, pet, reach, throwing, ball){ last = [s, pet, reach, throwing, ball]; },
+    sendState(s, pet, reach, tossSeq, balls){ last = [s, pet, reach, tossSeq, balls]; },
+
+    /* 맡은 사람에게 공을 던져 달라고 부탁한다. 위치가 아니라 한 번뿐인
+       일이므로 모아 두지 않고 그 자리에서 보낸다. */
+    toss(req){
+      if (!link) return;
+      link.publish(topic, JSON.stringify(
+        ['b', id, round(req.x), round(req.y), round(req.z),
+         round(req.vx), round(req.vy), round(req.vz), req.ci | 0]));
+    },
 
     say(text){
       if (link) link.publish(topic, JSON.stringify(['t', id, String(text).slice(0, 80)]));
@@ -208,7 +226,7 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
       if (!last || t - sentAt < SEND_EVERY) return;
       sentAt = t;
 
-      const [s, pet, reach, throwing, ball] = last;
+      const [s, pet, reach, tossSeq, balls] = last;
       const msg = ['s', id, round(s.x), round(s.z), round(s.ry), round(s.speed)];
       if (pet){
         msg.push(round(pet.x), round(pet.z), round(pet.ry), round(pet.speed),
@@ -216,9 +234,10 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
       } else {
         msg.push(null, 0, 0, 0, 0, 0);
       }
-      msg.push(reach ? 1 : 0, throwing ? 1 : 0);
-      if (ball) msg.push(round(ball.x), round(ball.y), round(ball.z), ball.mode | 0);
-      else msg.push(null, 0, 0, 0);
+      msg.push(reach ? 1 : 0, tossSeq | 0);
+      msg.push(balls
+        ? balls.map(b => [round(b.x), round(b.y), round(b.z), b.mode | 0, b.ci | 0])
+        : null);
       link.publish(topic, JSON.stringify(msg));
     },
 

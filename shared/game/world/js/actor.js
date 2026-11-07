@@ -23,12 +23,13 @@ export const TRICKS = {
   down: { word: '엎드려', hold: 7,   near: 2.4 },
   // 코와 손은 닿을 만큼 바짝 와야 하고, 내민 손 곁으로 온다 (hand).
   // 몸 바로 앞으로 오면 큰 머리에 가려 카메라에서 안 보인다.
-  nose: { word: '코',     hold: 2.4, near: 0.3, hand: true },
-  paw:  { word: '손',     hold: 2.8, near: 0.3, hand: true }
+  nose: { word: '코',     hold: 2.4, near: 0.18, hand: true },
+  paw:  { word: '손',     hold: 2.8, near: 0.18, hand: true }
 };
 
-/** 내민 왼손이 있는 자리 (캐릭터 기준). 재주를 받아 줄 때 여기로 온다. */
-export const HAND_SPOT = { x: -0.68, z: 0.45 };
+/* 내민 왼손이 있는 자리 (캐릭터 기준). 재주를 받아 줄 때 여기로 온다.
+   앞발이 손에 **닿아야** 하므로 바짝 붙인다. 멀면 허공을 짚는다. */
+export const HAND_SPOT = { x: -0.40, z: 0.22 };
 
 const LAMP = 5;               // 불을 켰을 때의 세기
 const LAMP_REACH = 16;        // 빛이 닿는 거리 (m)
@@ -175,6 +176,8 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
   const LEG_Y = LEG_H / 2;
   let phase = 0, idle = Math.random() * 6;
   let reachLeft = 0;        // 반려동물에게 손을 내밀고 있는 시간
+  let tossLeft = 0;         // 공을 던지는 동작이 남은 시간
+  const TOSS_TIME = 0.55;
 
   return {
     group,
@@ -192,6 +195,10 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
        든 손은 오른손이므로 내미는 것은 왼손이다. */
     reach(sec){ reachLeft = Math.max(reachLeft, sec || 2); },
     reaching(){ return reachLeft > 0; },
+
+    /* 공 던지는 동작. 뒤로 젖혔다 앞으로 뿌린다. 든 손이 오른손이라
+       던지는 것은 왼손이다. */
+    toss(){ tossLeft = TOSS_TIME; },
 
     /** speed: 초당 걷는 거리. 0 이면 가만히 서 있다. */
     update(dt, speed){
@@ -227,18 +234,32 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
         head.position.y = HEAD_Y + breathe * 0.4;
       }
 
-      // 손 내밀기는 걸음보다 뒤에 둔다 — 앞에 두면 팔 흔들기가 덮어쓴다
-      if (reachLeft > 0){
+      /* 왼팔이 하는 일은 걸음보다 뒤에 둔다 — 앞에 두면 팔 흔들기가
+         덮어쓴다. 던지기가 손 내밀기보다 먼저다. */
+      if (tossLeft > 0){
+        tossLeft -= dt;
+        const t = 1 - tossLeft / TOSS_TIME;       // 0 → 1
+        // 앞의 3할은 뒤로 젖히고, 나머지는 앞으로 뿌린다
+        const swing = t < 0.3 ? (t / 0.3) * 1.5 - 0.1
+                              : 1.4 - ((t - 0.3) / 0.7) * 3.3;
+        armL.rotation.x = swing;
+        armL.rotation.z = -0.25;        // 몸 바깥으로 — 안 그러면 몸에 묻힌다
+        armL.scale.y = 1 + 0.25 * Math.sin(t * Math.PI);
+      } else if (reachLeft > 0){
         reachLeft -= dt;
         const k = Math.min(1, reachLeft / 0.3);
-        armL.rotation.x = -1.15 * k;     // 앞아래로 내민다
-        /* 바깥으로 벌리는 부호는 팔마다 다르다. 오른팔(+x)은 음수,
-           왼팔(-x)은 양수라야 바깥이다. 반대로 주면 몸 앞으로 접혀
-           큰 머리에 가려 아무것도 안 보인다. */
-        armL.rotation.z = 0.5 * k;
+        /* 아이가 앞발을 올릴 수 있게 손을 **낮게** 내민다. 너무 높이
+           들면 작은 아이의 발이 닿지 않아 허공을 짚는다. */
+        armL.rotation.x = -0.85 * k;
+        /* 바깥으로 벌리는 부호. 손은 팔 아래쪽(-y)에 달려 있으므로,
+           z 를 **음수**로 돌려야 왼쪽(-x) 바깥으로 간다. 양수로 두면
+           몸을 가로질러 반대쪽으로 가서, 큰 머리에 가려 안 보인다.
+           (한동안 +0.5 로 두어 내민 손이 몸 뒤에 숨어 있었다. 눈으로는
+           구분이 안 돼서 손의 월드 좌표를 재고서야 알았다.) */
+        armL.rotation.z = -1.0 * k;
         /* 팔을 돌리기만 하면 티가 안 난다. 팔이 몸과 같은 색이고 짧아서
            몸에 묻힌다. 내미는 동안 길게 늘여야 알아볼 수 있다. */
-        armL.scale.y = 1 + 0.75 * k;
+        armL.scale.y = 1 + 1.4 * k;
       } else {
         armL.rotation.z = 0;
         armL.scale.y = 1;
@@ -437,9 +458,11 @@ export function createPet(spec){
         } else if (trick === 'paw'){
           inner.rotation.x = -0.45 * k;             // 앉은 채로
           inner.position.y = bodyY * 0.14 * S * k;
-          // 앞발 하나를 높이 든다. 작은 몸이라 크게 들어야 알아본다.
-          legs[1].position.y = legRest + legH * 1.25 * k;
-          legs[1].position.z = legZ + legH * 0.7 * k;
+          /* 앞발 하나를 들어 **사람 손 위에 올린다.** 몸 앞쪽(+z)이
+             사람 쪽이므로 앞으로 길게 뻗어야 닿는다. */
+          legs[1].position.y = legRest + legH * 2.1 * k;
+          legs[1].position.z = legZ + legH * 2.4 * k;
+          legs[1].scale.y = 1 + 0.9 * k;           // 뻗은 만큼 길어진다
           head.rotation.x = 0.26 * k;
         }
 
@@ -450,6 +473,7 @@ export function createPet(spec){
       inner.rotation.x = 0;
       inner.position.y = 0;
       legs[1].position.z = legZ;
+      legs[1].scale.y = 1;
 
       if (greetLeft > 0){
         greetLeft -= dt;

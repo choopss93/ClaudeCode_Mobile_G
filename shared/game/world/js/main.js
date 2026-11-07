@@ -403,27 +403,34 @@ function begin(myName, petName, petSpec, friends, myLook){
      손님이 들어올 때 아직 만들어지지 않아 터진다. */
   const myId = 'rb' + Math.random().toString(36).slice(2, 10);
   let driver = null;
-  /* 공을 던진 사람이 그동안 아이를 맡는다. 안 그러면 내가 던진 공을
-     저쪽 사람의 아이가 물어오고, 내 화면에서는 아무 일도 안 일어난다. */
-  let throwing = false;
+
+  /* 공도 맡은 사람이 혼자 움직인다. 그래서 공 목록은 `pickDriver` 보다
+     먼저 있어야 한다 — 손님이 들어올 때 벌써 불리기 때문이다. */
+  const BALL_R = 0.12;
+  const BALL_MODES = ['none', 'fly', 'rest', 'held'];
+  const balls = [];
 
   function pickDriver(){
-    let small = null, thrower = null;
+    let small = null;
     for (const [id, p] of peers){
       if (p.petKey !== myKey) continue;
       if (small === null || id < small) small = id;
-      if (p.throwing && (thrower === null || id < thrower)) thrower = id;
     }
-    // 공을 던진 사람이 먼저다. 둘이 같이 던졌으면 id 가 작은 쪽.
-    let next;
-    if (throwing && (thrower === null || myId < thrower)) next = null;
-    else if (thrower !== null) next = thrower;
-    else next = (small !== null && small < myId) ? small : null;
+    const next = (small !== null && small < myId) ? small : null;
     if (next === driver) return;
     driver = next;
     myPet.remote = !!driver;
     myPet.rStarted = false;
-    if (!driver){ myPet.rest = 0.4; wander(myPet); }   // 내가 다시 맡는다
+    if (!driver){                                      // 내가 다시 맡는다
+      /* 받아서 놓기만 하던 공들은 날아가던 속도를 모른다. 바닥에
+         내려놓고 멈춘다 — 공중에 멈춰 선 공이 남으면 안 된다. */
+      for (const b of balls){
+        if (b.mode === 'fly'){ b.mode = 'rest'; b.mesh.position.y = BALL_R; }
+        b.v.set(0, 0, 0);
+      }
+      myPet.rest = 0.4;
+      wander(myPet);
+    }
   }
 
   /* ── 다른 사람들 ── */
@@ -442,6 +449,7 @@ function begin(myName, petName, petSpec, friends, myLook){
       const entry = { actor, label: makeLabel(info.name), s: { x:0, y:0, z:0, ry:0, speed:0 },
                       started: false,
 
+                      tossSeen: 0,
                       petKey: info.pet ? keyOf({ ...info.pet, name: info.dog }) : '' };
       peers.set(id, entry);
       pickDriver();
@@ -451,20 +459,20 @@ function begin(myName, petName, petSpec, friends, myLook){
       const p = peers.get(id);
       if (!p) return;
       p.s = s;
+      /* 던지는 동작은 한 번만 보여야 한다. 꾸러미마다 다시 걸면 팔이
+         계속 되감겨 뚝뚝 끊긴다 — 그래서 횟수를 세어 보낸다. */
+      if (s.tossSeq && s.tossSeq !== p.tossSeen){
+        p.tossSeen = s.tossSeq;
+        p.actor.toss();
+      }
       if (s.reach) p.actor.reach(0.6);
-      if (!!p.throwing !== !!s.throwing){ p.throwing = !!s.throwing; pickDriver(); }
       if (!p.started){
         p.actor.group.position.set(s.x, 0, s.z);
         p.started = true;
       }
 
-      // 맡은 사람이 알려 주는 공
-      if (s.ball && id === driver){
-        const m = BALL_MODES[s.ball.mode] || 'none';
-        ball.mode = m;
-        ball.mesh.visible = m !== 'none';
-        ball.mesh.position.set(s.ball.x, s.ball.y, s.ball.z);
-      }
+      // 맡은 사람이 알려 주는 공들
+      if (s.balls && id === driver) syncBalls(s.balls);
 
       // 같은 아이를 맡은 사람이 보내 주는 자리
       if (s.pet && id === driver){
@@ -477,6 +485,11 @@ function begin(myName, petName, petSpec, friends, myLook){
           e.actor.group.rotation.y = s.pet.ry;
         }
       }
+    },
+    /* 맡지 않은 사람이 공을 던졌다. 공은 맡은 사람이 띄워야 모두에게
+       같은 자리로 퍼진다. 던지는 모습은 `tossSeq` 가 따로 알려 준다. */
+    onToss(id, req){
+      if (!driver) spawnBall(req);
     },
     onSay(id, text){
       const p = peers.get(id);
@@ -537,21 +550,78 @@ function begin(myName, petName, petSpec, friends, myLook){
   let lastYaw = 0;              // 카메라가 보는 쪽 — 공은 이쪽으로 던진다
 
   /* ── 공 ──
-     한 정원에 공도 하나다. 던지면 날아가 튀다 멎고, 아이가 물어다 준다.
-     움직이는 일은 아이를 맡은 사람만 한다 (pickDriver). 다른 사람은
-     보내온 자리에 놓기만 한다 — 아이와 같은 규칙이다. */
-  const BALL_R = 0.12;
-  const BALL_MODES = ['none', 'fly', 'rest', 'held'];
-  const ball = {
-    mesh: new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 14, 10), toon(0xFF8FA3)),
-    mode: 'none',
-    v: new THREE.Vector3()
-  };
-  ball.mesh.visible = false;
-  scene.add(ball.mesh);
+     여러 개를 던질 수 있고, 던질 때마다 빛깔이 다르다. 공을 움직이는 일은
+     **아이를 맡은 사람**이 혼자 한다 (pickDriver) — 아이와 같은 규칙이다.
+     맡지 않은 사람이 던지면 맡은 사람에게 부탁하고(net.toss → onToss),
+     그쪽에서 공이 생겨 모두에게 퍼진다. 그래서 누구나 던질 수 있고 모두가
+     같은 공을 본다. 둘이 같이 움직이면 서로 밀친다. */
+  // 밀키한 무지개빛. 던질 때마다 하나 뽑는다.
+  const BALL_COLORS = [0xFF8FA3, 0xFFB987, 0xFFE59A, 0xA8E6A3,
+                       0x8FD7F0, 0xAEB6FF, 0xE3AEF5];
+  const MAX_BALLS = 6;         // 넘으면 오래된 것이 사라진다
+  const ballGeo = new THREE.SphereGeometry(BALL_R, 14, 10);
+  let tossSeq = 0;             // 던진 횟수. 남의 화면에서 동작을 한 번만 보이게.
+  let tossWait = 0;            // 연달아 누르는 것을 막는다
+  let lastCi = -1;             // 바로 앞과 같은 빛깔은 피한다
+
+  function makeBall(ci){
+    // 재질은 toon() 이 빛깔마다 하나씩 나눠 쓴다. 그래서 버리지 않는다.
+    const mesh = new THREE.Mesh(ballGeo, toon(BALL_COLORS[ci % BALL_COLORS.length]));
+    scene.add(mesh);
+    return { mesh, ci, mode: 'rest', v: new THREE.Vector3(), done: false };
+  }
+
+  function removeBall(b){
+    scene.remove(b.mesh);
+    for (const e of pets) if (e.ball === b){ e.ball = null; e.fetch = null; }
+  }
+
+  /* 아이가 다음에 물어 올 공 — 아직 가져다주지 않은 것 중 가장 가까운 것 */
+  function pickBall(e){
+    let best = null, bd = Infinity;
+    const at = e.actor.group.position;
+    for (const b of balls){
+      if (b.done || b.mode === 'held') continue;
+      const d = Math.hypot(b.mesh.position.x - at.x, b.mesh.position.z - at.z);
+      if (d < bd){ bd = d; best = b; }
+    }
+    return best;
+  }
+
+  /* 공 하나를 띄운다. 맡은 사람만 부른다 — 내가 던졌든 부탁을 받았든. */
+  function spawnBall(req){
+    const b = makeBall(req.ci);
+    b.mesh.position.set(req.x, req.y, req.z);
+    b.v.set(req.vx, req.vy, req.vz);
+    b.mode = 'fly';
+    balls.push(b);
+    while (balls.length > MAX_BALLS) removeBall(balls.shift());
+
+    if (!myPet) return;
+    // 물어오는 중이면 그것부터 마치고 차례로 온다
+    if (!myPet.fetch || !myPet.ball){
+      myPet.ball = b;
+      myPet.fetch = 'go';
+      myPet.order = null;
+      myPet.called = false;
+      myPet.follows = null;
+      myPet.rest = 0;
+      myPet.actor.stopTrick();
+      myPet.label.say('!', 1400);
+    }
+  }
+
+  /* 던질 때마다 빛깔을 하나 뽑는다. 바로 앞과 같은 것이 나오면 옆으로
+     한 칸 민다 — 같은 색 둘이 연달아 나오면 여러 개인 티가 안 난다. */
+  function nextCi(){
+    let ci = Math.floor(Math.random() * BALL_COLORS.length);
+    if (ci === lastCi) ci = (ci + 1) % BALL_COLORS.length;
+    lastCi = ci;
+    return ci;
+  }
 
   function throwBall(){
-    if (!myPet) return;
+    if (tossWait > 0) return;
     const from = me.group.position;
     /* 다리나 작은 섬에서 던지면 아이가 가져다줄 수가 없다 — 아이는
        들판을 벗어나지 않는다. 건너와서 던지라고 알려 준다. */
@@ -559,47 +629,57 @@ function begin(myName, petName, petSpec, friends, myLook){
       myLabel.say('들판에서 던져요', 1900);
       return;
     }
+    tossWait = 0.4;
     const dx = -Math.sin(lastYaw), dz = -Math.cos(lastYaw);   // 보는 쪽 앞으로
-    ball.mesh.position.set(from.x + dx * 0.35, 0.78, from.z + dz * 0.35);
-    ball.v.set(dx * 7.6, 5.0, dz * 7.6);
-    ball.mode = 'fly';
-    ball.mesh.visible = true;
-
-    myPet.fetch = 'go';
-    myPet.order = null;
-    myPet.called = false;
-    myPet.follows = null;
-    myPet.rest = 0;
-    myPet.actor.stopTrick();
-    myPet.label.say('!', 1400);
-
-    throwing = true;            // 물어올 때까지 내가 맡는다
-    pickDriver();
+    const req = { x: from.x + dx * 0.35, y: 0.78, z: from.z + dz * 0.35,
+                  vx: dx * 7.6, vy: 5.0, vz: dz * 7.6,
+                  ci: nextCi() };
+    me.toss();                   // 던지는 동작이 보인다
+    tossSeq++;                   // 남의 화면에서도 보이게
+    if (driver) net.toss(req);   // 맡은 사람이 띄운다
+    else spawnBall(req);
   }
 
   /* 날아가고 튀는 일. 맡은 사람만 부른다. */
-  function stepBall(dt){
-    const p = ball.mesh.position;
-    if (ball.mode === 'fly'){
-      ball.v.y -= 17 * dt;
-      p.x += ball.v.x * dt; p.y += ball.v.y * dt; p.z += ball.v.z * dt;
+  function stepBall(b, dt){
+    const p = b.mesh.position;
+    if (b.mode === 'fly'){
+      b.v.y -= 17 * dt;
+      p.x += b.v.x * dt; p.y += b.v.y * dt; p.z += b.v.z * dt;
       // 들판 밖으로는 안 나간다 — 구름 위로 날아가 버리면 못 찾는다
       const at = inGarden(p.x, p.z);
       if (Math.hypot(at.x - p.x, at.z - p.z) > 0.01){
         p.x = at.x; p.z = at.z;
-        ball.v.x *= -0.4; ball.v.z *= -0.4;
+        b.v.x *= -0.4; b.v.z *= -0.4;
       }
       if (p.y <= BALL_R){
         p.y = BALL_R;
-        if (Math.abs(ball.v.y) < 1.4){ ball.mode = 'rest'; ball.v.set(0, 0, 0); }
-        else { ball.v.y = -ball.v.y * 0.45; ball.v.x *= 0.72; ball.v.z *= 0.72; }
+        if (Math.abs(b.v.y) < 1.4){ b.mode = 'rest'; b.v.set(0, 0, 0); }
+        else { b.v.y = -b.v.y * 0.45; b.v.x *= 0.72; b.v.z *= 0.72; }
       }
-    } else if (ball.mode === 'held' && myPet){
+    } else if (b.mode === 'held' && myPet){
       // 입에 물고 있다 — 주둥이 앞쪽에 붙인다
       const g = myPet.actor.group;
       p.set(g.position.x + Math.sin(g.rotation.y) * 0.24,
             Math.max(BALL_R, myPet.actor.headTop * 0.58),
             g.position.z + Math.cos(g.rotation.y) * 0.24);
+    }
+  }
+
+  /* 맡은 사람이 보내 준 공들. 받아서 놓기만 한다. */
+  function syncBalls(list){
+    while (balls.length > list.length) removeBall(balls.pop());
+    for (let i = 0; i < list.length; i++){
+      const d = list[i];
+      if (!balls[i] || balls[i].ci !== d.ci){
+        if (balls[i]) removeBall(balls[i]);
+        /* 받은 공은 가져다준 것으로 둔다. 맡은 쪽이 바뀌어 내가 이어받을 때
+           정원에 뒹구는 공을 다시 주워 오지 않게 하는 것이다. */
+        balls[i] = makeBall(d.ci);
+        balls[i].done = true;
+      }
+      balls[i].mesh.position.set(d.x, d.y, d.z);
+      balls[i].mode = BALL_MODES[d.mode] || 'rest';
     }
   }
 
@@ -729,8 +809,10 @@ function begin(myName, petName, petSpec, friends, myLook){
       e.called = false;      // 부름이 아니라 시킴이다
       e.follows = null;
       e.fetch = null;        // 물어오던 것도 그만둔다
+      e.ball = null;
       e.rest = 0;
-      e.label.say(TRICKS[kind].word, 1700);
+      /* 말을 따라하지 않는다. 시킨 말은 내가 이미 대화창에 적었고,
+         단추로 시켰을 때는 아무 말도 한 적이 없다. 재주는 몸으로 보인다. */
     }
     return true;
   }
@@ -872,7 +954,9 @@ function begin(myName, petName, petSpec, friends, myLook){
     const cam = controls.update();   // 눌린 키와 조이스틱을 여기서 읽는다
     rebuildBodies();                 // 서로 통과하지 않게, 지금 있는 몸들
     lastYaw = cam.yaw;
-    if (!driver) stepBall(dt);       // 공은 아이를 맡은 사람이 움직인다
+    if (tossWait > 0) tossWait -= dt;
+    // 공은 아이를 맡은 사람이 움직인다. 남은 받아서 놓기만 한다.
+    if (!driver) for (const b of balls) stepBall(b, dt);
 
     // 바람은 그래픽카드가 흔든다. 여기서는 시간만 올려 준다.
     wind.time.value += dt;
@@ -908,11 +992,7 @@ function begin(myName, petName, petSpec, friends, myLook){
         /* 주인이 보내 준 재주. 꾸러미가 올 때마다 짧게 다시 걸어서,
            주인 쪽 소식이 끊기면 저절로 풀리게 한다. */
         if (e.rtrick){
-          if (e.trickSeen !== e.rtrick){
-            e.trickSeen = e.rtrick;
-            e.label.say(TRICKS[e.rtrick] ? TRICKS[e.rtrick].word : '', 1700);
-          }
-          e.actor.doTrick(e.rtrick, 0.6);
+          e.actor.doTrick(e.rtrick, 0.6);   // 말은 따라하지 않는다
         } else {
           e.trickSeen = null;
           if (e.rgreet){
@@ -935,10 +1015,11 @@ function begin(myName, petName, petSpec, friends, myLook){
 
       /* 던진 공을 물어온다. 가서 물고, 나에게 가져와 내려놓는다. */
       if (e === myPet && e.fetch){
+        if (!e.ball){ e.fetch = null; step(e, dt, 0); continue; }
         const at = e.actor.group.position;
         const toBall = e.fetch === 'go';
         const want = toBall ? 0.42 : 1.15;
-        const aim = toBall ? ball.mesh.position : me.group.position;
+        const aim = toBall ? e.ball.mesh.position : me.group.position;
         const to = inGarden(aim.x, aim.z);
         const gap = Math.hypot(to.x - at.x, to.z - at.z);
         if (gap > want){
@@ -948,17 +1029,21 @@ function begin(myName, petName, petSpec, friends, myLook){
         }
         if (toBall){
           // 아직 날아가는 중이면 곁에서 기다린다
-          if (ball.mode !== 'fly'){ ball.mode = 'held'; e.fetch = 'back'; }
+          if (e.ball.mode !== 'fly'){ e.ball.mode = 'held'; e.fetch = 'back'; }
         } else {
-          ball.mode = 'rest';
-          ball.mesh.position.y = BALL_R;
+          e.ball.mode = 'rest';
+          e.ball.mesh.position.y = BALL_R;
+          e.ball.done = true;              // 이 공은 가져다주었다
           e.actor.group.rotation.y =
             Math.atan2(me.group.position.x - at.x, me.group.position.z - at.z);
-          e.fetch = null;
-          e.greetWait = 0;       // 가져다주고 반긴다
-          e.follows = e.owner;
-          throwing = false;
-          pickDriver();
+          /* 여러 개를 던졌으면 하나씩 차례로 가져온다. */
+          const next = pickBall(e);
+          e.ball = next;
+          e.fetch = next ? 'go' : null;
+          if (!next){
+            e.greetWait = 0;       // 다 가져다주고 반긴다
+            e.follows = e.owner;
+          }
         }
         step(e, dt, 0);
         continue;
@@ -1129,10 +1214,13 @@ function begin(myName, petName, petSpec, friends, myLook){
                 speed: myPet.lastSpeed,
                 greet: myPet.actor.greeting(),
                 trick: myPet.actor.trickNow() } : null,
-      me.reaching(), throwing,
-      driver ? null : { x: ball.mesh.position.x, y: ball.mesh.position.y,
-                        z: ball.mesh.position.z,
-                        mode: BALL_MODES.indexOf(ball.mode) });
+      me.reaching(), tossSeq,
+      // 공도 맡은 사람만 보낸다. 둘이 같이 보내면 자리가 엉킨다.
+      driver ? null : balls.map(b => ({ x: b.mesh.position.x,
+                                        y: b.mesh.position.y,
+                                        z: b.mesh.position.z,
+                                        mode: BALL_MODES.indexOf(b.mode),
+                                        ci: b.ci })));
     for (const p of peers.values()){
       const k = Math.min(1, dt * 14);
       const g = p.actor.group;

@@ -88,6 +88,7 @@ export function createLocalNet({ world, handlers, channel = PUBLIC, place }){
     full(){ return this.count() >= CAPACITY; },
     sendState(){},
     say(){},
+    toss(){},        // 거니는 손님은 공을 던지지 않는다
 
     update(dt){
       for (const g of guests){
