@@ -236,6 +236,7 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
 
       /* 왼팔이 하는 일은 걸음보다 뒤에 둔다 — 앞에 두면 팔 흔들기가
          덮어쓴다. 던지기가 손 내밀기보다 먼저다. */
+      group.rotation.x = 0;
       if (tossLeft > 0){
         tossLeft -= dt;
         const t = 1 - tossLeft / TOSS_TIME;       // 0 → 1
@@ -243,8 +244,15 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
         const swing = t < 0.3 ? (t / 0.3) * 1.5 - 0.1
                               : 1.4 - ((t - 0.3) / 0.7) * 3.3;
         armL.rotation.x = swing;
-        armL.rotation.z = -0.25;        // 몸 바깥으로 — 안 그러면 몸에 묻힌다
-        armL.scale.y = 1 + 0.25 * Math.sin(t * Math.PI);
+        /* 몸도 같이 젖혔다 숙인다. 기본 카메라가 **뒤에** 있어서 팔만
+           움직이면 큰 머리에 가려 아무것도 안 보인다. 몸이 기울면
+           뒤에서도 실루엣이 달라져 던진 줄 안다. */
+        group.rotation.x = t < 0.3 ? -0.12 * (t / 0.3)
+                                   : -0.12 + 0.34 * ((t - 0.3) / 0.7);
+        /* 바깥으로 넉넉히 벌리고 뿌리는 동안 길게 늘인다. 기본 카메라가
+           뒤에 있어서, 몸 옆에 붙여 두면 큰 머리에 통째로 가린다. */
+        armL.rotation.z = -0.8;
+        armL.scale.y = 1 + 0.8 * Math.sin(t * Math.PI);
       } else if (reachLeft > 0){
         reachLeft -= dt;
         const k = Math.min(1, reachLeft / 0.3);
