@@ -380,7 +380,51 @@ function begin(myName, petName, petSpec, friends, myLook){
     return e;
   }
 
-  /* 한 정원에 아이는 **한 마리**다.
+  /** 정원에서 아이 하나를 치운다. */
+  function dropPet(e){
+    if (!e) return;
+    const i = pets.indexOf(e);
+    if (i >= 0) pets.splice(i, 1);
+    scene.remove(e.actor.group);
+    e.actor.dispose();
+    e.label.remove();
+  }
+
+  /* 남이 보내 준 아이의 자리. 받아서 놓기만 한다 — 그 아이는 저쪽
+     기기에서 살아 있다. 여기서 따로 거닐게 하면 화면마다 다른 데 있게
+     된다. */
+  function putPet(e, d){
+    e.rx = d.x; e.rz = d.z; e.rry = d.ry;
+    e.rsp = d.speed; e.rgreet = d.greet; e.rtrick = d.trick;
+    if (!e.rStarted){
+      e.rStarted = true;
+      e.actor.group.position.set(d.x, 0, d.z);
+      e.actor.group.rotation.y = d.ry;
+    }
+  }
+
+  /* **서로의 아이가 보인다.** 나와 다른 아이를 데려온 사람의 아이는 그
+     사람 것으로 따로 그린다. 같은 아이(같은 코드)면 한 마리를 함께 보는
+     것이므로 따로 만들지 않는다 — `pickDriver` 가 맡을 사람을 정한다.
+
+     같은 아이를 데려온 사람이 둘이면 **id 가 작은 쪽의 것만** 그린다.
+     안 그러면 같은 아이가 둘로 보인다. 아이를 맡는 규칙과 같은 잣대다. */
+  function syncPeerPets(){
+    for (const p of peers.values()){
+      let want = !!(p.card && p.petKey !== myKey);
+      if (want){
+        for (const q of peers.values()){
+          if (q !== p && q.petKey === p.petKey && q.id < p.id){ want = false; break; }
+        }
+      }
+      if (want === !!p.pet) continue;
+      if (!want){ dropPet(p.pet); p.pet = null; continue; }
+      p.pet = addPet(resolvePet(p.card), p.card.name, p.actor.group, true);
+      p.pet.rStarted = false;
+    }
+  }
+
+  /* 내 아이는 **한 마리**다.
      코드를 넣었으면 그 아이가 내 아이가 된다 — 고른 이름과 품종은 쓰지
      않는다. 둘 다 두면 정원에 아이가 둘이 되어 버린다. */
   const given = (friends && friends[0]) || null;
@@ -442,17 +486,21 @@ function begin(myName, petName, petSpec, friends, myLook){
                                   long: info.look === 'long' });
       scene.add(actor.group);
       actor.setHand(look.dark > 0.5);
-      /* 남의 아이를 따로 만들지 않는다 — 정원에 아이는 하나뿐이다.
-         다만 그 사람이 **나와 같은 아이**(같은 코드)를 데리고 있으면,
-         둘 중 하나만 움직여야 두 화면에서 같은 자리에 있다. 누가 움직일지는
-         id 가 작은 쪽으로 정한다 — 양쪽이 같은 답을 내므로 의논이 필요 없다. */
-      const entry = { actor, label: makeLabel(info.name), s: { x:0, y:0, z:0, ry:0, speed:0 },
+      /* 그 사람이 데려온 아이도 함께 보인다 (`peerPet`). 다만
+         **나와 같은 아이**(같은 코드)라면 한 마리를 함께 보는 것이므로
+         따로 만들지 않고, 둘 중 하나만 움직인다 — 누가 움직일지는 id 가
+         작은 쪽으로 정한다. 양쪽이 같은 답을 내므로 의논이 필요 없다. */
+      const card = info.pet ? { ...info.pet, name: info.dog } : null;
+      const entry = { id, actor, label: makeLabel(info.name),
+                      s: { x:0, y:0, z:0, ry:0, speed:0 },
                       started: false,
-
                       tossSeen: 0,
-                      petKey: info.pet ? keyOf({ ...info.pet, name: info.dog }) : '' };
+                      card,
+                      pet: null,
+                      petKey: card ? keyOf(card) : '' };
       peers.set(id, entry);
       pickDriver();
+      syncPeerPets();
       updateCount();
     },
     onState(id, s){
@@ -475,16 +523,9 @@ function begin(myName, petName, petSpec, friends, myLook){
       if (s.balls && id === driver) syncBalls(s.balls);
 
       // 같은 아이를 맡은 사람이 보내 주는 자리
-      if (s.pet && id === driver){
-        const e = myPet;
-        e.rx = s.pet.x; e.rz = s.pet.z; e.rry = s.pet.ry;
-        e.rsp = s.pet.speed; e.rgreet = s.pet.greet; e.rtrick = s.pet.trick;
-        if (!e.rStarted){
-          e.rStarted = true;
-          e.actor.group.position.set(s.pet.x, 0, s.pet.z);
-          e.actor.group.rotation.y = s.pet.ry;
-        }
-      }
+      if (s.pet && id === driver) putPet(myPet, s.pet);
+      // 그 사람이 따로 데려온 제 아이의 자리
+      if (s.pet && p.pet) putPet(p.pet, s.pet);
     },
     /* 맡지 않은 사람이 공을 던졌다. 공은 맡은 사람이 띄워야 모두에게
        같은 자리로 퍼진다. 던지는 모습은 `tossSeq` 가 따로 알려 준다. */
@@ -499,8 +540,12 @@ function begin(myName, petName, petSpec, friends, myLook){
       const p = peers.get(id);
       if (!p) return;
       scene.remove(p.actor.group); p.actor.dispose(); p.label.remove();
+      /* 사람이 나가면 그 아이도 함께 보낸다. 두고 가면 자리를 보내 줄
+         사람이 없어 정원에 멈춰 선 채로 남는다. */
+      dropPet(p.pet);
       peers.delete(id);
       pickDriver();          // 맡고 있던 사람이면 내가 다시 움직인다
+      syncPeerPets();        // 같은 아이를 가진 사람이 남아 있으면 그쪽이 맡는다
       updateCount();
     }
   };
@@ -698,11 +743,7 @@ function begin(myName, petName, petSpec, friends, myLook){
   /* 아이를 갈아 끼운다. 한 정원에 아이는 하나뿐이라 더하는 것이 아니라
      바꾸는 것이다. */
   function swapPet(card){
-    const i = pets.indexOf(myPet);
-    if (i >= 0) pets.splice(i, 1);
-    scene.remove(myPet.actor.group);
-    myPet.actor.dispose();
-    myPet.label.remove();
+    dropPet(myPet);
 
     myCard = card;
     myKey = keyOf(card);
@@ -715,6 +756,9 @@ function begin(myName, petName, petSpec, friends, myLook){
     whoEl.title = mySpec.breedName + ' · ' + mySpec.coatName;
     driver = null;
     pickDriver();
+    /* 아이가 바뀌면 남의 아이도 다시 따져야 한다. 같은 아이가 되었으면
+       따로 그리던 것을 치우고, 달라졌으면 그 사람 것을 새로 만든다. */
+    syncPeerPets();
   }
 
   const chLabel = showChannel(channel);
@@ -773,6 +817,9 @@ function begin(myName, petName, petSpec, friends, myLook){
     const came = [];
     for (const e of pets){
       if (!e.name || !text.includes(e.name)) continue;
+      /* 남의 아이는 그 사람 기기에서 움직인다. 여기서 불러 봐야 아무 일도
+         일어나지 않으므로, 이름이 같아도 건드리지 않는다. */
+      if (e.remote) continue;
       e.called = true;
       e.follows = null;      // 부름이 먼저다
       e.rest = 0;
@@ -820,7 +867,8 @@ function begin(myName, petName, petSpec, friends, myLook){
   function order(text){
     const kind = readTrick(text);
     if (!kind) return false;
-    return orderKind(kind, pets.filter(e => e.name && text.includes(e.name)));
+    // 남의 아이에게는 시킬 수 없다 — 그 사람 기기에서 움직이기 때문이다
+    return orderKind(kind, pets.filter(e => e.name && !e.remote && text.includes(e.name)));
   }
 
   chatForm.addEventListener('submit', e => {
