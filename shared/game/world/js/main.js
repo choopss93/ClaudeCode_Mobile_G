@@ -417,9 +417,12 @@ function begin(myName, petName, petSpec, friends, myLook){
           if (q !== p && q.petKey === p.petKey && q.id < p.id){ want = false; break; }
         }
       }
+      // 데려온 아이가 바뀌었으면 옛 아이를 치우고 새로 짓는다
+      if (want && p.pet && p.pet.key !== p.petKey){ dropPet(p.pet); p.pet = null; }
       if (want === !!p.pet) continue;
       if (!want){ dropPet(p.pet); p.pet = null; continue; }
       p.pet = addPet(resolvePet(p.card), p.card.name, p.actor.group, true);
+      p.pet.key = p.petKey;
       p.pet.rStarted = false;
     }
   }
@@ -531,6 +534,16 @@ function begin(myName, petName, petSpec, friends, myLook){
        같은 자리로 퍼진다. 던지는 모습은 `tossSeq` 가 따로 알려 준다. */
     onToss(id, req){
       if (!driver) spawnBall(req);
+    },
+    /* 그 사람의 아이가 바뀌었다 — 코드를 넣은 것이다. 옛 아이를 치우고
+       새 아이를 들인다. 내 아이와 같아졌으면 한 마리를 함께 본다. */
+    onPet(id, info){
+      const p = peers.get(id);
+      if (!p) return;
+      p.card = info.pet ? { ...info.pet, name: info.dog } : null;
+      p.petKey = p.card ? keyOf(p.card) : '';
+      pickDriver();
+      syncPeerPets();
     },
     onSay(id, text){
       const p = peers.get(id);
@@ -759,6 +772,8 @@ function begin(myName, petName, petSpec, friends, myLook){
     /* 아이가 바뀌면 남의 아이도 다시 따져야 한다. 같은 아이가 되었으면
        따로 그리던 것을 치우고, 달라졌으면 그 사람 것을 새로 만든다. */
     syncPeerPets();
+    // 남들도 알아야 그쪽 화면에서 같은 일이 일어난다
+    net.setPet(card.name, { kind: card.kind, breed: card.breed, coat: card.coat });
   }
 
   const chLabel = showChannel(channel);

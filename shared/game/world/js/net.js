@@ -89,6 +89,7 @@ export function createLocalNet({ world, handlers, channel = PUBLIC, place }){
     sendState(){},
     say(){},
     toss(){},        // 거니는 손님은 공을 던지지 않는다
+    setPet(){},      // 알릴 상대가 없다
 
     update(dt){
       for (const g of guests){

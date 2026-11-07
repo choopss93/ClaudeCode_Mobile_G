@@ -107,17 +107,30 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
     if (typeof from !== 'string' || from === id) return;   // 내가 보낸 것
 
     if (m[0] === 'hi'){
-      const known = peers.get(from);
-      if (known){ known.last = now(); return; }            // 이미 아는 사람
-      // 자리가 찼으면 더 받지 않는다. 서른 명까지다.
-      if (peers.size + 1 >= CAPACITY) return;
-      peers.set(from, { last: now() });
       const spec = Array.isArray(m[5])
         ? { kind: m[5][0], breed: m[5][1], coat: m[5][2] } : null;
+      const dog = typeof m[4] === 'string' ? m[4].slice(0, 12) : '친구';
+      const sig = JSON.stringify([dog, spec]);
+      const known = peers.get(from);
+      if (known){                                          // 이미 아는 사람
+        known.last = now();
+        /* 아이는 중간에 바뀔 수 있다 — 그 사람이 코드를 넣으면 다른
+           아이가 된다. 인사가 달라졌으면 알려 준다. 그냥 흘려보내면
+           그 사람의 옛 아이가 내 화면에 그대로 남고, 내 코드를 넣은
+           것이라면 같은 아이가 두 마리로 보인다. */
+        if (known.sig !== sig){
+          known.sig = sig;
+          handlers.onPet(from, { dog, pet: spec });
+        }
+        return;
+      }
+      // 자리가 찼으면 더 받지 않는다. 서른 명까지다.
+      if (peers.size + 1 >= CAPACITY) return;
+      peers.set(from, { last: now(), sig });
       handlers.onJoin(from, {
         name: typeof m[2] === 'string' ? m[2].slice(0, 12) : '친구',
         look: m[3] === 'long' ? 'long' : 'short',
-        dog: typeof m[4] === 'string' ? m[4].slice(0, 12) : '친구',
+        dog: dog,
         pet: spec,
         remote: true                 // 이 아이는 주인이 보내 주는 자리에 놓는다
       });
@@ -200,6 +213,14 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
 
     say(text){
       if (link) link.publish(topic, JSON.stringify(['t', id, String(text).slice(0, 80)]));
+    },
+
+    /* 내 아이가 바뀌었다 (코드를 넣었다). 인사에 담아 보내야 남들도 안다.
+       4초마다 다시 보내는 그 인사를 고쳐 두고, 한 번은 바로 보낸다. */
+    setPet(dog, pet){
+      mine[4] = dog;
+      mine[5] = pet ? [pet.kind, pet.breed, pet.coat] : null;
+      if (link) link.publish(topic, JSON.stringify(mine));
     },
 
     update(){
