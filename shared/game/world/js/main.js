@@ -302,8 +302,7 @@ function begin(myName, petName, petSpec, friends, myLook){
   me.setHand(look.dark > 0.5);
   const myLabel = makeLabel(myName);
 
-  whoEl.textContent = myName + ' · ' + petName;
-  whoEl.title = petSpec.breedName + ' · ' + petSpec.coatName;
+  // 이름표는 아래에서 다시 쓴다 — 코드를 넣었으면 그 아이의 이름이라야 한다
 
   /* ── 반려동물 ──
      따라다니지 않는다. 저마다 정원을 거닐되, 다음 갈 곳을 열에 일곱쯤은
@@ -379,8 +378,42 @@ function begin(myName, petName, petSpec, friends, myLook){
     return e;
   }
 
-  const myPet = addPet(petSpec, petName, me.group);   // 이 아이의 주인은 나다
-  for (const f of friends || []) addPet(resolvePet(f), f.name);
+  /* 한 정원에 아이는 **한 마리**다.
+     코드를 넣었으면 그 아이가 내 아이가 된다 — 고른 이름과 품종은 쓰지
+     않는다. 둘 다 두면 정원에 아이가 둘이 되어 버린다. */
+  const given = (friends && friends[0]) || null;
+  let mySpec = given ? resolvePet(given) : petSpec;
+  let myName2 = given ? given.name : petName;
+  let myCard = given
+    ? { kind: given.kind, breed: given.breed, coat: given.coat, name: given.name }
+    : { kind: petSpec.kind, breed: choice.breed, coat: petSpec.coatKey, name: petName };
+
+  let myPet = addPet(mySpec, myName2, me.group);     // 이 아이의 주인은 나다
+
+  /* 어떤 아이인지 한 줄로. 같은 채널에 같은 아이를 가진 사람이 있으면
+     한쪽만 움직여야 두 화면에서 같은 자리에 있다. */
+  const keyOf = c => c ? [c.kind, c.breed, c.coat, c.name].join('|') : '';
+  let myKey = keyOf(myCard);
+
+  /* 같은 아이를 맡은 사람. id 가 가장 작은 사람이 움직이고 나머지는
+     받아서 놓기만 한다. 양쪽이 같은 규칙으로 따지므로 의논할 필요가 없다.
+     id 는 net 보다 먼저 있어야 해서 여기서 미리 뽑는다 — net 을 들여다보면
+     손님이 들어올 때 아직 만들어지지 않아 터진다. */
+  const myId = 'rb' + Math.random().toString(36).slice(2, 10);
+  let driver = null;
+
+  function pickDriver(){
+    let small = null;
+    for (const [id, p] of peers){
+      if (p.petKey === myKey && (small === null || id < small)) small = id;
+    }
+    const next = (small !== null && small < myId) ? small : null;
+    if (next === driver) return;
+    driver = next;
+    myPet.remote = !!driver;
+    myPet.rStarted = false;
+    if (!driver){ myPet.rest = 0.4; wander(myPet); }   // 내가 다시 맡는다
+  }
 
   /* ── 다른 사람들 ── */
   const peers = new Map();
@@ -391,17 +424,15 @@ function begin(myName, petName, petSpec, friends, myLook){
                                   long: info.look === 'long' });
       scene.add(actor.group);
       actor.setHand(look.dark > 0.5);
+      /* 남의 아이를 따로 만들지 않는다 — 정원에 아이는 하나뿐이다.
+         다만 그 사람이 **나와 같은 아이**(같은 코드)를 데리고 있으면,
+         둘 중 하나만 움직여야 두 화면에서 같은 자리에 있다. 누가 움직일지는
+         id 가 작은 쪽으로 정한다 — 양쪽이 같은 답을 내므로 의논이 필요 없다. */
       const entry = { actor, label: makeLabel(info.name), s: { x:0, y:0, z:0, ry:0, speed:0 },
-                      started: false, pet: null };
-
-      // 거니는 손님의 아이는 여기서 거닐지만, 접속한 사람의 아이는 그
-      // 사람의 기기에서 살아 있다 (info.remote). 그래야 둘이 같은 한
-      // 마리를 본다 — 받은 쪽에서 따로 거닐게 하면 화면마다 다른 데 있다.
-      if (info.pet){
-        entry.pet = addPet(resolvePet(info.pet), info.dog || '친구',
-                           actor.group, info.remote);
-      }
+                      started: false,
+                      petKey: info.pet ? keyOf({ ...info.pet, name: info.dog }) : '' };
       peers.set(id, entry);
+      pickDriver();
       updateCount();
     },
     onState(id, s){
@@ -414,9 +445,9 @@ function begin(myName, petName, petSpec, friends, myLook){
         p.started = true;
       }
 
-      // 주인이 보내 준 아이의 자리
-      if (s.pet && p.pet){
-        const e = p.pet;
+      // 같은 아이를 맡은 사람이 보내 주는 자리
+      if (s.pet && id === driver){
+        const e = myPet;
         e.rx = s.pet.x; e.rz = s.pet.z; e.rry = s.pet.ry;
         e.rsp = s.pet.speed; e.rgreet = s.pet.greet; e.rtrick = s.pet.trick;
         if (!e.rStarted){
@@ -434,18 +465,8 @@ function begin(myName, petName, petSpec, friends, myLook){
       const p = peers.get(id);
       if (!p) return;
       scene.remove(p.actor.group); p.actor.dispose(); p.label.remove();
-
-      // 그 사람의 아이도 함께 간다. 두고 가면 주인이 없어 자리를 보내
-      // 주는 사람도 없으니, 정원에 그대로 멈춰 서 있게 된다.
-      if (p.pet){
-        const i = pets.indexOf(p.pet);
-        if (i >= 0) pets.splice(i, 1);
-        scene.remove(p.pet.actor.group);
-        p.pet.actor.dispose();
-        p.pet.label.remove();
-      }
-
       peers.delete(id);
+      pickDriver();          // 맡고 있던 사람이면 내가 다시 움직인다
       updateCount();
     }
   };
@@ -472,10 +493,11 @@ function begin(myName, petName, petSpec, friends, myLook){
   // 같은 채널에 들어온 실제 사람들. 못 붙어도 정원은 그대로 거닐 수 있다.
   const net = createLiveNet({
     handlers, channel,
-    me: { name: myName, look: myLook, dog: petName,
+    id: myId,
+    me: { name: myName, look: myLook, dog: myCard.name,
           // '랜덤' 을 그대로 보내면 받는 쪽에서 다른 털빛이 된다.
           // 이미 뽑힌 값을 보내야 같은 아이가 된다.
-          pet: { kind: petSpec.kind, breed: choice.breed, coat: petSpec.coatKey } },
+          pet: { kind: myCard.kind, breed: myCard.breed, coat: myCard.coat } },
     onStatus(s){ netSaid = s; paintCount(); }
   });
   updateCount();
@@ -484,11 +506,33 @@ function begin(myName, petName, petSpec, friends, myLook){
   const controls = createControls(canvas, { stick: $('stick'), knob: $('knob') });
 
   /* ── 반려동물 코드 ── */
-  const myCode = makeCode({
-    kind: petSpec.kind, breed: choice.breed, coat: petSpec.coatKey, name: petName
-  });
+  let myCode = makeCode(myCard);
   $('myCode').textContent = myCode;
-  $('myPetName').textContent = petName;
+  $('myPetName').textContent = myCard.name;
+  whoEl.textContent = myName + ' · ' + myCard.name;
+  whoEl.title = mySpec.breedName + ' · ' + mySpec.coatName;
+
+  /* 아이를 갈아 끼운다. 한 정원에 아이는 하나뿐이라 더하는 것이 아니라
+     바꾸는 것이다. */
+  function swapPet(card){
+    const i = pets.indexOf(myPet);
+    if (i >= 0) pets.splice(i, 1);
+    scene.remove(myPet.actor.group);
+    myPet.actor.dispose();
+    myPet.label.remove();
+
+    myCard = card;
+    myKey = keyOf(card);
+    mySpec = resolvePet(card);
+    myPet = addPet(mySpec, card.name, me.group);
+    myCode = makeCode(card);
+    $('myCode').textContent = myCode;
+    $('myPetName').textContent = card.name;
+    whoEl.textContent = myName + ' · ' + card.name;
+    whoEl.title = mySpec.breedName + ' · ' + mySpec.coatName;
+    driver = null;
+    pickDriver();
+  }
 
   const chLabel = showChannel(channel);
   whereEl.textContent = chLabel;
@@ -533,13 +577,11 @@ function begin(myName, petName, petSpec, friends, myLook){
       tell('코드를 읽지 못했어요. 다시 확인해 주세요.', true);
       return;
     }
-    const names = [];
-    for (const f of found){
-      addPet(resolvePet(f), f.name);
-      names.push(f.name);
-    }
+    // 한 마리뿐이므로 더하는 것이 아니라 **바꾼다**
+    const f = found[0];
+    swapPet({ kind: f.kind, breed: f.breed, coat: f.coat, name: f.name });
     $('addCode').value = '';
-    tell(names.join(' · ') + ' 가 정원에 왔어요. 거닐다 보면 만나요.');
+    tell(f.name + ' 로 바뀌었어요. 정원에 아이는 한 마리예요.');
   });
 
   /* ── 대화 ── */
@@ -898,7 +940,8 @@ function begin(myName, petName, petSpec, friends, myLook){
     net.sendState(
       { x: me.group.position.x, z: me.group.position.z,
         ry: me.group.rotation.y, speed: mySpeed },
-      myPet ? { x: myPet.actor.group.position.x,
+      // 남이 맡고 있으면 보내지 않는다 — 둘이 같이 보내면 서로 밀친다
+      (myPet && !myPet.remote) ? { x: myPet.actor.group.position.x,
                 z: myPet.actor.group.position.z,
                 ry: myPet.actor.group.rotation.y,
                 speed: myPet.lastSpeed,

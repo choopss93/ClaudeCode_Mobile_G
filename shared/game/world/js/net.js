@@ -25,9 +25,11 @@ import { CAPACITY, PUBLIC } from '#channel';
  * 자리가 찼을 때 막는 일은 접속을 붙이는 쪽에서 이 `full()` 을 보고 한다.
  */
 
+/* 한 정원에 아이는 한 마리뿐이다. 그래서 거니는 손님은 아이를 데려오지
+   않는다 — 예전에는 데려왔고, 그 탓에 코드를 넣으면 셋이 보였다. */
 const GUESTS = [
-  { name: '햇살',   look: 'short', dog: '구름', pet: { kind:'dog', breed:4, coat:'brown'  } },  // 웰시코기
-  { name: '민들레', look: 'long',  dog: '단비', pet: { kind:'cat', breed:7, coat:'tuxedo' } }   // 메인쿤
+  { name: '햇살',   look: 'short' },
+  { name: '민들레', look: 'long'  }
 ];
 
 const LINES = [

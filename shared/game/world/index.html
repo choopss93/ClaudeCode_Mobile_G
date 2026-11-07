@@ -368,17 +368,17 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-04b",
-    "#world": "./js/world.js?v=2026-11-04b",
-    "#actor": "./js/actor.js?v=2026-11-04b",
-    "#controls": "./js/controls.js?v=2026-11-04b",
-    "#net": "./js/net.js?v=2026-11-04b",
-    "#pets": "./js/pets.js?v=2026-11-04b",
-    "#petcode": "./js/petcode.js?v=2026-11-04b",
-    "#channel": "./js/channel.js?v=2026-11-04b",
-    "#daylight": "./js/daylight.js?v=2026-11-04b",
-    "#mqtt": "./js/mqtt.js?v=2026-11-04b",
-    "#live": "./js/live.js?v=2026-11-04b"
+    "#look": "./js/look.js?v=2026-11-07a",
+    "#world": "./js/world.js?v=2026-11-07a",
+    "#actor": "./js/actor.js?v=2026-11-07a",
+    "#controls": "./js/controls.js?v=2026-11-07a",
+    "#net": "./js/net.js?v=2026-11-07a",
+    "#pets": "./js/pets.js?v=2026-11-07a",
+    "#petcode": "./js/petcode.js?v=2026-11-07a",
+    "#channel": "./js/channel.js?v=2026-11-07a",
+    "#daylight": "./js/daylight.js?v=2026-11-07a",
+    "#mqtt": "./js/mqtt.js?v=2026-11-07a",
+    "#live": "./js/live.js?v=2026-11-07a"
   }
 }
 </script>
@@ -434,7 +434,7 @@
 
     <label for="addCode">친구 코드 넣기</label>
     <input id="addCode" type="text" autocapitalize="characters" placeholder="받은 코드를 붙여넣으세요">
-    <button type="button" class="go" id="addCodeBtn">정원에 부르기</button>
+    <button type="button" class="go" id="addCodeBtn">그 아이로 바꾸기</button>
     <p class="said" id="codeSaid"></p>
 
     <button type="button" class="close" id="closeCode">닫기</button>
@@ -491,14 +491,17 @@
 
     <label for="friendCodes">친구 코드 <span class="sel">없어도 괜찮아요</span></label>
     <input id="friendCodes" type="text" autocapitalize="characters"
-           placeholder="받은 코드를 붙여넣으면 그 아이도 만나요">
+           placeholder="받은 코드를 붙여넣으면 그 아이와 지내요">
+    <p class="sel" id="codeNote" style="margin:-6px 4px 13px;font-size:11.5px">
+      코드를 넣으면 <b>그 아이</b>와 지냅니다. 위에서 고른 이름과 품종은
+      쓰지 않아요 — 정원에 아이는 한 마리예요.</p>
 
     <button type="submit">정원으로 들어가기</button>
     <p class="note">서두를 것도, 지는 것도 없는 곳이에요.
-      <span class="ver">2026-11-04b</span></p>
+      <span class="ver">2026-11-07a</span></p>
   </form>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-04b"></script>
+<script type="module" src="./js/main.js?v=2026-11-07a"></script>
 </body>
 </html>

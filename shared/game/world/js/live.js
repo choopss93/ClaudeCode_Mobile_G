@@ -62,9 +62,11 @@ function brokersToTry(){
  *       pet 은 { kind, breed, coat } — **이미 뽑힌** 값이어야 한다.
  *       '랜덤' 을 그대로 보내면 받는 사람 화면에서 다른 털빛이 된다.
  */
-export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus }){
+export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
   const topic = ROOM + channel;
-  const id = 'rb' + Math.random().toString(36).slice(2, 10);
+  // 바깥에서 주면 그것을 쓴다. 같은 아이를 누가 움직일지 id 로 정하는데,
+  // 그 판단이 net 보다 먼저 필요하기 때문이다.
+  id = id || ('rb' + Math.random().toString(36).slice(2, 10));
   const peers = new Map();         // id → { last: 마지막 소식이 온 시각 }
   const brokers = brokersToTry();
 
@@ -165,6 +167,7 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus }){
 
   return {
     mode: 'live',
+    id,
     channel,
     capacity: CAPACITY,
     get status(){ return status; },
