@@ -881,12 +881,16 @@ function begin(myName, petName, petSpec, friends, myLook){
     return { x, z };
   }
 
-  function walk(obj, dirX, dirZ, speed, dt){
+  /* `close` 는 **몸끼리 밀어내기를 잠시 푸는 것**이다. 코·손은 서로
+     닿아야 하는 재주인데, `keepApart` 가 사람과 아이를 0.5m 밖으로
+     밀어내서 아무리 와도 닿을 수가 없다. 팔다리를 고무처럼 늘여 맞추는
+     것보다 그동안만 겹치게 두는 쪽이 자연스럽다. */
+  function walk(obj, dirX, dirZ, speed, dt, close){
     const from = obj.position;
     const r = bodyR.get(obj) || PERSON_R;
     let p = resolve(world, from.x + dirX * speed * dt, from.z + dirZ * speed * dt);
     // 밀려난 자리가 또 덤불 속이거나 들판 밖일 수 있어 한 번 더 다듬는다
-    p = keepApart(obj, p.x, p.z, r);
+    if (!close) p = keepApart(obj, p.x, p.z, r);
     p = resolve(world, p.x, p.z);
     const moved = Math.hypot(p.x - from.x, p.z - from.z);
     from.x = p.x;
@@ -1084,7 +1088,7 @@ function begin(myName, petName, petSpec, friends, myLook){
           /* 포기하는 거리를 코·손이 닿아야 할 거리(0.3m)보다 넓게 잡으면
              거의 다 와서 그만둔다. 밀렸는지로만 판단해야 한다. */
           step(e, dt, walk(e.actor.group, (to.x - at.x) / toGap,
-                           (to.z - at.z) / toGap, e.trot, dt));
+                           (to.z - at.z) / toGap, e.trot, dt, spec.hand));
           continue;
         }
         // 자리에 왔으면 나를 바라본다

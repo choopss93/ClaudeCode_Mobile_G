@@ -23,13 +23,13 @@ export const TRICKS = {
   down: { word: '엎드려', hold: 7,   near: 2.4 },
   // 코와 손은 닿을 만큼 바짝 와야 하고, 내민 손 곁으로 온다 (hand).
   // 몸 바로 앞으로 오면 큰 머리에 가려 카메라에서 안 보인다.
-  nose: { word: '코',     hold: 2.4, near: 0.18, hand: true },
-  paw:  { word: '손',     hold: 2.8, near: 0.18, hand: true }
+  nose: { word: '코',     hold: 2.4, near: 0.14, hand: true },
+  paw:  { word: '손',     hold: 2.8, near: 0.14, hand: true }
 };
 
 /* 내민 왼손이 있는 자리 (캐릭터 기준). 재주를 받아 줄 때 여기로 온다.
    앞발이 손에 **닿아야** 하므로 바짝 붙인다. 멀면 허공을 짚는다. */
-export const HAND_SPOT = { x: -0.40, z: 0.22 };
+export const HAND_SPOT = { x: -0.42, z: 0.2 };
 
 const LAMP = 5;               // 불을 켰을 때의 세기
 const LAMP_REACH = 16;        // 빛이 닿는 거리 (m)
@@ -258,7 +258,7 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
         const k = Math.min(1, reachLeft / 0.3);
         /* 아이가 앞발을 올릴 수 있게 손을 **낮게** 내민다. 너무 높이
            들면 작은 아이의 발이 닿지 않아 허공을 짚는다. */
-        armL.rotation.x = -0.85 * k;
+        armL.rotation.x = -0.45 * k;
         /* 바깥으로 벌리는 부호. 손은 팔 아래쪽(-y)에 달려 있으므로,
            z 를 **음수**로 돌려야 왼쪽(-x) 바깥으로 간다. 양수로 두면
            몸을 가로질러 반대쪽으로 가서, 큰 머리에 가려 안 보인다.
@@ -267,7 +267,7 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
         armL.rotation.z = -1.0 * k;
         /* 팔을 돌리기만 하면 티가 안 난다. 팔이 몸과 같은 색이고 짧아서
            몸에 묻힌다. 내미는 동안 길게 늘여야 알아볼 수 있다. */
-        armL.scale.y = 1 + 1.4 * k;
+        armL.scale.y = 1 + 0.4 * k;
       } else {
         armL.rotation.z = 0;
         armL.scale.y = 1;
@@ -444,6 +444,13 @@ export function createPet(spec){
         group.position.y = 0;
         for (const l of legs) l.position.y = legRest;
         legs[1].position.z = legZ;
+        /* 늘여 둔 앞다리를 **여기서도** 되돌린다. 재주가 끝날 때만
+           되돌리면, "손" 다음에 바로 "앉아" 를 시켰을 때 늘어난 다리가
+           그대로 남아 어깨 위로 삐쭉 솟는다.
+           제자리 길이는 `1` 이 아니라 **`legH`** 다 — `piece` 가 공
+           모양을 다리 길이만큼 눌러 만들기 때문이다. 1 로 되돌리면
+           다리가 열 배로 늘어난다. */
+        legs[1].scale.y = legH;
         tail.rotation.x = tailRestX;
         tail.rotation.z = Math.sin(t * (spec.kind === 'cat' ? 4 : 11)) *
                           (spec.kind === 'cat' ? 0.22 : 0.45);
@@ -468,9 +475,9 @@ export function createPet(spec){
           inner.position.y = bodyY * 0.14 * S * k;
           /* 앞발 하나를 들어 **사람 손 위에 올린다.** 몸 앞쪽(+z)이
              사람 쪽이므로 앞으로 길게 뻗어야 닿는다. */
-          legs[1].position.y = legRest + legH * 2.1 * k;
-          legs[1].position.z = legZ + legH * 2.4 * k;
-          legs[1].scale.y = 1 + 0.9 * k;           // 뻗은 만큼 길어진다
+          legs[1].position.y = legRest + legH * 1.5 * k;
+          legs[1].position.z = legZ + legH * 1.1 * k;
+          legs[1].scale.y = legH * (1 + 0.25 * k);
           head.rotation.x = 0.26 * k;
         }
 
@@ -481,7 +488,7 @@ export function createPet(spec){
       inner.rotation.x = 0;
       inner.position.y = 0;
       legs[1].position.z = legZ;
-      legs[1].scale.y = 1;
+      legs[1].scale.y = legH;
 
       if (greetLeft > 0){
         greetLeft -= dt;
