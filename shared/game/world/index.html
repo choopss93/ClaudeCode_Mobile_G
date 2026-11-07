@@ -169,6 +169,30 @@
   }
   #help b{font-weight:600;color:#5E5566}
 
+  /* ── 오른쪽 재주 단추 ──
+     엄지가 닿는 자리다. 조이스틱(왼쪽 아래)과 대화창(아래)을 가리지
+     않도록 오른쪽에 세로로 세우고, 안내문(#help) 위에 둔다. */
+  #acts{
+    position:fixed;z-index:7;
+    right:calc(14px + env(safe-area-inset-right, 0px));
+    bottom:calc(152px + env(safe-area-inset-bottom, 0px));
+    display:flex;flex-direction:column;gap:9px;align-items:flex-end;
+    transition:opacity .18s ease;
+  }
+  #acts button{
+    font:inherit;font-size:13px;font-weight:600;line-height:1.25;
+    color:#4A4458;background:rgba(255,255,255,.92);
+    border:0;border-radius:999px;
+    min-width:62px;min-height:48px;padding:6px 14px;
+    cursor:pointer;touch-action:manipulation;
+    box-shadow:0 4px 14px rgba(110,120,140,.22);
+  }
+  #acts button:hover{background:#FFF}
+  #acts button:active{transform:scale(.94)}
+  @media (hover:none) and (pointer:coarse){
+    #acts button{min-width:68px;min-height:52px}
+  }
+
   /* ── 대화 입력 ── */
   #chat{
     position:fixed;z-index:6;
@@ -284,7 +308,7 @@
   #start .ver{display:block;margin-top:4px;font-size:10.5px;color:#C0BACB}
 
   /* 키보드가 올라온 동안에는 가릴 것을 치운다 */
-  body.kb #stick, body.kb #help{opacity:0;pointer-events:none}
+  body.kb #stick, body.kb #help, body.kb #acts{opacity:0;pointer-events:none}
 
   /* ── 코드 창 ── */
   #codePanel{
@@ -368,17 +392,17 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-07a",
-    "#world": "./js/world.js?v=2026-11-07a",
-    "#actor": "./js/actor.js?v=2026-11-07a",
-    "#controls": "./js/controls.js?v=2026-11-07a",
-    "#net": "./js/net.js?v=2026-11-07a",
-    "#pets": "./js/pets.js?v=2026-11-07a",
-    "#petcode": "./js/petcode.js?v=2026-11-07a",
-    "#channel": "./js/channel.js?v=2026-11-07a",
-    "#daylight": "./js/daylight.js?v=2026-11-07a",
-    "#mqtt": "./js/mqtt.js?v=2026-11-07a",
-    "#live": "./js/live.js?v=2026-11-07a"
+    "#look": "./js/look.js?v=2026-11-07b",
+    "#world": "./js/world.js?v=2026-11-07b",
+    "#actor": "./js/actor.js?v=2026-11-07b",
+    "#controls": "./js/controls.js?v=2026-11-07b",
+    "#net": "./js/net.js?v=2026-11-07b",
+    "#pets": "./js/pets.js?v=2026-11-07b",
+    "#petcode": "./js/petcode.js?v=2026-11-07b",
+    "#channel": "./js/channel.js?v=2026-11-07b",
+    "#daylight": "./js/daylight.js?v=2026-11-07b",
+    "#mqtt": "./js/mqtt.js?v=2026-11-07b",
+    "#live": "./js/live.js?v=2026-11-07b"
   }
 }
 </script>
@@ -409,6 +433,12 @@
   끌어서 둘러보기 · <b>Enter</b> 로 말하기</span>
   <span class="touch-only"><b>조이스틱</b> 을 밀어 걷기<br>화면을 끌어 둘러보기</span>
 </p>
+
+<div id="acts">
+  <button type="button" id="actBall">공 던지기</button>
+  <button type="button" id="actSit">앉아</button>
+  <button type="button" id="actPaw">손</button>
+</div>
 
 <form id="chat" autocomplete="off">
   <input id="chatInput" type="text" maxlength="60" placeholder="이름을 부르면 달려와요" aria-label="대화 입력">
@@ -498,10 +528,10 @@
 
     <button type="submit">정원으로 들어가기</button>
     <p class="note">서두를 것도, 지는 것도 없는 곳이에요.
-      <span class="ver">2026-11-07a</span></p>
+      <span class="ver">2026-11-07b</span></p>
   </form>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-07a"></script>
+<script type="module" src="./js/main.js?v=2026-11-07b"></script>
 </body>
 </html>

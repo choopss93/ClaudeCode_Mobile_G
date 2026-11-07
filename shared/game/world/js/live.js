@@ -19,7 +19,8 @@ import { connectMqtt } from '#mqtt';
  * 꾸러미 (JSON 배열, 짧게)
  *   ['hi', id, 이름, 머리, 아이이름, [종, 품종, 털빛]]   들어왔음 · 4초마다 다시
  *   ['s',  id, x, z, ry, 빠르기,
- *          아이x, 아이z, 아이ry, 아이빠르기, 반김, 재주, 손내밈]
+ *          아이x, 아이z, 아이ry, 아이빠르기, 반김, 재주, 손내밈,
+ *          던지는중, 공x, 공y, 공z, 공상태]
  *          — 아이가 없어도 자리는 다 채운다. 밀리면 뒤엣것을 못 읽는다.
  *   ['t',  id, 한 말]
  *   ['bye', id]
@@ -132,7 +133,9 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
             trick: typeof m[11] === 'string' ? m[11] : null } : null;
       handlers.onState(from, {
         x: +m[2] || 0, y: 0, z: +m[3] || 0, ry: +m[4] || 0, speed: +m[5] || 0,
-        pet, reach: !!m[12]
+        pet, reach: !!m[12], throwing: !!m[13],
+        ball: m.length > 14 && m[14] !== null
+          ? { x: +m[14], y: +m[15], z: +m[16], mode: +m[17] || 0 } : null
       });
     } else if (m[0] === 't'){
       if (typeof m[2] === 'string') handlers.onSay(from, m[2].slice(0, 80));
@@ -175,7 +178,7 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
     full(){ return this.count() >= CAPACITY; },
 
     /* 내 모습과 내 아이의 자리. 매 프레임 불러도 되게 여기서 솎는다. */
-    sendState(s, pet, reach){ last = [s, pet, reach]; },
+    sendState(s, pet, reach, throwing, ball){ last = [s, pet, reach, throwing, ball]; },
 
     say(text){
       if (link) link.publish(topic, JSON.stringify(['t', id, String(text).slice(0, 80)]));
@@ -205,7 +208,7 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
       if (!last || t - sentAt < SEND_EVERY) return;
       sentAt = t;
 
-      const [s, pet, reach] = last;
+      const [s, pet, reach, throwing, ball] = last;
       const msg = ['s', id, round(s.x), round(s.z), round(s.ry), round(s.speed)];
       if (pet){
         msg.push(round(pet.x), round(pet.z), round(pet.ry), round(pet.speed),
@@ -213,7 +216,9 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
       } else {
         msg.push(null, 0, 0, 0, 0, 0);
       }
-      msg.push(reach ? 1 : 0);
+      msg.push(reach ? 1 : 0, throwing ? 1 : 0);
+      if (ball) msg.push(round(ball.x), round(ball.y), round(ball.z), ball.mode | 0);
+      else msg.push(null, 0, 0, 0);
       link.publish(topic, JSON.stringify(msg));
     },
 
