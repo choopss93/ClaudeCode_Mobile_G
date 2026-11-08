@@ -17,7 +17,9 @@ import { connectMqtt } from '#mqtt';
  * 마리를 본다. 받은 쪽에서 따로 거닐게 하면 화면마다 다른 데 있게 된다.
  *
  * 꾸러미 (JSON 배열, 짧게)
- *   ['hi', id, 이름, 머리, 아이이름, [종, 품종, 털빛]]   들어왔음 · 4초마다 다시
+ *   ['hi', id, 이름, 머리, 아이이름, [종, 품종, 털빛, 섞을품종]]
+ *          들어왔음 · 4초마다 다시. 섞을품종은 없으면 null 이다 — 뒤에
+ *          붙였으므로 옛 판이 보내온 인사(셋짜리)도 그대로 읽힌다.
  *   ['s',  id, x, z, ry, 빠르기,
  *          아이x, 아이z, 아이ry, 아이빠르기, 반김, 재주, 손내밈,
  *          던진횟수, [[공x, 공y, 공z, 공상태, 공빛깔], …]]
@@ -78,7 +80,8 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
   let status = '잇는 중';
 
   const mine = ['hi', id, me.name, me.look, me.dog,
-                me.pet ? [me.pet.kind, me.pet.breed, me.pet.coat] : null];
+                me.pet ? [me.pet.kind, me.pet.breed, me.pet.coat,
+                          Number.isInteger(me.pet.mix) ? me.pet.mix : null] : null];
 
   function tell(s){
     status = s;
@@ -108,7 +111,8 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
 
     if (m[0] === 'hi'){
       const spec = Array.isArray(m[5])
-        ? { kind: m[5][0], breed: m[5][1], coat: m[5][2] } : null;
+        ? { kind: m[5][0], breed: m[5][1], coat: m[5][2],
+            mix: Number.isInteger(m[5][3]) ? m[5][3] : null } : null;
       const dog = typeof m[4] === 'string' ? m[4].slice(0, 12) : '친구';
       const sig = JSON.stringify([dog, spec]);
       const known = peers.get(from);
@@ -219,7 +223,8 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
        4초마다 다시 보내는 그 인사를 고쳐 두고, 한 번은 바로 보낸다. */
     setPet(dog, pet){
       mine[4] = dog;
-      mine[5] = pet ? [pet.kind, pet.breed, pet.coat] : null;
+      mine[5] = pet ? [pet.kind, pet.breed, pet.coat,
+                       Number.isInteger(pet.mix) ? pet.mix : null] : null;
       if (link) link.publish(topic, JSON.stringify(mine));
     },
 

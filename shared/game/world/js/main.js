@@ -67,7 +67,7 @@ $('scene').addEventListener('contextmenu', e => e.preventDefault());
 
 /* ── 이름과 반려동물 고르기 ── */
 
-const choice = { look: 'short', kind: 'dog', breed: 3, coat: 'white' };
+const choice = { look: 'short', kind: 'dog', breed: 3, mix: null, coat: 'white' };
 
 try {
   const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
@@ -77,6 +77,7 @@ try {
     if (saved.look === 'short' || saved.look === 'long') choice.look = saved.look;
     if (KINDS[saved.kind]) choice.kind = saved.kind;
     if (Number.isInteger(saved.breed)) choice.breed = saved.breed;
+    choice.mix = Number.isInteger(saved.mix) ? saved.mix : null;
     if (COATS.some(c => c.key === saved.coat)) choice.coat = saved.coat;
   }
 } catch (_){}
@@ -122,6 +123,8 @@ if (chMode === 'join') chCodeEl.value = showChannel(channel);
 paintChannel();
 
 const breedsEl = $('breeds');
+const mixesEl = $('mixes');
+const mixNameEl = $('mixName');
 const coatsEl = $('coats');
 const coatNameEl = $('coatName');
 
@@ -135,9 +138,47 @@ function paintBreeds(){
     btn.textContent = b.name;
     btn.className = i === choice.breed ? 'on' : '';
     btn.setAttribute('aria-pressed', i === choice.breed ? 'true' : 'false');
-    btn.addEventListener('click', () => { choice.breed = i; paintBreeds(); });
+    btn.addEventListener('click', () => {
+      choice.breed = i;
+      if (choice.mix === i) choice.mix = null;   // 같은 품종끼리는 못 섞는다
+      paintBreeds();
+    });
     breedsEl.appendChild(btn);
   });
+  paintMixes();
+}
+
+/* 섞을 품종. 안 고르면 순종이다. 고른 품종 자신은 목록에서 뺀다 —
+   같은 것끼리 섞어 봐야 그대로라 고를 이유가 없다. */
+function paintMixes(){
+  const list = KINDS[choice.kind].breeds;
+  if (choice.mix !== null && (choice.mix >= list.length || choice.mix === choice.breed)){
+    choice.mix = null;
+  }
+  mixesEl.replaceChildren();
+
+  const none = document.createElement('button');
+  none.type = 'button';
+  none.textContent = '안 섞어요';
+  none.className = choice.mix === null ? 'on' : '';
+  none.setAttribute('aria-pressed', choice.mix === null ? 'true' : 'false');
+  none.addEventListener('click', () => { choice.mix = null; paintMixes(); });
+  mixesEl.appendChild(none);
+
+  list.forEach((b, i) => {
+    if (i === choice.breed) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = b.name;
+    btn.className = i === choice.mix ? 'on' : '';
+    btn.setAttribute('aria-pressed', i === choice.mix ? 'true' : 'false');
+    btn.addEventListener('click', () => { choice.mix = i; paintMixes(); });
+    mixesEl.appendChild(btn);
+  });
+
+  mixNameEl.textContent = choice.mix === null
+    ? '안 섞어요'
+    : list[choice.breed].name + ' × ' + list[choice.mix].name;
 }
 
 function paintCoats(){
@@ -188,6 +229,7 @@ for (const btn of $('kind').querySelectorAll('button[data-kind]')){
   btn.addEventListener('click', () => {
     choice.kind = btn.dataset.kind;
     choice.breed = 0;
+    choice.mix = null;
     for (const b of $('kind').querySelectorAll('button[data-kind]')){
       b.classList.toggle('on', b.dataset.kind === choice.kind);
     }
@@ -207,7 +249,7 @@ startForm.addEventListener('submit', e => {
   try {
     localStorage.setItem(STORE, JSON.stringify({
       name, dog, look: choice.look,
-      kind: choice.kind, breed: choice.breed, coat: choice.coat
+      kind: choice.kind, breed: choice.breed, mix: choice.mix, coat: choice.coat
     }));
   } catch (_){}
   if (chMode === 'join'){
@@ -434,14 +476,19 @@ function begin(myName, petName, petSpec, friends, myLook){
   let mySpec = given ? resolvePet(given) : petSpec;
   let myName2 = given ? given.name : petName;
   let myCard = given
-    ? { kind: given.kind, breed: given.breed, coat: given.coat, name: given.name }
-    : { kind: petSpec.kind, breed: choice.breed, coat: petSpec.coatKey, name: petName };
+    ? { kind: given.kind, breed: given.breed, mix: given.mix ?? null,
+        coat: given.coat, name: given.name }
+    : { kind: petSpec.kind, breed: choice.breed, mix: choice.mix,
+        coat: petSpec.coatKey, name: petName };
 
   let myPet = addPet(mySpec, myName2, me.group);     // 이 아이의 주인은 나다
 
   /* 어떤 아이인지 한 줄로. 같은 채널에 같은 아이를 가진 사람이 있으면
      한쪽만 움직여야 두 화면에서 같은 자리에 있다. */
-  const keyOf = c => c ? [c.kind, c.breed, c.coat, c.name].join('|') : '';
+  /* 섞은 품종까지 봐야 한다. 안 보면 말티즈와 "말티즈 × 푸들" 이 같은
+     아이로 묶여, 서로 다른 아이를 한 마리로 함께 보게 된다. */
+  const keyOf = c => c
+    ? [c.kind, c.breed, c.mix ?? '', c.coat, c.name].join('|') : '';
   let myKey = keyOf(myCard);
 
   /* 같은 아이를 맡은 사람. id 가 가장 작은 사람이 움직이고 나머지는
@@ -493,7 +540,7 @@ function begin(myName, petName, petSpec, friends, myLook){
          **나와 같은 아이**(같은 코드)라면 한 마리를 함께 보는 것이므로
          따로 만들지 않고, 둘 중 하나만 움직인다 — 누가 움직일지는 id 가
          작은 쪽으로 정한다. 양쪽이 같은 답을 내므로 의논이 필요 없다. */
-      const card = info.pet ? { ...info.pet, name: info.dog } : null;
+      const card = info.pet ? { mix: null, ...info.pet, name: info.dog } : null;
       const entry = { id, actor, label: makeLabel(info.name),
                       s: { x:0, y:0, z:0, ry:0, speed:0 },
                       started: false,
@@ -540,7 +587,7 @@ function begin(myName, petName, petSpec, friends, myLook){
     onPet(id, info){
       const p = peers.get(id);
       if (!p) return;
-      p.card = info.pet ? { ...info.pet, name: info.dog } : null;
+      p.card = info.pet ? { mix: null, ...info.pet, name: info.dog } : null;
       p.petKey = p.card ? keyOf(p.card) : '';
       pickDriver();
       syncPeerPets();
@@ -598,7 +645,8 @@ function begin(myName, petName, petSpec, friends, myLook){
     me: { name: myName, look: myLook, dog: myCard.name,
           // '랜덤' 을 그대로 보내면 받는 쪽에서 다른 털빛이 된다.
           // 이미 뽑힌 값을 보내야 같은 아이가 된다.
-          pet: { kind: myCard.kind, breed: myCard.breed, coat: myCard.coat } },
+          pet: { kind: myCard.kind, breed: myCard.breed,
+                 coat: myCard.coat, mix: myCard.mix } },
     onStatus(s){ netSaid = s; paintCount(); }
   });
   updateCount();
@@ -773,7 +821,8 @@ function begin(myName, petName, petSpec, friends, myLook){
        따로 그리던 것을 치우고, 달라졌으면 그 사람 것을 새로 만든다. */
     syncPeerPets();
     // 남들도 알아야 그쪽 화면에서 같은 일이 일어난다
-    net.setPet(card.name, { kind: card.kind, breed: card.breed, coat: card.coat });
+    net.setPet(card.name, { kind: card.kind, breed: card.breed,
+                            coat: card.coat, mix: card.mix });
   }
 
   const chLabel = showChannel(channel);
@@ -821,7 +870,8 @@ function begin(myName, petName, petSpec, friends, myLook){
     }
     // 한 마리뿐이므로 더하는 것이 아니라 **바꾼다**
     const f = found[0];
-    swapPet({ kind: f.kind, breed: f.breed, coat: f.coat, name: f.name });
+    swapPet({ kind: f.kind, breed: f.breed, mix: f.mix ?? null,
+              coat: f.coat, name: f.name });
     $('addCode').value = '';
     tell(f.name + ' 로 바뀌었어요. 정원에 아이는 한 마리예요.');
   });

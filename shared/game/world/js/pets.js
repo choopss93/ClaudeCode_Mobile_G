@@ -71,11 +71,43 @@ export function walkSpeed(spec){
   return PET_WALK * legs * size;
 }
 
+/*
+ * 믹스견 — 두 품종을 섞는다.
+ *
+ * 수치는 가운데를 잡고(평균), 귀와 꼬리처럼 **고르는 것**은 한쪽씩
+ * 나눠 갖는다 — 귀는 앞의 아이, 꼬리는 뒤의 아이. 평균이 없는 값이라
+ * 어느 한쪽을 따라야 하는데, 서로 다른 데서 하나씩 가져와야 섞인 티가
+ * 난다. 둘 다 앞의 아이를 따르면 그냥 앞의 아이로 보인다.
+ */
+function blend(a, b){
+  const m = (x, y) => (x + y) / 2;
+  return {
+    name: a.name + ' × ' + b.name,
+    scale: m(a.scale, b.scale),
+    body: [m(a.body[0], b.body[0]), m(a.body[1], b.body[1])],
+    legs: m(a.legs, b.legs),
+    head: m(a.head, b.head),
+    muzzle: m(a.muzzle, b.muzzle),
+    ear: a.ear,                       // 귀는 앞의 아이
+    earSize: m(a.earSize, b.earSize),
+    tail: b.tail,                     // 꼬리는 뒤의 아이
+    fluff: m(a.fluff, b.fluff)
+  };
+}
+
+/** 섞을 품종이 쓸 만한 번호인가. 같은 품종끼리는 섞어도 그대로다. */
+export function mixable(kind, breed, mix){
+  const list = KINDS[KINDS[kind] ? kind : 'dog'].breeds;
+  return Number.isInteger(mix) && mix >= 0 && mix < list.length &&
+         mix !== (breed | 0);
+}
+
 /** 고른 값을 실제 모양 지시서로 바꾼다. 랜덤이면 여기서 뽑는다. */
-export function resolvePet({ kind, breed, coat }){
+export function resolvePet({ kind, breed, mix, coat }){
   const k = KINDS[kind] ? kind : 'dog';
   const list = KINDS[k].breeds;
-  const b = list[Math.min(Math.max(breed | 0, 0), list.length - 1)];
+  const no = Math.min(Math.max(breed | 0, 0), list.length - 1);
+  const b = mixable(k, no, mix) ? blend(list[no], list[mix]) : list[no];
 
   let c = COATS.find(x => x.key === coat) || COATS[0];
   if (c.random){
