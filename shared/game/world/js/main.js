@@ -333,9 +333,10 @@ function openPaint(){
         $('paintSaid').textContent =
           eulReul(PARTS[part].label) + ' ' + euro(PAINTS[color].label) + ' 칠했어요.';
       },
-      onSpray(color, many){
-        $('paintSaid').textContent = color === null
-          ? '자국은 ' + SPRAY_MAX + '개까지예요. 지우고 다시 뿌려 주세요.'
+      onSpray(color, many, why){
+        $('paintSaid').textContent =
+          why === 'eye' ? '눈과 코에는 칠하지 않아요.'
+          : why === 'full' ? '자국은 ' + SPRAY_MAX + '개까지예요. 지우고 다시 뿌려 주세요.'
           : euro(PAINTS[color].label) + ' 뿌렸어요 (' + many + '/' + SPRAY_MAX + ').';
       }
     });

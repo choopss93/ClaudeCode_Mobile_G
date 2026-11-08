@@ -400,8 +400,11 @@ export function createPet(spec){
     tag(piece(head, ball, coat(MUZZLE), 0, -headR * 0.26, headR * 0.72 + mz * 0.4,
               mz * 0.92, mz * 0.76, mz), MUZZLE);
   }
+  /* 눈과 코에는 **칠하지도 뿌리지도 않는다.** 작고 또렷한 자리라
+     덮이면 표정이 사라진다. 부위 칠하기는 `userData.part` 가 없어서
+     저절로 비껴가고, 스프레이는 이 표시를 보고 비껴간다. */
   piece(head, ball, nose, 0, -headR * 0.14, headR * 0.76 + mz * 0.95,
-        headR * 0.2, headR * 0.17, headR * 0.16);
+        headR * 0.2, headR * 0.17, headR * 0.16).userData.noPaint = 1;
 
   /* 눈 둘레 — 얼굴에 점박이처럼 걸린다.
      **눈보다 앞으로 나오면 안 된다.** 눈이 가려져 초승달만 남는다.
@@ -428,8 +431,10 @@ export function createPet(spec){
 
   // 눈
   const eyeZ = headR * 0.72;
-  piece(head, eyeGeo, dark, -headR * 0.42, headR * 0.2, eyeZ, 0.8, 0.95, 0.6);
-  piece(head, eyeGeo, dark,  headR * 0.42, headR * 0.2, eyeZ, 0.8, 0.95, 0.6);
+  piece(head, eyeGeo, dark, -headR * 0.42, headR * 0.2, eyeZ, 0.8, 0.95, 0.6)
+    .userData.noPaint = 1;
+  piece(head, eyeGeo, dark,  headR * 0.42, headR * 0.2, eyeZ, 0.8, 0.95, 0.6)
+    .userData.noPaint = 1;
 
   // 귀 — 모양마다 다르게
   const er = headR * spec.earSize;

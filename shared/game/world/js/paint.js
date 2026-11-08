@@ -113,9 +113,14 @@ export function createPaintEditor({ canvas, onPaint, onSpray }){
         /* 어디든 몸에 닿기만 하면 뿌린다 — 눈·코 위에도. 자리는
            몸통 상자 안의 몇 할인지로 적고, **적을 때 쓰는 만큼만**
            남긴다. 그래야 지금 보는 자리와 코드에 담기는 자리가 같다. */
-        if (hit.object.userData.spray) continue;
+        if (hit.object.userData.spray) continue;   // 자국은 뚫고 지나간다
+        // 눈과 코는 덮지 않는다. 그 자리를 찍으면 아무 일도 하지 않는다.
+        if (hit.object.userData.noPaint){
+          if (onSpray) onSpray(null, sprays.length, 'eye');
+          return;
+        }
         if (sprays.length >= SPRAY_MAX){
-          if (onSpray) onSpray(null, sprays.length);
+          if (onSpray) onSpray(null, sprays.length, 'full');
           return;
         }
         const b = pet.box;
@@ -128,7 +133,7 @@ export function createPaintEditor({ canvas, onPaint, onSpray }){
                       z: q(p.z, b.min.z, b.max.z),
                       ci: color, big });
         build();
-        if (onSpray) onSpray(color, sprays.length);
+        if (onSpray) onSpray(color, sprays.length, 'ok');
         return;
       }
       const part = hit.object.userData.part;
