@@ -22,10 +22,14 @@ import { connectMqtt } from '#mqtt';
  *          붙였으므로 옛 판이 보내온 인사(셋짜리)도 그대로 읽힌다.
  *   ['s',  id, x, z, ry, 빠르기,
  *          아이x, 아이z, 아이ry, 아이빠르기, 반김, 재주, 손내밈,
- *          던진횟수, [[공x, 공y, 공z, 공상태, 공빛깔], …]]
+ *          던진횟수, [[공x, 공y, 공z, 공상태, 공빛깔], …], 밥그릇]
  *          — 아이가 없어도 자리는 다 채운다. 밀리면 뒤엣것을 못 읽는다.
  *          — 공 목록은 **아이를 맡은 사람만** 채운다. 나머지는 null.
+ *          — 밥그릇은 [x, z, 남은밥] 이고, **없다는 것도 소식**이라
+ *            null 로 보낸다. 맡지 않은 사람은 0 을 보내 "내가 말할
+ *            처지가 아니다" 를 뜻한다.
  *   ['b',  id, x, y, z, vx, vy, vz, 빛깔]   공을 던져 달라는 부탁
+ *   ['f',  id, x, z]                        밥을 놓아 달라는 부탁
  *   ['t',  id, 한 말]
  *   ['bye', id]
  */
@@ -156,8 +160,16 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
         balls: Array.isArray(m[14])
           ? m[14].map(b => ({ x: +b[0] || 0, y: +b[1] || 0, z: +b[2] || 0,
                               mode: +b[3] || 0, ci: +b[4] || 0 }))
-          : null
+          : null,
+        /* 배열이면 그릇, null 이면 "없다", 그 밖(0 이나 아예 없음)이면
+           "맡은 사람이 아니라 말할 처지가 아니다" 이므로 건드리지 않는다. */
+        bowl: Array.isArray(m[15])
+          ? { x: +m[15][0] || 0, z: +m[15][1] || 0, amount: +m[15][2] || 0 }
+          : (m.length > 15 && m[15] === null ? null : undefined)
       });
+    } else if (m[0] === 'f'){
+      /* 밥을 놓아 달라는 부탁. 맡은 사람이 놓아 모두에게 퍼뜨린다. */
+      handlers.onFeed(from, +m[2] || 0, +m[3] || 0);
     } else if (m[0] === 'b'){
       /* 공을 던져 달라는 부탁. 맡은 사람이 띄워 모두에게 퍼뜨린다. */
       handlers.onToss(from, { x: +m[2] || 0, y: +m[3] || 0, z: +m[4] || 0,
@@ -204,7 +216,9 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
     full(){ return this.count() >= CAPACITY; },
 
     /* 내 모습과 내 아이의 자리. 매 프레임 불러도 되게 여기서 솎는다. */
-    sendState(s, pet, reach, tossSeq, balls){ last = [s, pet, reach, tossSeq, balls]; },
+    sendState(s, pet, reach, tossSeq, balls, bowl){
+      last = [s, pet, reach, tossSeq, balls, bowl];
+    },
 
     /* 맡은 사람에게 공을 던져 달라고 부탁한다. 위치가 아니라 한 번뿐인
        일이므로 모아 두지 않고 그 자리에서 보낸다. */
@@ -213,6 +227,13 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
       link.publish(topic, JSON.stringify(
         ['b', id, round(req.x), round(req.y), round(req.z),
          round(req.vx), round(req.vy), round(req.vz), req.ci | 0]));
+    },
+
+    /* 맡은 사람에게 밥을 놓아 달라고 부탁한다. 한 번뿐인 일이라 모아
+       두지 않고 그 자리에서 보낸다. */
+    feed(x, z){
+      if (!link) return;
+      link.publish(topic, JSON.stringify(['f', id, round(x), round(z)]));
     },
 
     say(text){
@@ -252,7 +273,7 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
       if (!last || t - sentAt < SEND_EVERY) return;
       sentAt = t;
 
-      const [s, pet, reach, tossSeq, balls] = last;
+      const [s, pet, reach, tossSeq, balls, bowl] = last;
       const msg = ['s', id, round(s.x), round(s.z), round(s.ry), round(s.speed)];
       if (pet){
         msg.push(round(pet.x), round(pet.z), round(pet.ry), round(pet.speed),
@@ -264,6 +285,9 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
       msg.push(balls
         ? balls.map(b => [round(b.x), round(b.y), round(b.z), b.mode | 0, b.ci | 0])
         : null);
+      // 0 = 맡은 사람이 아니라 말할 처지가 아니다. null = 그릇이 없다.
+      msg.push(bowl === undefined ? 0
+               : (bowl ? [round(bowl.x), round(bowl.z), round(bowl.amount)] : null));
       link.publish(topic, JSON.stringify(msg));
     },
 

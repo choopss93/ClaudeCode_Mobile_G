@@ -687,6 +687,8 @@ function begin(myName, petName, petSpec, friends, myLook){
 
       // 맡은 사람이 알려 주는 공들
       if (s.balls && id === driver) syncBalls(s.balls);
+      // 그릇은 **없다는 것도 소식**이라 null 까지 그대로 따른다
+      if (id === driver && s.bowl !== undefined) syncBowl(s.bowl);
 
       // 같은 아이를 맡은 사람이 보내 주는 자리
       if (s.pet && id === driver) putPet(myPet, s.pet);
@@ -697,6 +699,11 @@ function begin(myName, petName, petSpec, friends, myLook){
        같은 자리로 퍼진다. 던지는 모습은 `tossSeq` 가 따로 알려 준다. */
     onToss(id, req){
       if (!driver) spawnBall(req);
+    },
+    /* 맡지 않은 사람이 밥을 줬다. 그릇도 맡은 사람이 놓아야 모두에게
+       같은 자리로 퍼진다. */
+    onFeed(id, x, z){
+      if (!driver) putBowl(x, z);
     },
     /* 그 사람의 아이가 바뀌었다 — 코드를 넣은 것이다. 옛 아이를 치우고
        새 아이를 들인다. 내 아이와 같아졌으면 한 마리를 함께 본다. */
@@ -905,7 +912,96 @@ function begin(myName, petName, petSpec, friends, myLook){
     }
   }
 
-  /* 오른쪽 단추 셋 */
+  /* ── 밥그릇 ──
+     단추를 누르면 내 앞에 그릇을 놓는다. 아이가 와서 먹고, 다 먹으면
+     그릇이 사라진다. 공과 같은 규칙이다 — **맡은 사람 한 명만** 움직이고,
+     맡지 않은 사람이 놓으면 맡은 사람에게 부탁한다 (`net.feed` → `onFeed`).
+     한 정원에 그릇은 하나다. 다시 주면 그 자리에 새로 놓인다. */
+  const EAT_TIME = 7;          // 다 먹는 데 걸리는 (게임 안) 시간
+  let bowl = null;
+  let feedWait = 0;            // 연달아 누르는 것을 막는다
+
+  function makeBowl(x, z){
+    const g = new THREE.Group();
+    const dish = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.23, 0.17, 0.1, 16), toon(0xFFB9C8));
+    dish.position.y = 0.05;
+    g.add(dish);
+    const rim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.225, 0.028, 8, 20), toon(0xFF9FB4));
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 0.1;
+    g.add(rim);
+    const food = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 10), toon(0xC89A62));
+    g.add(food);
+    g.position.set(x, 0, z);
+    scene.add(g);
+    return { group: g, food, amount: 1 };
+  }
+
+  /* 남은 밥을 눈에 보이게. 줄어들수록 납작하게 가라앉는다. */
+  function showFood(b){
+    const a = Math.max(0, Math.min(1, b.amount));
+    b.food.visible = a > 0.02;
+    b.food.scale.set(0.6 + a * 0.4, 0.3 + a * 0.5, 0.6 + a * 0.4);
+    b.food.position.y = 0.06 + a * 0.045;
+  }
+
+  function clearBowl(){
+    if (!bowl) return;
+    scene.remove(bowl.group);
+    bowl = null;
+  }
+
+  /* 그릇을 놓는다. 맡은 사람만 부른다 — 내가 눌렀든 부탁을 받았든. */
+  function putBowl(x, z){
+    clearBowl();
+    bowl = makeBowl(x, z);
+    showFood(bowl);
+    if (!myPet) return;
+    myPet.feed = 'go';
+    myPet.order = null;
+    myPet.called = false;
+    myPet.follows = null;
+    myPet.fetch = null;        // 물어오던 것보다 밥이 먼저다
+    myPet.ball = null;
+    myPet.rest = 0;
+    myPet.actor.stopTrick();
+    myPet.label.say('밥!', 1500);
+  }
+
+  function feedPet(){
+    if (feedWait > 0) return;
+    const from = me.group.position;
+    /* 다리나 작은 섬에 두면 아이가 먹으러 올 수가 없다 — 아이는 들판을
+       벗어나지 않는다. */
+    if (Math.hypot(from.x, from.z) > world.radius - 2){
+      myLabel.say('들판에서 주세요', 1900);
+      return;
+    }
+    feedWait = 0.5;
+    /* 보는 쪽 앞에, 조금 **왼쪽으로 비껴** 놓는다. 똑바로 앞에 두면
+       기본 카메라가 뒤에 있어서 큰 머리에 그릇도 아이도 통째로 가린다.
+       (한 번 그렇게 만들어 아무것도 안 보였다.) */
+    const dx = -Math.sin(lastYaw), dz = -Math.cos(lastYaw);
+    const lx = -Math.cos(lastYaw), lz = Math.sin(lastYaw);    // 왼쪽
+    const at = inGarden(from.x + dx * 1.25 + lx * 0.95,
+                        from.z + dz * 1.25 + lz * 0.95);
+    if (driver) net.feed(at.x, at.z);   // 맡은 사람이 놓는다
+    else putBowl(at.x, at.z);
+  }
+
+  /* 맡은 사람이 보내 준 그릇. 받아서 놓기만 한다. */
+  function syncBowl(d){
+    if (!d){ clearBowl(); return; }
+    if (!bowl) bowl = makeBowl(d.x, d.z);
+    else bowl.group.position.set(d.x, 0, d.z);
+    bowl.amount = d.amount;
+    showFood(bowl);
+  }
+
+  /* 오른쪽 단추 넷 */
+  $('actFeed').addEventListener('click', feedPet);
   $('actBall').addEventListener('click', throwBall);
   $('actSit').addEventListener('click', () => orderKind('sit'));
   $('actPaw').addEventListener('click', () => orderKind('paw'));
@@ -1189,6 +1285,7 @@ function begin(myName, petName, petSpec, friends, myLook){
     rebuildBodies();                 // 서로 통과하지 않게, 지금 있는 몸들
     lastYaw = cam.yaw;
     if (tossWait > 0) tossWait -= dt;
+    if (feedWait > 0) feedWait -= dt;
     // 공은 아이를 맡은 사람이 움직인다. 남은 받아서 놓기만 한다.
     if (!driver) for (const b of balls) stepBall(b, dt);
 
@@ -1243,6 +1340,33 @@ function begin(myName, petName, petSpec, friends, myLook){
 
       /* 재주를 부리는 동안에는 걸음을 멈춘다 */
       if (e.actor.trickNow()){
+        step(e, dt, 0);
+        continue;
+      }
+
+      /* 밥그릇으로 가서 먹는다. 공을 물어오는 것보다 밥이 먼저다. */
+      if (e === myPet && e.feed){
+        if (!bowl){ e.feed = null; e.actor.stopEat(); step(e, dt, 0); continue; }
+        const at = e.actor.group.position;
+        const to = inGarden(bowl.group.position.x, bowl.group.position.z);
+        const gap = Math.hypot(to.x - at.x, to.z - at.z);
+        if (gap > 0.46){
+          step(e, dt, walk(e.actor.group, (to.x - at.x) / gap,
+                           (to.z - at.z) / gap, e.trot, dt));
+          continue;
+        }
+        // 그릇을 보고 서서 먹는다. 짧게 다시 걸어 두면 자리를 뜰 때 풀린다.
+        e.actor.group.rotation.y = Math.atan2(to.x - at.x, to.z - at.z);
+        e.actor.startEat(0.5);
+        bowl.amount -= dt / EAT_TIME;
+        showFood(bowl);
+        if (bowl.amount <= 0){
+          clearBowl();
+          e.feed = null;
+          e.actor.stopEat();
+          e.greetWait = 0;        // 다 먹고 반긴다
+          e.follows = e.owner;
+        }
         step(e, dt, 0);
         continue;
       }
@@ -1454,7 +1578,11 @@ function begin(myName, petName, petSpec, friends, myLook){
                                         y: b.mesh.position.y,
                                         z: b.mesh.position.z,
                                         mode: BALL_MODES.indexOf(b.mode),
-                                        ci: b.ci })));
+                                        ci: b.ci })),
+      // 그릇도 맡은 사람만 보낸다. 없으면 null 이고, 그것도 소식이다.
+      driver ? undefined
+             : (bowl ? { x: bowl.group.position.x, z: bowl.group.position.z,
+                         amount: bowl.amount } : null));
     for (const p of peers.values()){
       const k = Math.min(1, dt * 14);
       const g = p.actor.group;

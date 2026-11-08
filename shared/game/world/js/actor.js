@@ -403,7 +403,7 @@ export function createPet(spec){
 
   const HEAD_TOP = (head.position.y + headR * 1.5) * spec.scale + 0.06;
   const GREET_TIME = 2.4;
-  let t = Math.random() * 6, step = 0, greetLeft = 0;
+  let t = Math.random() * 6, step = 0, greetLeft = 0, eatLeft = 0;
   let trick = null, trickLeft = 0;      // 앉아 · 엎드려 · 코 · 손
 
   return {
@@ -415,11 +415,23 @@ export function createPet(spec){
     startGreet(){ greetLeft = GREET_TIME; },
     greeting(){ return greetLeft > 0; },
 
+    /* 밥 먹는 모습. 그릇에 닿아 있는 동안 짧게 다시 걸어 준다 — 그래야
+       밥이 떨어지거나 자리를 뜨면 저절로 풀린다. 재주와 반기기보다
+       먼저다 (먹는 중에 재주를 부리면 그릇을 두고 가 버린다). */
+    startEat(sec){
+      eatLeft = Math.max(eatLeft, sec || 1);
+      trick = null; trickLeft = 0;
+      greetLeft = 0;
+    },
+    stopEat(){ eatLeft = 0; },
+    eating(){ return eatLeft > 0; },
+
     /* 재주. 남의 기기에서는 주인이 보내 주는 것을 그대로 받아 거는데,
        그때는 짧은 시간만 주고 꾸러미가 올 때마다 다시 건다. 주인 쪽
        소식이 끊기면 저절로 풀리게 하려는 것이다. */
     doTrick(kind, sec){
       if (!TRICKS[kind]) return;
+      eatLeft = 0;              // 재주를 시키면 밥그릇을 두고 온다
       trick = kind;
       trickLeft = sec || TRICKS[kind].hold;
       greetLeft = 0;                    // 재주가 반가워하기보다 먼저다
@@ -430,6 +442,26 @@ export function createPet(spec){
     /** speed: 초당 걷는 거리. */
     update(dt, speed){
       t += dt;
+
+      /* 밥 먹기 — 고개를 푹 숙이고 오물거린다. 꼬리는 신나게.
+         재주보다 먼저 본다. */
+      if (eatLeft > 0){
+        eatLeft -= dt;
+        const k = Math.min(1, eatLeft / 0.3);   // 끝에서 스르르 고개를 든다
+        inner.rotation.x = 0;
+        inner.position.y = 0;
+        group.position.y = 0;
+        head.rotation.z = 0;
+        for (const l of legs) l.position.y = legRest;
+        legs[1].position.z = legZ;
+        legs[1].scale.y = legH;
+        // 머리는 **양수가 숙이는 쪽**이다 (코 재주가 -0.6 으로 들어 올린다)
+        head.rotation.x = (0.92 + Math.sin(t * 15) * 0.1) * k;
+        tail.rotation.x = tailRestX;
+        tail.rotation.z = Math.sin(t * (spec.kind === 'cat' ? 7 : 18)) *
+                          (spec.kind === 'cat' ? 0.3 : 0.7);
+        return;
+      }
 
       /* 재주 — 몇 초 동안 그 자세로 있는다. 몸통을 통째로 젖히거나
          내리는 쪽이 다리를 하나씩 접는 것보다 훨씬 또렷하게 읽힌다. */
