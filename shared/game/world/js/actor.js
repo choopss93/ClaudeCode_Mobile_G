@@ -42,6 +42,13 @@ export const HEAD_TOP = HEAD_Y + HEAD_R;
 
 const ball = new THREE.SphereGeometry(1, 16, 12);
 const eyeGeo = new THREE.SphereGeometry(0.042, 10, 8);
+/* 눈 둘레는 **가운데가 뚫린 고리**다. 덩어리로 두면 어떻게 놓아도 눈앞을
+   덮어 초승달만 남는다 — 눈은 머리에 거의 파묻혀 있고 앞머리만 내민
+   모양이라, 그 앞을 지나는 면은 전부 눈을 가린다. */
+/* 구멍은 **눈보다 넉넉히 커야** 한다. 눈 크기는 머리 크기와 상관없이
+   고정(반지름 0.034 · 0.040)이므로, 고리도 길이로 적는다. 머리 크기로
+   비례만 주면 작은 품종에서 구멍이 눈보다 작아져 테두리가 눈을 가른다. */
+const ringGeo = new THREE.RingGeometry(0.058, 0.105, 22);
 const rod = new THREE.CylinderGeometry(1, 1, 1, 6);
 
 function piece(group, geo, mat, x, y, z, sx, sy, sz){
@@ -396,11 +403,26 @@ export function createPet(spec){
   piece(head, ball, nose, 0, -headR * 0.14, headR * 0.76 + mz * 0.95,
         headR * 0.2, headR * 0.17, headR * 0.16);
 
-  // 눈 둘레 — 눈보다 크고 조금 뒤에 두어 얼굴에 점박이처럼 걸린다
+  /* 눈 둘레 — 얼굴에 점박이처럼 걸린다.
+     **눈보다 앞으로 나오면 안 된다.** 눈이 가려져 초승달만 남는다.
+     머리 거죽(눈 자리에서 `0.79 * headR` 쯤)보다는 나오고, 눈 앞면
+     (`0.72 * headR + 0.025`)보다는 들어가야 한다. 지금 앞면이
+     `0.82 * headR` 이라 둘 사이에 든다. */
   if (paint){
+    /* 고리는 **눈이 있는 쪽으로 눕혀** 머리 거죽에 붙인다. 평평한 판을
+       고정 높이에 두면 둥근 머리와 어긋나 한쪽은 눈을 가르고 한쪽은
+       허공으로 삐져나온다 — 한 번 그렇게 만들어 봤다. */
+    const rs = Math.max(0.9, headR / 0.16);
+    const front = new THREE.Vector3(0, 0, 1);
     for (const sx of [-1, 1]){
-      tag(piece(head, ball, coat(PATCH), sx * headR * 0.42, headR * 0.2, headR * 0.62,
-                headR * 0.3, headR * 0.3, headR * 0.26), PATCH);
+      const dir = new THREE.Vector3(sx * headR * 0.42, headR * 0.2, headR * 0.72).normalize();
+      // 머리 타원면과 만나는 자리까지의 거리
+      const t = 1 / Math.sqrt((dir.x / headR) ** 2 +
+                              (dir.y / (headR * 0.94)) ** 2 +
+                              (dir.z / (headR * 0.9)) ** 2);
+      const m = tag(piece(head, ringGeo, coat(PATCH), 0, 0, 0, rs, rs, 1), PATCH);
+      m.position.copy(dir).multiplyScalar(t + 0.005);
+      m.quaternion.setFromUnitVectors(front, dir);
     }
   }
 
