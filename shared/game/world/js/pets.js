@@ -61,6 +61,65 @@ export const COATS = [
   { key:'random', label:'랜덤',       random:true }
 ];
 
+/* ── 직접 칠하기 ──
+   모델을 돌려 가며 부위마다 색을 찍을 수 있다. 색은 **열여섯 가지**로
+   묶어 둔다 — 자유로운 색을 쓰면 반려동물 코드에 담을 수가 없다.
+   한 부위에 4비트씩, 여섯 부위를 3바이트에 접어 넣는다.
+   밀키하게: 흰빛이 섞인 부드러운 색이고 쨍한 원색이 아니다. */
+export const PAINTS = [
+  { label: '크림',     hex: 0xFFF6EC },
+  { label: '우유',     hex: 0xF7E7D4 },
+  { label: '살구',     hex: 0xF6CBA6 },
+  { label: '카라멜',   hex: 0xDCA771 },
+  { label: '밤색',     hex: 0xB5825A },
+  { label: '초코',     hex: 0x8C6049 },
+  { label: '모래',     hex: 0xE3CFA6 },
+  { label: '꿀',       hex: 0xF0BE72 },
+  { label: '잿빛',     hex: 0xBFB8C2 },
+  { label: '숯',       hex: 0x6E6775 },
+  { label: '먹',       hex: 0x4A4350 },
+  { label: '하늘',     hex: 0xA9D4EC },
+  { label: '라벤더',   hex: 0xC9BCE8 },
+  { label: '복숭아',   hex: 0xF7BCC4 },
+  { label: '민트',     hex: 0xAEE0CB },
+  { label: '레몬',     hex: 0xF6E9A8 }
+];
+
+/* 칠할 수 있는 여섯 자리. 번호가 코드에 그대로 박히므로 **끝에만** 붙인다. */
+export const PARTS = [
+  { key: 'body',   label: '몸' },
+  { key: 'head',   label: '머리' },
+  { key: 'ear',    label: '귀' },
+  { key: 'leg',    label: '다리' },
+  { key: 'tail',   label: '꼬리' },
+  { key: 'muzzle', label: '주둥이' }
+];
+
+/** 고른 털빛을 여섯 자리 칠로 펼친다. 편집기를 처음 열 때 쓴다. */
+export function paintFromCoat(coatKey){
+  const c = COATS.find(x => x.key === coatKey && !x.random) || COATS[0];
+  const near = hex => {
+    let best = 0, bd = Infinity;
+    PAINTS.forEach((p, i) => {
+      const d = Math.abs(((p.hex >> 16) & 255) - ((hex >> 16) & 255)) +
+                Math.abs(((p.hex >> 8) & 255) - ((hex >> 8) & 255)) +
+                Math.abs((p.hex & 255) - (hex & 255));
+      if (d < bd){ bd = d; best = i; }
+    });
+    return best;
+  };
+  const base = near(c.base);
+  const acc = c.accent ? near(c.accent) : base;
+  //            몸    머리  귀   다리  꼬리  주둥이
+  return [base, base, acc, base, acc, base];
+}
+
+/** 칠이 쓸 만한가 — 여섯 자리, 모두 색 번호. */
+export function okPaint(paint){
+  return Array.isArray(paint) && paint.length === PARTS.length &&
+         paint.every(v => Number.isInteger(v) && v >= 0 && v < PAINTS.length);
+}
+
 // 사람은 초당 3.1 만큼 걷는다. 반려동물은 그보다 늘 느려야 한다.
 const PET_WALK = 1.2;
 
@@ -103,7 +162,7 @@ export function mixable(kind, breed, mix){
 }
 
 /** 고른 값을 실제 모양 지시서로 바꾼다. 랜덤이면 여기서 뽑는다. */
-export function resolvePet({ kind, breed, mix, coat }){
+export function resolvePet({ kind, breed, mix, coat, paint }){
   const k = KINDS[kind] ? kind : 'dog';
   const list = KINDS[k].breeds;
   const no = Math.min(Math.max(breed | 0, 0), list.length - 1);
@@ -115,13 +174,22 @@ export function resolvePet({ kind, breed, mix, coat }){
     c = pick[Math.floor(Math.random() * pick.length)];
   }
 
+  /* 직접 칠한 아이는 털빛 대신 여섯 자리 색을 쓴다. 코 색을 정하려면
+     머리 색이 짙은지 알아야 해서 그것도 함께 내어 준다. */
+  const painted = okPaint(paint) ? paint.slice() : null;
+  const headHex = painted ? PAINTS[painted[1]].hex : c.base;
+  const dark = ((headHex >> 16) & 255) * 0.3 + ((headHex >> 8) & 255) * 0.59 +
+               (headHex & 255) * 0.11 < 120;
+
   return {
     kind: k,
     breedName: b.name,
     coatKey: c.key,
-    coatName: c.label,
-    base: c.base,
-    accent: c.accent,
+    coatName: painted ? '직접 칠함' : c.label,
+    base: painted ? PAINTS[painted[0]].hex : c.base,
+    accent: painted ? null : c.accent,
+    paint: painted,
+    darkHead: dark,
     speed: walkSpeed(b),
     ...b
   };

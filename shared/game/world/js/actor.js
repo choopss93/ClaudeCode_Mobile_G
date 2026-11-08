@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { toon, makeBlob } from '#look';
+import { PAINTS, okPaint } from '#pets';
 
 /*
  * 머리가 크고 몸이 작은, 동글동글한 캐릭터.
@@ -303,8 +304,19 @@ export function createPet(spec){
   const fur = toon(furColor);
   const mark = toon(accentColor);         // 화이트블랙일 때 귀·꼬리끝·등무늬
   const dark = toon(0x4A4350);
-  // 털빛이 짙으면 코를 밝게 둬야 보인다
-  const nose = toon(spec.coatKey === 'black' ? 0x8C8498 : 0x8A6A5C);
+  // 털빛이 짙으면 코를 밝게 둬야 보인다 (직접 칠했으면 머리 색으로 따진다)
+  const nose = toon(spec.darkHead || spec.coatKey === 'black' ? 0x8C8498 : 0x8A6A5C);
+
+  /* 직접 칠한 아이는 부위마다 색이 다르다. 칠하지 않았으면 모두 털빛
+     하나를 나눠 쓴다. `toon` 이 빛깔마다 재질을 하나씩 돌려주므로,
+     같은 색으로 칠한 부위끼리는 저절로 같은 재질이 된다. */
+  const paint = okPaint(spec.paint) ? spec.paint : null;
+  const coat = i => paint ? toon(PAINTS[paint[i]].hex) : fur;
+  /* 편집기가 눌린 자리를 알아보려면 조각마다 어느 부위인지 적어 둬야
+     한다 (`paint.js`). 칠하지 않은 아이에도 적어 둔다 — 그래야 편집기를
+     털빛에서 바로 열 수 있다. */
+  const tag = (m, i) => { m.userData.part = i; return m; };
+  const BODY = 0, HEAD = 1, EAR = 2, LEG = 3, TAIL = 4, MUZZLE = 5;
 
   const bodyL = K.bodyL * spec.body[0];
   const bodyW = K.bodyW * spec.body[1] * spec.fluff;
@@ -318,23 +330,23 @@ export function createPet(spec){
   const legs = [];
   const legX = bodyW * 0.62, legZ = bodyL * 0.52;
   for (const [x, z] of [[-legX, legZ], [legX, legZ], [-legX, -legZ], [legX, -legZ]]){
-    legs.push(piece(inner, ball, fur, x, legH / 2 + 0.01, z,
-                    0.046 * spec.body[1], legH, 0.046 * spec.body[1]));
+    legs.push(tag(piece(inner, ball, coat(LEG), x, legH / 2 + 0.01, z,
+                        0.046 * spec.body[1], legH, 0.046 * spec.body[1]), LEG));
   }
   const legRest = legH / 2 + 0.01;
 
   /* 몸통 */
-  piece(inner, ball, fur, 0, bodyY, -0.02, bodyW, bodyH, bodyL);
+  tag(piece(inner, ball, coat(BODY), 0, bodyY, -0.02, bodyW, bodyH, bodyL), BODY);
 
   // 털북숭이면 덤불을 얹어 부풀린다
   if (spec.fluff > 1.15){
     const puff = (spec.fluff - 1) * 0.9;
-    piece(inner, ball, fur, 0, bodyY + bodyH * 0.45, -bodyL * 0.35, bodyW * puff, bodyH * puff, bodyL * puff * 0.8);
-    piece(inner, ball, fur, 0, bodyY + bodyH * 0.3, bodyL * 0.3, bodyW * puff * 0.85, bodyH * puff * 0.8, bodyL * puff * 0.7);
+    tag(piece(inner, ball, coat(BODY), 0, bodyY + bodyH * 0.45, -bodyL * 0.35, bodyW * puff, bodyH * puff, bodyL * puff * 0.8), BODY);
+    tag(piece(inner, ball, coat(BODY), 0, bodyY + bodyH * 0.3, bodyL * 0.3, bodyW * puff * 0.85, bodyH * puff * 0.8, bodyL * puff * 0.7), BODY);
   }
 
-  // 화이트블랙 — 등에 무늬 한 점
-  if (spec.accent){
+  // 화이트블랙 — 등에 무늬 한 점. 직접 칠했으면 무늬를 두지 않는다.
+  if (spec.accent && !paint){
     piece(inner, ball, mark, 0, bodyY + bodyH * 0.52, -bodyL * 0.18,
           bodyW * 0.72, bodyH * 0.45, bodyL * 0.52);
   }
@@ -345,13 +357,13 @@ export function createPet(spec){
   head.position.set(0, bodyY + bodyH * 0.55, K.headFwd * spec.body[0] + headR * 0.3);
   inner.add(head);
 
-  piece(head, ball, fur, 0, 0, 0, headR, headR * 0.94, headR * 0.9);
+  tag(piece(head, ball, coat(HEAD), 0, 0, 0, headR, headR * 0.94, headR * 0.9), HEAD);
 
   // 주둥이
   const mz = K.muzzle * spec.muzzle;
   if (mz > 0.02){
-    piece(head, ball, fur, 0, -headR * 0.26, headR * 0.72 + mz * 0.4,
-          mz * 0.92, mz * 0.76, mz);
+    tag(piece(head, ball, coat(MUZZLE), 0, -headR * 0.26, headR * 0.72 + mz * 0.4,
+              mz * 0.92, mz * 0.76, mz), MUZZLE);
   }
   piece(head, ball, nose, 0, -headR * 0.14, headR * 0.76 + mz * 0.95,
         headR * 0.2, headR * 0.17, headR * 0.16);
@@ -363,25 +375,25 @@ export function createPet(spec){
 
   // 귀 — 모양마다 다르게
   const er = headR * spec.earSize;
-  const earMat = spec.accent ? mark : fur;
+  const earMat = paint ? coat(EAR) : (spec.accent ? mark : fur);
   for (const side of [-1, 1]){
     if (spec.ear === 'drop'){
       // 처진귀 — 옆으로 늘어진다
-      const e = piece(head, ball, earMat, side * headR * 0.78, -headR * 0.05, -headR * 0.05,
-                      er * 0.26, er * 0.62, er * 0.2);
+      const e = tag(piece(head, ball, earMat, side * headR * 0.78, -headR * 0.05, -headR * 0.05,
+                          er * 0.26, er * 0.62, er * 0.2), EAR);
       e.rotation.z = side * 0.3;
     } else if (spec.ear === 'fold'){
       // 접힌귀 — 작고 둥글게 붙는다
-      piece(head, ball, earMat, side * headR * 0.62, headR * 0.6, -headR * 0.08,
-            er * 0.3, er * 0.2, er * 0.2);
+      tag(piece(head, ball, earMat, side * headR * 0.62, headR * 0.6, -headR * 0.08,
+                er * 0.3, er * 0.2, er * 0.2), EAR);
     } else {
       // 선귀 — 위로 쫑긋. tuft 는 끝에 술이 붙는다
-      const e = piece(head, ball, earMat, side * headR * 0.56, headR * 0.78, -headR * 0.05,
-                      er * 0.3, er * 0.5, er * 0.18);
+      const e = tag(piece(head, ball, earMat, side * headR * 0.56, headR * 0.78, -headR * 0.05,
+                          er * 0.3, er * 0.5, er * 0.18), EAR);
       e.rotation.z = side * -0.18;
       if (spec.ear === 'tuft'){
-        piece(head, ball, earMat, side * headR * 0.56, headR * 1.24, -headR * 0.05,
-              er * 0.1, er * 0.22, er * 0.1);
+        tag(piece(head, ball, earMat, side * headR * 0.56, headR * 1.24, -headR * 0.05,
+                  er * 0.1, er * 0.22, er * 0.1), EAR);
       }
     }
   }
@@ -390,9 +402,10 @@ export function createPet(spec){
   const tl = K.tailLen * (spec.tail === 'stub' ? 0.42 : 1) *
              (spec.tail === 'plume' ? 1.1 : 1);
   const tt = K.tailThick * (spec.tail === 'plume' ? 1.9 : 1);
-  const tail = piece(inner, ball, spec.accent ? mark : fur,
-                     0, bodyY + bodyH * 0.45, -bodyL - tl * 0.35,
-                     tt, tl, tt);
+  const tail = tag(piece(inner, ball,
+                         paint ? coat(TAIL) : (spec.accent ? mark : fur),
+                         0, bodyY + bodyH * 0.45, -bodyL - tl * 0.35,
+                         tt, tl, tt), TAIL);
   if (spec.tail === 'curl')      tail.rotation.x = -1.25;   // 등으로 말려 올라간다
   else if (spec.tail === 'plume') tail.rotation.x = -0.75;
   else if (spec.tail === 'long')  tail.rotation.x = -0.45;
