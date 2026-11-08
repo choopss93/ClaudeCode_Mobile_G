@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createPet } from '#actor';
-import { PAINTS, PARTS, okPaint } from '#pets';
+import { PAINTS, PARTS, okPaint, fixSprays, SPRAY_MAX, SPRAY_BITS } from '#pets';
 
 /*
  * 직접 칠하기 편집기.
@@ -19,7 +19,7 @@ const DRAG = 7;          // 이만큼 끌면 "돌린 것" 으로 보고 칠하�
    눈높이 위로만 보게 되어 배가 영영 안 보인다. */
 const MIN_TILT = -0.55, MAX_TILT = 0.9;
 
-export function createPaintEditor({ canvas, onPaint }){
+export function createPaintEditor({ canvas, onPaint, onSpray }){
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -42,6 +42,9 @@ export function createPaintEditor({ canvas, onPaint }){
   let spec = null, pet = null;
   let color = 0;
   let paint = null;
+  let mode = 'spray';        // 'part' 부위 칠하기 · 'spray' 뿌리기
+  let big = 0;               // 자국 크기 — 보통 · 크게
+  let sprays = [];
 
   function frame(){
     const w = canvas.clientWidth || 300;
@@ -62,7 +65,7 @@ export function createPaintEditor({ canvas, onPaint }){
     if (pet) pivot.remove(pet.group);
     /* 재질은 `toon` 이 빛깔마다 하나씩 나눠 주고 모양은 돌려 쓰므로,
        버릴 것이 없다. 그냥 떼어 내면 된다. */
-    pet = createPet({ ...spec, paint });
+    pet = createPet({ ...spec, paint, sprays });
     pivot.add(pet.group);
     // 큰 품종은 조금 물러서서 본다 — 화면 밖으로 넘치면 칠할 수가 없다
     dist = 0.9 + pet.headTop * 1.5;
@@ -106,6 +109,28 @@ export function createPaintEditor({ canvas, onPaint }){
             -((e.clientY - b.top) / b.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     for (const hit of ray.intersectObjects(pivot.children, true)){
+      if (mode === 'spray'){
+        /* 어디든 몸에 닿기만 하면 뿌린다 — 눈·코 위에도. 자리는
+           몸통 상자 안의 몇 할인지로 적고, **적을 때 쓰는 만큼만**
+           남긴다. 그래야 지금 보는 자리와 코드에 담기는 자리가 같다. */
+        if (hit.object.userData.spray) continue;
+        if (sprays.length >= SPRAY_MAX){
+          if (onSpray) onSpray(null, sprays.length);
+          return;
+        }
+        const b = pet.box;
+        const p = pet.inner.worldToLocal(hit.point.clone());
+        const steps = (1 << SPRAY_BITS) - 1;
+        const q = (v, lo, hi) =>
+          Math.round(Math.max(0, Math.min(1, (v - lo) / (hi - lo || 1))) * steps) / steps;
+        sprays.push({ x: q(p.x, b.min.x, b.max.x),
+                      y: q(p.y, b.min.y, b.max.y),
+                      z: q(p.z, b.min.z, b.max.z),
+                      ci: color, big });
+        build();
+        if (onSpray) onSpray(color, sprays.length);
+        return;
+      }
       const part = hit.object.userData.part;
       if (part === undefined) continue;     // 눈·코는 칠하지 않는다
       if (paint[part] === color) return;
@@ -126,12 +151,27 @@ export function createPaintEditor({ canvas, onPaint }){
 
   return {
     /** 어떤 아이를 칠할 것인가 (품종 · 섞을 품종). */
-    setSpec(next, firstPaint){
+    setSpec(next, firstPaint, firstSprays){
       spec = next;
       if (okPaint(firstPaint)) paint = firstPaint.slice();
       else if (!okPaint(paint)) paint = PARTS.map(() => 0);
+      sprays = fixSprays(firstSprays) || [];
       build();
     },
+
+    setMode(m){ mode = m === 'part' ? 'part' : 'spray'; },
+    getMode(){ return mode; },
+    setBig(v){ big = v ? 1 : 0; },
+    getBig(){ return big; },
+    getSprays(){ return sprays.map(s => ({ ...s })); },
+    /** 방금 뿌린 것을 되돌린다. 뿌리기는 한 번에 자국이 남으니 필요하다. */
+    undo(){
+      if (!sprays.length) return false;
+      sprays.pop();
+      build();
+      return true;
+    },
+    clearSprays(){ if (sprays.length){ sprays = []; build(); } },
     setColor(i){ color = Math.max(0, Math.min(PAINTS.length - 1, i | 0)); },
     getColor(){ return color; },
     getPaint(){ return paint ? paint.slice() : null; },

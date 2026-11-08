@@ -1,4 +1,5 @@
-import { KINDS, COATS, PARTS, PAINT_OLD, mixable, okPaint, fixPaint } from '#pets';
+import { KINDS, COATS, PARTS, PAINT_OLD, SPRAY_MAX, SPRAY_BITS,
+         mixable, okPaint, fixPaint, fixSprays } from '#pets';
 
 /*
  * 반려동물 고유 코드.
@@ -70,11 +71,30 @@ function fromCode(text){
 /* 털빛 자리에 세우는 깃발. 이 값이면 뒤에 바이트가 더 있다.
    털빛은 다섯 가지뿐이라 5·6·7 은 쓰지 않던 값이다. */
 const EXT1 = 7;              // 옛 판 — 칠이 여섯 자리
-const EXT2 = 6;              // 지금 판 — 칠이 PARTS.length 자리
+const EXT2 = 6;              // 칠이 PARTS.length 자리
+const EXT3 = 5;              // 거기에 뿌린 자국까지
 const PAINT_BYTES = Math.ceil(PARTS.length / 2);
+const SPRAY_STEPS = (1 << SPRAY_BITS) - 1;
+
+/* 자국 하나를 3바이트에 접는다 — 자리 6+6+6 · 색 4 · 크기 1 (한 비트 남음) */
+function packSpray(s){
+  const q = v => Math.round(Math.max(0, Math.min(1, v)) * SPRAY_STEPS);
+  const v = (q(s.x) << 18) | (q(s.y) << 12) | (q(s.z) << 6) |
+            ((s.ci & 15) << 2) | ((s.big ? 1 : 0) << 1);
+  return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+}
+
+function unpackSpray(a, b, c){
+  const v = (a << 16) | (b << 8) | c;
+  return { x: ((v >> 18) & 63) / SPRAY_STEPS,
+           y: ((v >> 12) & 63) / SPRAY_STEPS,
+           z: ((v >> 6) & 63) / SPRAY_STEPS,
+           ci: (v >> 2) & 15,
+           big: (v >> 1) & 1 };
+}
 
 /** 고른 반려동물을 코드로 접는다. */
-export function makeCode({ kind, breed, mix, coat, paint, name }){
+export function makeCode({ kind, breed, mix, coat, paint, sprays, name }){
   const kindBit = kind === 'cat' ? 1 : 0;
   const breedNo = Math.max(0, Math.min(15, breed | 0));
   const coatNo = Math.max(0, COATS.findIndex(c => c.key === coat));
@@ -82,21 +102,34 @@ export function makeCode({ kind, breed, mix, coat, paint, name }){
   // 옛 여섯 자리로 들어와도 펴서 담는다 — 그냥 버리면 칠이 사라진다
   const fixed = fixPaint(paint);
   const painted = okPaint(fixed);
-  const ext = mixed || painted;
-  const head = (kindBit << 7) | (breedNo << 3) | (ext ? EXT2 : coatNo);
+  const dots = (fixSprays(sprays) || []).slice(0, SPRAY_MAX);
+  const ext = mixed || painted || dots.length;
+  const slot = dots.length ? EXT3 : EXT2;
+  const head = (kindBit << 7) | (breedNo << 3) | (ext ? slot : coatNo);
 
   const nameBytes = new TextEncoder().encode((name || '').slice(0, 12));
-  const at = ext ? (painted ? 2 + PAINT_BYTES : 2) : 1;
+  let at = ext ? 2 : 1;
+  if (ext && painted) at += PAINT_BYTES;
+  if (dots.length) at += 1 + dots.length * 3;
+
   const bytes = new Uint8Array(at + nameBytes.length);
   bytes[0] = head;
   if (ext){
     // 섞지 않았으면 제 품종을 적어 "섞지 않음" 을 뜻하게 한다
     bytes[1] = (painted ? 128 : 0) |
                (((mixed ? mix : breedNo) & 15) << 3) | coatNo;
+    let i = 2;
     if (painted){
-      for (let i = 0; i < PAINT_BYTES; i++){
-        bytes[2 + i] = ((fixed[i * 2] & 15) << 4) |
-                       ((fixed[i * 2 + 1] ?? 0) & 15);
+      for (let k = 0; k < PAINT_BYTES; k++){
+        bytes[i++] = ((fixed[k * 2] & 15) << 4) | ((fixed[k * 2 + 1] ?? 0) & 15);
+      }
+    }
+    if (dots.length){
+      // 윗 네 비트는 나중에 쓸 자리로 비워 둔다
+      bytes[i++] = dots.length & 15;
+      for (const s of dots){
+        const [a, b, c] = packSpray(s);
+        bytes[i++] = a; bytes[i++] = b; bytes[i++] = c;
       }
     }
   }
@@ -120,8 +153,8 @@ export function readCode(code){
   const breed = (head >> 3) & 15;
   const slot = head & 7;
 
-  let at = 1, mix = null, coatNo = slot, paint = null;
-  if (slot === EXT1 || slot === EXT2){
+  let at = 1, mix = null, coatNo = slot, paint = null, sprays = null;
+  if (slot === EXT1 || slot === EXT2 || slot === EXT3){
     if (bytes.length < 2) return null;
     const b1 = bytes[1];
     const m = (b1 >> 3) & 15;
@@ -141,6 +174,18 @@ export function readCode(code){
       if (!paint) return null;
       at = 2 + n;
     }
+    if (slot === EXT3){
+      if (bytes.length < at + 1) return null;
+      const many = bytes[at] & 15;
+      at += 1;
+      if (bytes.length < at + many * 3) return null;
+      const out = [];
+      for (let i = 0; i < many; i++){
+        out.push(unpackSpray(bytes[at], bytes[at + 1], bytes[at + 2]));
+        at += 3;
+      }
+      sprays = fixSprays(out);
+    }
   }
 
   if (breed >= KINDS[kind].breeds.length) return null;
@@ -150,7 +195,7 @@ export function readCode(code){
   try { name = new TextDecoder().decode(bytes.slice(at)).trim(); } catch (_){}
   if (!name) return null;
 
-  return { kind, breed, mix, coat: COATS[coatNo].key, paint, name };
+  return { kind, breed, mix, coat: COATS[coatNo].key, paint, sprays, name };
 }
 
 /** 한 줄에 여러 코드가 적혀 있어도 모두 읽어 낸다. */
@@ -163,7 +208,9 @@ export function readCodes(text){
     const pet = readCode(piece);
     if (!pet) continue;
     const key = pet.kind + pet.breed + '/' + pet.mix + pet.coat +
-                (pet.paint || []).join('') + pet.name;
+                (pet.paint || []).join('') +
+                (pet.sprays || []).map(s => [s.x, s.y, s.z, s.ci, s.big].join()).join(';') +
+                pet.name;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(pet);

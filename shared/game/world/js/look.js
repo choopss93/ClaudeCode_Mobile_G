@@ -70,6 +70,65 @@ export function makeBlob(radius){
   return m;
 }
 
+/* ── 스프레이 자국 ── */
+
+/* 둥근 자국 하나를 가운데는 진하게, 가장자리는 뿌옇게 만든다.
+   한 장을 모든 자국이 나눠 쓴다 — 색은 재질이 맡는다. */
+let sprayTex = null;
+function sprayTexture(){
+  if (sprayTex) return sprayTex;
+  const size = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  /* **알파맵은 투명도가 아니라 밝기를 본다.** 투명도로 그리면 화면에
+     올라올 때 안쪽이 통째로 흰색(=불투명)이 되어 가장자리가 칼처럼
+     떨어진다. 한 번 그렇게 만들어 동그란 딱지가 붙은 꼴이었다.
+     그러니 **검은 바탕에 흰 원**을 그려서 밝기로 번지게 한다. */
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, size, size);
+  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  // 가운데 절반쯤은 꽉 찬 색이고 거기서부터 스르르 사라진다
+  grad.addColorStop(0,    '#ffffff');
+  grad.addColorStop(0.50, '#f7f7f7');
+  grad.addColorStop(0.70, '#b4b4b4');
+  grad.addColorStop(0.84, '#4d4d4d');
+  grad.addColorStop(0.92, '#1a1a1a');
+  grad.addColorStop(1,    '#000000');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  sprayTex = new THREE.CanvasTexture(c);
+  sprayTex.colorSpace = THREE.NoColorSpace;   // 밝기 그대로 읽어야 한다
+  return sprayTex;
+}
+
+const sprayCache = new Map();
+/** 뿌린 자국의 재질. 빛은 받되 깊이는 쓰지 않는다. */
+export function sprayMat(color){
+  let m = sprayCache.get(color);
+  if (!m){
+    m = new THREE.MeshToonMaterial({
+      color, gradientMap,
+      alphaMap: sprayTexture(),
+      transparent: true,
+      /* 몸에 바짝 붙여 놓으므로 깊이를 쓰면 살갗과 다투며 깜빡인다.
+         깊이를 안 쓰는 대신 그리는 차례를 몸보다 뒤로 미룬다. */
+      depthWrite: false
+    });
+    sprayCache.set(color, m);
+  }
+  return m;
+}
+
+let sprayGeo = null;
+/** 자국 하나. 크기는 바깥에서 정한다. */
+export function makeSpray(color){
+  if (!sprayGeo) sprayGeo = new THREE.PlaneGeometry(1, 1);
+  const m = new THREE.Mesh(sprayGeo, sprayMat(color));
+  m.renderOrder = 2;
+  return m;
+}
+
 /* ── 바람 ── */
 
 /*

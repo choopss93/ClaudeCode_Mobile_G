@@ -149,6 +149,37 @@ export function fixPaint(paint){
 /** 옛 코드를 읽을 때 쓰는 자리 수. */
 export const PAINT_OLD = OLD_PARTS;
 
+/* ── 스프레이 ──
+   부위 칠하기가 바탕이고, 그 위에 **둥근 자국**을 뿌린다. 가운데는
+   진하고 가장자리는 뿌옇다.
+
+   자리는 아이 몸통(`inner`) 상자 안의 **0~1 비율**로 적는다. 품종마다
+   몸집이 다르니 길이로 적으면 받는 쪽에서 엉뚱한 데 찍힌다.
+   한 자국은 3바이트다 — 자리 6+6+6비트, 색 4비트, 크기 1비트.
+
+   **면이 어느 쪽을 보는지는 적지 않는다.** 받는 쪽에서 몸을 지어 놓고
+   바깥에서 광선을 쏘아 다시 찾는다 (`createPet`). 그러면 비트를 아끼면서
+   자국이 살갗에 딱 붙는다. */
+export const SPRAY_MAX = 12;          // 코드가 너무 길어지지 않게
+export const SPRAY_BITS = 6;          // 자리 한 축에 쓰는 비트
+export const SPRAY_SIZE = [0.062, 0.108];   // 보통 · 크게 (반지름)
+
+/** 뿌린 자국 목록을 쓸 만하게 다듬는다. 없으면 null. */
+export function fixSprays(list){
+  if (!Array.isArray(list)) return null;
+  const n = v => typeof v === 'number' && isFinite(v);
+  const out = [];
+  for (const s of list){
+    if (!s || !n(s.x) || !n(s.y) || !n(s.z)) continue;
+    const clip = v => Math.max(0, Math.min(1, v));
+    out.push({ x: clip(s.x), y: clip(s.y), z: clip(s.z),
+               ci: Math.max(0, Math.min(PAINTS.length - 1, s.ci | 0)),
+               big: s.big ? 1 : 0 });
+    if (out.length >= SPRAY_MAX) break;
+  }
+  return out.length ? out : null;
+}
+
 // 사람은 초당 3.1 만큼 걷는다. 반려동물은 그보다 늘 느려야 한다.
 const PET_WALK = 1.2;
 
@@ -191,7 +222,7 @@ export function mixable(kind, breed, mix){
 }
 
 /** 고른 값을 실제 모양 지시서로 바꾼다. 랜덤이면 여기서 뽑는다. */
-export function resolvePet({ kind, breed, mix, coat, paint }){
+export function resolvePet({ kind, breed, mix, coat, paint, sprays }){
   const k = KINDS[kind] ? kind : 'dog';
   const list = KINDS[k].breeds;
   const no = Math.min(Math.max(breed | 0, 0), list.length - 1);
@@ -218,6 +249,7 @@ export function resolvePet({ kind, breed, mix, coat, paint }){
     base: painted ? PAINTS[painted[0]].hex : c.base,
     accent: painted ? null : c.accent,
     paint: painted,
+    sprays: fixSprays(sprays),
     darkHead: dark,
     speed: walkSpeed(b),
     ...b

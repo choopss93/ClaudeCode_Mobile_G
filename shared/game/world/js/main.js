@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { createWorld, resolve, START } from '#world';
 import { createActor, createPet, TRICKS, HAND_SPOT } from '#actor';
-import { KINDS, COATS, PAINTS, PARTS,
-         resolvePet, paintFromCoat, fixPaint } from '#pets';
+import { KINDS, COATS, PAINTS, PARTS, SPRAY_MAX,
+         resolvePet, paintFromCoat, fixPaint, fixSprays } from '#pets';
 import { createPaintEditor } from '#paint';
 import { makeCode, readCodes } from '#petcode';
 import { CAPACITY, PUBLIC, makeChannel, readChannel, showChannel,
@@ -74,8 +74,12 @@ $('scene').addEventListener('contextmenu', e => e.preventDefault());
 const PETS = 'rainbowGarden.pets';
 const MAX_KEPT = 12;
 
+const sprayKey = c => (c.sprays || [])
+  .map(s => [s.x.toFixed(3), s.y.toFixed(3), s.z.toFixed(3), s.ci, s.big].join()).join(';');
+
 const cardKey = c =>
-  [c.kind, c.breed, c.mix ?? '', c.coat, (c.paint || []).join(''), c.name].join('|');
+  [c.kind, c.breed, c.mix ?? '', c.coat, (c.paint || []).join(''),
+   sprayKey(c), c.name].join('|');
 
 function savedPets(){
   try {
@@ -83,7 +87,8 @@ function savedPets(){
     if (!Array.isArray(list)) return [];
     return list.filter(c => c && KINDS[c.kind] && Number.isInteger(c.breed) &&
                             typeof c.name === 'string' && c.name)
-               .map(c => ({ ...c, paint: fixPaint(c.paint) }))
+               .map(c => ({ ...c, paint: fixPaint(c.paint),
+                            sprays: fixSprays(c.sprays) }))
                .slice(0, MAX_KEPT);
   } catch (_){ return []; }
 }
@@ -94,13 +99,14 @@ function rememberPet(card){
   try {
     const list = savedPets().filter(c => cardKey(c) !== cardKey(card));
     list.unshift({ kind: card.kind, breed: card.breed, mix: card.mix ?? null,
-                   coat: card.coat, paint: card.paint || null, name: card.name });
+                   coat: card.coat, paint: card.paint || null,
+                   sprays: card.sprays || null, name: card.name });
     localStorage.setItem(PETS, JSON.stringify(list.slice(0, MAX_KEPT)));
   } catch (_){}
 }
 
 const choice = { look: 'short', kind: 'dog', breed: 3, mix: null,
-                 coat: 'white', paint: null };
+                 coat: 'white', paint: null, sprays: null };
 
 /* 아이를 정하는 세 가지 길 — 새로 만들기 · 불러오기 · 코드 입력.
    어느 길로 왔든 마지막에는 카드 하나(`kind·breed·mix·coat·name`)가 되고,
@@ -120,6 +126,7 @@ try {
     choice.mix = Number.isInteger(saved.mix) ? saved.mix : null;
     if (COATS.some(c => c.key === saved.coat)) choice.coat = saved.coat;
     choice.paint = fixPaint(saved.paint);     // 옛 여섯 자리면 펴 준다
+    choice.sprays = fixSprays(saved.sprays);
     if (['new','load','code'].includes(saved.petMode)) petMode = saved.petMode;
   }
 } catch (_){}
@@ -249,7 +256,9 @@ function paintCoats(){
     }
     btn.addEventListener('click', () => {
       choice.coat = c.key;
-      choice.paint = null;      // 털빛을 고르면 직접 칠한 것은 지운다
+      // 털빛을 고르면 직접 칠한 것도 뿌린 것도 지운다
+      choice.paint = null;
+      choice.sprays = null;
       paintCoats();
     });
     coatsEl.appendChild(btn);
@@ -258,9 +267,10 @@ function paintCoats(){
   /* 직접 칠하기 — 모델을 돌려 가며 부위마다 색을 찍는다 */
   const brush = document.createElement('button');
   brush.type = 'button';
-  brush.className = choice.paint ? 'on' : '';
+  const mine = !!(choice.paint || choice.sprays);
+  brush.className = mine ? 'on' : '';
   brush.setAttribute('aria-label', '직접 칠하기');
-  brush.setAttribute('aria-pressed', choice.paint ? 'true' : 'false');
+  brush.setAttribute('aria-pressed', mine ? 'true' : 'false');
   brush.innerHTML =
     '<span class="fill" style="background:conic-gradient(' +
     '#FFF6EC 0 16%, #F6CBA6 0 33%, #DCA771 0 50%, ' +
@@ -270,7 +280,7 @@ function paintCoats(){
   coatsEl.appendChild(brush);
 
   const cur = COATS.find(c => c.key === choice.coat);
-  coatNameEl.textContent = choice.paint ? '직접 칠함' : (cur ? cur.label : '');
+  coatNameEl.textContent = mine ? '직접 칠함' : (cur ? cur.label : '');
 }
 
 /* ── 직접 칠하기 창 ──
@@ -302,6 +312,18 @@ function paintSwatches(){
   });
 }
 
+/* 뿌리기일 때만 쓰는 줄(크기 · 되돌리기)을 켜고 끈다 */
+function paintMode(){
+  const m = editor ? editor.getMode() : 'spray';
+  for (const b of $('paintMode').querySelectorAll('button[data-paint]')){
+    b.classList.toggle('on', b.dataset.paint === m);
+  }
+  $('sprayBig').hidden = m !== 'spray';
+  for (const b of $('sprayBig').querySelectorAll('button[data-big]')){
+    b.classList.toggle('on', editor && (+b.dataset.big) === editor.getBig());
+  }
+}
+
 function openPaint(){
   $('paintPanel').hidden = false;
   if (!editor){
@@ -310,19 +332,50 @@ function openPaint(){
       onPaint(part, color){
         $('paintSaid').textContent =
           eulReul(PARTS[part].label) + ' ' + euro(PAINTS[color].label) + ' 칠했어요.';
+      },
+      onSpray(color, many){
+        $('paintSaid').textContent = color === null
+          ? '자국은 ' + SPRAY_MAX + '개까지예요. 지우고 다시 뿌려 주세요.'
+          : euro(PAINTS[color].label) + ' 뿌렸어요 (' + many + '/' + SPRAY_MAX + ').';
       }
     });
   }
   // 품종이 바뀌었을 수 있으니 열 때마다 다시 짓는다
   editor.setSpec(resolvePet({ kind: choice.kind, breed: choice.breed,
                               mix: choice.mix, coat: choice.coat }),
-                 choice.paint || paintFromCoat(choice.coat));
+                 choice.paint || paintFromCoat(choice.coat),
+                 choice.sprays);
   paintSwatches();
-  $('paintSaid').textContent = '색을 고르고 아이를 눌러 보세요.';
+  paintMode();
+  $('paintSaid').textContent = '색을 고르고 아이를 콕 찍어 보세요.';
 }
 
+for (const b of document.querySelectorAll('#paintMode button[data-paint]')){
+  b.addEventListener('click', () => {
+    if (editor) editor.setMode(b.dataset.paint);
+    paintMode();
+    $('paintSaid').textContent = b.dataset.paint === 'spray'
+      ? '아무 데나 콕 찍으면 둥글게 뿌려져요.'
+      : '누른 자리의 **부위**가 통째로 칠해져요.'.replace(/\*\*/g, '');
+  });
+}
+for (const b of document.querySelectorAll('#sprayBig button[data-big]')){
+  b.addEventListener('click', () => {
+    if (editor) editor.setBig(+b.dataset.big);
+    paintMode();
+  });
+}
+$('paintUndo').addEventListener('click', () => {
+  if (!editor) return;
+  $('paintSaid').textContent = editor.undo()
+    ? '방금 뿌린 것을 지웠어요.' : '지울 자국이 없어요.';
+});
+
 $('paintDone').addEventListener('click', () => {
-  if (editor) choice.paint = editor.getPaint();
+  if (editor){
+    choice.paint = editor.getPaint();
+    choice.sprays = fixSprays(editor.getSprays());
+  }
   $('paintPanel').hidden = true;
   paintCoats();
 });
@@ -343,7 +396,8 @@ for (const btn of $('kind').querySelectorAll('button[data-kind]')){
     choice.kind = btn.dataset.kind;
     choice.breed = 0;
     choice.mix = null;
-    choice.paint = null;      // 종이 바뀌면 칠한 것도 지운다
+    choice.paint = null;      // 종이 바뀌면 칠한 것도 뿌린 것도 지운다
+    choice.sprays = null;
     for (const b of $('kind').querySelectorAll('button[data-kind]')){
       b.classList.toggle('on', b.dataset.kind === choice.kind);
     }
@@ -435,14 +489,15 @@ startForm.addEventListener('submit', e => {
     /* 털빛이 '랜덤' 이면 여기서 **한 번만** 뽑아 카드에 박는다. 카드에
        '랜덤' 을 그대로 두면 코드를 받은 사람 화면에서 다른 털빛이 된다. */
     card = { kind: choice.kind, breed: choice.breed, mix: choice.mix,
-             coat: resolvePet(choice).coatKey, paint: choice.paint, name: dog };
+             coat: resolvePet(choice).coatKey, paint: choice.paint,
+             sprays: choice.sprays, name: dog };
   }
 
   try {
     localStorage.setItem(STORE, JSON.stringify({
       name, dog: card.name, look: choice.look, petMode,
       kind: choice.kind, breed: choice.breed, mix: choice.mix,
-      coat: choice.coat, paint: choice.paint
+      coat: choice.coat, paint: choice.paint, sprays: choice.sprays
     }));
   } catch (_){}
   rememberPet(card);
@@ -672,9 +727,11 @@ function begin(myName, petName, petSpec, friends, myLook){
   let myName2 = given ? given.name : petName;
   let myCard = given
     ? { kind: given.kind, breed: given.breed, mix: given.mix ?? null,
-        coat: given.coat, paint: given.paint ?? null, name: given.name }
+        coat: given.coat, paint: given.paint ?? null,
+        sprays: given.sprays ?? null, name: given.name }
     : { kind: petSpec.kind, breed: choice.breed, mix: choice.mix,
-        coat: petSpec.coatKey, paint: choice.paint, name: petName };
+        coat: petSpec.coatKey, paint: choice.paint,
+        sprays: choice.sprays, name: petName };
 
   let myPet = addPet(mySpec, myName2, me.group);     // 이 아이의 주인은 나다
 
@@ -683,8 +740,9 @@ function begin(myName, petName, petSpec, friends, myLook){
   /* 섞은 품종까지 봐야 한다. 안 보면 말티즈와 "말티즈 × 푸들" 이 같은
      아이로 묶여, 서로 다른 아이를 한 마리로 함께 보게 된다. */
   const keyOf = c => c
-    ? [c.kind, c.breed, c.mix ?? '', c.coat,
-       (c.paint || []).join(''), c.name].join('|') : '';
+    ? [c.kind, c.breed, c.mix ?? '', c.coat, (c.paint || []).join(''),
+       (c.sprays || []).map(s => [s.x, s.y, s.z, s.ci, s.big].join()).join(';'),
+       c.name].join('|') : '';
   let myKey = keyOf(myCard);
 
   /* 같은 아이를 맡은 사람. id 가 가장 작은 사람이 움직이고 나머지는
@@ -737,7 +795,8 @@ function begin(myName, petName, petSpec, friends, myLook){
          따로 만들지 않고, 둘 중 하나만 움직인다 — 누가 움직일지는 id 가
          작은 쪽으로 정한다. 양쪽이 같은 답을 내므로 의논이 필요 없다. */
       const card = info.pet
-        ? { mix: null, ...info.pet, paint: fixPaint(info.pet.paint), name: info.dog }
+        ? { mix: null, ...info.pet, paint: fixPaint(info.pet.paint),
+            sprays: fixSprays(info.pet.sprays), name: info.dog }
         : null;
       const entry = { id, actor, label: makeLabel(info.name),
                       s: { x:0, y:0, z:0, ry:0, speed:0 },
@@ -793,7 +852,8 @@ function begin(myName, petName, petSpec, friends, myLook){
       const p = peers.get(id);
       if (!p) return;
       p.card = info.pet
-        ? { mix: null, ...info.pet, paint: fixPaint(info.pet.paint), name: info.dog }
+        ? { mix: null, ...info.pet, paint: fixPaint(info.pet.paint),
+            sprays: fixSprays(info.pet.sprays), name: info.dog }
         : null;
       p.petKey = p.card ? keyOf(p.card) : '';
       pickDriver();
@@ -853,7 +913,8 @@ function begin(myName, petName, petSpec, friends, myLook){
           // '랜덤' 을 그대로 보내면 받는 쪽에서 다른 털빛이 된다.
           // 이미 뽑힌 값을 보내야 같은 아이가 된다.
           pet: { kind: myCard.kind, breed: myCard.breed, coat: myCard.coat,
-                 mix: myCard.mix, paint: myCard.paint } },
+                 mix: myCard.mix, paint: myCard.paint,
+                 sprays: myCard.sprays } },
     onStatus(s){ netSaid = s; paintCount(); }
   });
   updateCount();
@@ -1119,7 +1180,8 @@ function begin(myName, petName, petSpec, friends, myLook){
     syncPeerPets();
     // 남들도 알아야 그쪽 화면에서 같은 일이 일어난다
     net.setPet(card.name, { kind: card.kind, breed: card.breed, coat: card.coat,
-                            mix: card.mix, paint: card.paint });
+                            mix: card.mix, paint: card.paint,
+                            sprays: card.sprays });
   }
 
   const chLabel = showChannel(channel);
@@ -1168,7 +1230,8 @@ function begin(myName, petName, petSpec, friends, myLook){
     // 한 마리뿐이므로 더하는 것이 아니라 **바꾼다**
     const f = found[0];
     swapPet({ kind: f.kind, breed: f.breed, mix: f.mix ?? null,
-              coat: f.coat, paint: f.paint ?? null, name: f.name });
+              coat: f.coat, paint: f.paint ?? null,
+              sprays: f.sprays ?? null, name: f.name });
     $('addCode').value = '';
     tell(f.name + ' 로 바뀌었어요. 정원에 아이는 한 마리예요.');
   });

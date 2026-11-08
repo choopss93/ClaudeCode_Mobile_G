@@ -415,18 +415,18 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-08e",
-    "#world": "./js/world.js?v=2026-11-08e",
-    "#actor": "./js/actor.js?v=2026-11-08e",
-    "#controls": "./js/controls.js?v=2026-11-08e",
-    "#net": "./js/net.js?v=2026-11-08e",
-    "#pets": "./js/pets.js?v=2026-11-08e",
-    "#petcode": "./js/petcode.js?v=2026-11-08e",
-    "#channel": "./js/channel.js?v=2026-11-08e",
-    "#daylight": "./js/daylight.js?v=2026-11-08e",
-    "#mqtt": "./js/mqtt.js?v=2026-11-08e",
-    "#live": "./js/live.js?v=2026-11-08e",
-    "#paint": "./js/paint.js?v=2026-11-08e"
+    "#look": "./js/look.js?v=2026-11-08f",
+    "#world": "./js/world.js?v=2026-11-08f",
+    "#actor": "./js/actor.js?v=2026-11-08f",
+    "#controls": "./js/controls.js?v=2026-11-08f",
+    "#net": "./js/net.js?v=2026-11-08f",
+    "#pets": "./js/pets.js?v=2026-11-08f",
+    "#petcode": "./js/petcode.js?v=2026-11-08f",
+    "#channel": "./js/channel.js?v=2026-11-08f",
+    "#daylight": "./js/daylight.js?v=2026-11-08f",
+    "#mqtt": "./js/mqtt.js?v=2026-11-08f",
+    "#live": "./js/live.js?v=2026-11-08f",
+    "#paint": "./js/paint.js?v=2026-11-08f"
   }
 }
 </script>
@@ -473,13 +473,21 @@
 <div id="paintPanel" class="panel" hidden>
   <div class="sheet">
     <h2>직접 칠하기</h2>
-    <p class="hint">끌어서 돌려 보고, 색을 고른 뒤 <b>칠할 곳을 누르세요.</b>
-      몸 · 등 · 배 · 가슴 · 머리 · 눈 둘레 · 귀 · 주둥이 ·
-      앞다리 · 뒷다리 · 발 · 꼬리를 따로 칠할 수 있어요.</p>
+    <p class="hint"><b>끌면 돌아가고, 떼었다가 콕 찍으면 칠해져요.</b>
+      스프레이는 둥글게 뿌려지고 가장자리가 뿌옇습니다.</p>
+    <div class="seg" id="paintMode">
+      <button type="button" data-paint="spray" class="on">스프레이</button>
+      <button type="button" data-paint="part">부위 칠하기</button>
+    </div>
     <canvas id="paintView"></canvas>
-    <p class="said where" id="paintSaid">색을 고르고 아이를 눌러 보세요.</p>
+    <p class="said where" id="paintSaid">색을 고르고 아이를 콕 찍어 보세요.</p>
     <label>색</label>
     <div class="swatches" id="paintColors"></div>
+    <div class="seg" id="sprayBig">
+      <button type="button" data-big="0" class="on">보통</button>
+      <button type="button" data-big="1">크게</button>
+      <button type="button" id="paintUndo">방금 것 지우기</button>
+    </div>
     <button type="button" class="go" id="paintDone">다 칠했어요</button>
     <button type="button" class="close" id="paintCancel">그만두기</button>
   </div>
@@ -589,10 +597,10 @@
 
     <button type="submit">정원으로 들어가기</button>
     <p class="note">서두를 것도, 지는 것도 없는 곳이에요.
-      <span class="ver">2026-11-08e</span></p>
+      <span class="ver">2026-11-08f</span></p>
   </form>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-08e"></script>
+<script type="module" src="./js/main.js?v=2026-11-08f"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { toon, makeBlob } from '#look';
-import { PAINTS, fixPaint } from '#pets';
+import { toon, makeBlob, makeSpray } from '#look';
+import { PAINTS, fixPaint, fixSprays, SPRAY_SIZE } from '#pets';
 
 /*
  * 머리가 크고 몸이 작은, 동글동글한 캐릭터.
@@ -450,6 +450,57 @@ export function createPet(spec){
   // 반가워하기가 끝나면 이 각도로 되돌린다
   const tailRestX = tail.rotation.x;
 
+  /* ── 뿌린 자국 ──
+     자리는 **몸통 상자 안의 0~1 비율**로 적혀 온다. 여기서 그 비율을
+     길이로 풀고, 바깥에서 광선을 쏘아 살갗에 붙인다. 면이 어느 쪽을
+     보는지는 광선이 알려 주므로 코드에 담지 않는다.
+     상자는 **자국을 붙이기 전**에 잰다 — 붙인 뒤에 재면 자국이 상자를
+     넓혀서, 같은 코드가 기기마다 다른 자리에 찍힌다. */
+  inner.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(inner);
+  const innerBox = {
+    min: box.min.clone().divideScalar(spec.scale),
+    max: box.max.clone().divideScalar(spec.scale)
+  };
+
+  const sprays = fixSprays(spec.sprays);
+  if (sprays){
+    const ray = new THREE.Raycaster();
+    const mid = box.getCenter(new THREE.Vector3());
+    const at = new THREE.Vector3();
+    const dir = new THREE.Vector3();
+    const flat = new THREE.Vector3(0, 0, 1);
+    const inv = new THREE.Matrix4();
+    for (const s of sprays){
+      at.set(box.min.x + s.x * (box.max.x - box.min.x),
+             box.min.y + s.y * (box.max.y - box.min.y),
+             box.min.z + s.z * (box.max.z - box.min.z));
+      dir.copy(at).sub(mid);
+      if (dir.lengthSq() < 1e-8) dir.set(0, 1, 0);
+      dir.normalize();
+      ray.set(at.clone().addScaledVector(dir, 1.5), dir.clone().negate());
+      const hit = ray.intersectObject(inner, true)[0];
+      if (!hit || !hit.face) continue;
+
+      // 머리에 찍힌 자국은 머리에 달아야 고개를 숙일 때 같이 간다
+      let host = inner;
+      for (let o = hit.object; o && o !== inner; o = o.parent){
+        if (o === head){ host = head; break; }
+      }
+      const scale = host === head ? spec.scale : spec.scale;   // 둘 다 inner 배율
+      const local = host.worldToLocal(hit.point.clone());
+      const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+      n.transformDirection(inv.copy(host.matrixWorld).invert()).normalize();
+
+      const m = makeSpray(PAINTS[s.ci].hex);
+      m.userData.spray = 1;      // 편집기가 자국 위에 또 찍지 않도록
+      m.position.copy(local).addScaledVector(n, 0.014 / scale);
+      m.quaternion.setFromUnitVectors(flat, n);
+      m.scale.setScalar(SPRAY_SIZE[s.big] * 2 / scale);
+      host.add(m);
+    }
+  }
+
   const HEAD_TOP = (head.position.y + headR * 1.5) * spec.scale + 0.06;
   const GREET_TIME = 2.4;
   let t = Math.random() * 6, step = 0, greetLeft = 0, eatLeft = 0;
@@ -459,6 +510,10 @@ export function createPet(spec){
     group,
     headTop: HEAD_TOP,
     label: spec.breedName,
+    /* 편집기가 뿌린 자리를 적을 때 쓴다 — 몸통 자리와, 자국을 붙이기
+       전에 잰 상자. 둘이 있어야 "상자 안의 몇 할" 로 적을 수 있다. */
+    inner,
+    box: innerBox,
 
     /** 주인을 만났을 때. 평소 꼬리질과 확실히 달라야 한다. */
     startGreet(){ greetLeft = GREET_TIME; },
