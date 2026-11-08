@@ -15,7 +15,9 @@ import { PAINTS, PARTS, okPaint } from '#pets';
  */
 
 const DRAG = 7;          // 이만큼 끌면 "돌린 것" 으로 보고 칠하지 않는다
-const MIN_TILT = 0.05, MAX_TILT = 0.85;
+/* 아래쪽으로도 조금 내려다볼 수 있어야 **배**를 칠한다. 0 에서 막으면
+   눈높이 위로만 보게 되어 배가 영영 안 보인다. */
+const MIN_TILT = -0.55, MAX_TILT = 0.9;
 
 export function createPaintEditor({ canvas, onPaint }){
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });

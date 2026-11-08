@@ -1,4 +1,4 @@
-import { KINDS, COATS, PARTS, mixable, okPaint } from '#pets';
+import { KINDS, COATS, PARTS, PAINT_OLD, mixable, okPaint, fixPaint } from '#pets';
 
 /*
  * 반려동물 고유 코드.
@@ -15,7 +15,12 @@ import { KINDS, COATS, PARTS, mixable, okPaint } from '#pets';
  * 그래서 **털빛 자리에 `EXT`(7) 를 세워** 두고 바이트를 더 붙인다.
  *
  *   둘째 바이트 — 칠했나(1비트) · 섞을 품종(4비트) · 진짜 털빛(3비트)
- *   칠했으면 뒤에 3바이트 — 부위 여섯 자리의 색 번호(각 4비트)
+ *   칠했으면 뒤에 부위마다 4비트씩 (지금은 열두 자리라 6바이트)
+ *
+ * 칠할 자리가 여섯에서 열둘로 늘면서 **깃발을 하나 더 만들었다.** 털빛
+ * 자리의 `EXT2`(6) 가 지금 판이고, `EXT1`(7) 은 여섯 자리이던 옛 판이다.
+ * 옛 코드는 그대로 읽어 열두 자리로 펴 준다 (`fixPaint`). 같은 깃발에
+ * 길이만 바꿨다면 옛 코드가 엉뚱한 아이가 됐을 것이다.
  *
  * **섞지 않았으면 섞을 품종 자리에 제 품종을 적는다.** 같은 품종끼리는
  * 섞이지 않으므로(`mixable`) "섞지 않음" 이라는 뜻이 된다. 따로 깃발을
@@ -62,8 +67,11 @@ function fromCode(text){
   return new Uint8Array(out);
 }
 
-// 털빛 자리에 세우는 깃발. 이 값이면 뒤에 바이트가 하나 더 있다.
-const EXT = 7;
+/* 털빛 자리에 세우는 깃발. 이 값이면 뒤에 바이트가 더 있다.
+   털빛은 다섯 가지뿐이라 5·6·7 은 쓰지 않던 값이다. */
+const EXT1 = 7;              // 옛 판 — 칠이 여섯 자리
+const EXT2 = 6;              // 지금 판 — 칠이 PARTS.length 자리
+const PAINT_BYTES = Math.ceil(PARTS.length / 2);
 
 /** 고른 반려동물을 코드로 접는다. */
 export function makeCode({ kind, breed, mix, coat, paint, name }){
@@ -71,12 +79,14 @@ export function makeCode({ kind, breed, mix, coat, paint, name }){
   const breedNo = Math.max(0, Math.min(15, breed | 0));
   const coatNo = Math.max(0, COATS.findIndex(c => c.key === coat));
   const mixed = mixable(kind === 'cat' ? 'cat' : 'dog', breedNo, mix);
-  const painted = okPaint(paint);
+  // 옛 여섯 자리로 들어와도 펴서 담는다 — 그냥 버리면 칠이 사라진다
+  const fixed = fixPaint(paint);
+  const painted = okPaint(fixed);
   const ext = mixed || painted;
-  const head = (kindBit << 7) | (breedNo << 3) | (ext ? EXT : coatNo);
+  const head = (kindBit << 7) | (breedNo << 3) | (ext ? EXT2 : coatNo);
 
   const nameBytes = new TextEncoder().encode((name || '').slice(0, 12));
-  const at = ext ? (painted ? 5 : 2) : 1;
+  const at = ext ? (painted ? 2 + PAINT_BYTES : 2) : 1;
   const bytes = new Uint8Array(at + nameBytes.length);
   bytes[0] = head;
   if (ext){
@@ -84,8 +94,9 @@ export function makeCode({ kind, breed, mix, coat, paint, name }){
     bytes[1] = (painted ? 128 : 0) |
                (((mixed ? mix : breedNo) & 15) << 3) | coatNo;
     if (painted){
-      for (let i = 0; i < 3; i++){
-        bytes[2 + i] = ((paint[i * 2] & 15) << 4) | (paint[i * 2 + 1] & 15);
+      for (let i = 0; i < PAINT_BYTES; i++){
+        bytes[2 + i] = ((fixed[i * 2] & 15) << 4) |
+                       ((fixed[i * 2 + 1] ?? 0) & 15);
       }
     }
   }
@@ -110,7 +121,7 @@ export function readCode(code){
   const slot = head & 7;
 
   let at = 1, mix = null, coatNo = slot, paint = null;
-  if (slot === EXT){
+  if (slot === EXT1 || slot === EXT2){
     if (bytes.length < 2) return null;
     const b1 = bytes[1];
     const m = (b1 >> 3) & 15;
@@ -118,13 +129,17 @@ export function readCode(code){
     coatNo = b1 & 7;
     at = 2;
     if (b1 & 128){
-      if (bytes.length < 5) return null;
-      paint = [];
-      for (let i = 0; i < 3; i++){
-        paint.push((bytes[2 + i] >> 4) & 15, bytes[2 + i] & 15);
+      // 옛 판(EXT1)은 여섯 자리라 3바이트였다
+      const n = slot === EXT1 ? Math.ceil(PAINT_OLD / 2) : PAINT_BYTES;
+      const many = slot === EXT1 ? PAINT_OLD : PARTS.length;
+      if (bytes.length < 2 + n) return null;
+      const raw = [];
+      for (let i = 0; i < n; i++){
+        raw.push((bytes[2 + i] >> 4) & 15, bytes[2 + i] & 15);
       }
-      if (paint.length !== PARTS.length || !okPaint(paint)) return null;
-      at = 5;
+      paint = fixPaint(raw.slice(0, many));     // 옛 자리면 여기서 펴진다
+      if (!paint) return null;
+      at = 2 + n;
     }
   }
 

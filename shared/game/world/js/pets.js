@@ -85,15 +85,29 @@ export const PAINTS = [
   { label: '레몬',     hex: 0xF6E9A8 }
 ];
 
-/* 칠할 수 있는 여섯 자리. 번호가 코드에 그대로 박히므로 **끝에만** 붙인다. */
+/* 칠할 수 있는 자리. 번호가 코드에 그대로 박히므로 **끝에만** 붙인다.
+   앞의 여섯은 처음부터 있던 자리라 번호를 그대로 두었다 — 자리 3 은
+   이름만 "다리" 에서 "앞다리" 로 바뀌었다. */
 export const PARTS = [
   { key: 'body',   label: '몸' },
   { key: 'head',   label: '머리' },
   { key: 'ear',    label: '귀' },
-  { key: 'leg',    label: '다리' },
+  { key: 'leg',    label: '앞다리' },
   { key: 'tail',   label: '꼬리' },
-  { key: 'muzzle', label: '주둥이' }
+  { key: 'muzzle', label: '주둥이' },
+  // ── 여기서부터 나중에 쪼갠 자리 ──
+  { key: 'hind',   label: '뒷다리' },
+  { key: 'back',   label: '등' },
+  { key: 'belly',  label: '배' },
+  { key: 'chest',  label: '가슴' },
+  { key: 'paw',    label: '발' },
+  { key: 'patch',  label: '눈 둘레' }
 ];
+
+/* 처음에는 여섯 자리뿐이었다. 그때 나간 코드와 그때 저장한 아이를
+   그대로 읽으려고, 옛 여섯 자리를 새 열두 자리로 펴는 길을 남겨 둔다. */
+const OLD_PARTS = 6;
+const GROWN = [3, 0, 0, 0, 3, 1];   // 뒷다리←앞다리 · 등배가슴←몸 · 발←앞다리 · 눈둘레←머리
 
 /** 고른 털빛을 여섯 자리 칠로 펼친다. 편집기를 처음 열 때 쓴다. */
 export function paintFromCoat(coatKey){
@@ -110,15 +124,30 @@ export function paintFromCoat(coatKey){
   };
   const base = near(c.base);
   const acc = c.accent ? near(c.accent) : base;
-  //            몸    머리  귀   다리  꼬리  주둥이
-  return [base, base, acc, base, acc, base];
+  //      몸    머리  귀   앞다리 꼬리 주둥이 뒷다리 등   배   가슴 발   눈둘레
+  return [base, base, acc, base, acc, base, base, base, base, base, base, base];
 }
 
-/** 칠이 쓸 만한가 — 여섯 자리, 모두 색 번호. */
+/** 칠이 쓸 만한가 — 열두 자리, 모두 색 번호. 내보낼 때 쓴다. */
 export function okPaint(paint){
   return Array.isArray(paint) && paint.length === PARTS.length &&
          paint.every(v => Number.isInteger(v) && v >= 0 && v < PAINTS.length);
 }
+
+/* 받아 온 칠을 지금 쓰는 모양으로 바로잡는다. 옛 여섯 자리면 펴 준다.
+   **밖에서 들어오는 칠은 모두 여기를 거치게 할 것** — 코드 · 인사 ·
+   이 기기에 저장해 둔 아이 모두. 안 거치면 옛 아이가 통째로 칠을 잃는다. */
+export function fixPaint(paint){
+  if (!Array.isArray(paint)) return null;
+  const ok = v => Number.isInteger(v) && v >= 0 && v < PAINTS.length;
+  if (!paint.every(ok)) return null;
+  if (paint.length === PARTS.length) return paint.slice();
+  if (paint.length === OLD_PARTS) return paint.concat(GROWN.map(i => paint[i]));
+  return null;
+}
+
+/** 옛 코드를 읽을 때 쓰는 자리 수. */
+export const PAINT_OLD = OLD_PARTS;
 
 // 사람은 초당 3.1 만큼 걷는다. 반려동물은 그보다 늘 느려야 한다.
 const PET_WALK = 1.2;
@@ -176,7 +205,7 @@ export function resolvePet({ kind, breed, mix, coat, paint }){
 
   /* 직접 칠한 아이는 털빛 대신 여섯 자리 색을 쓴다. 코 색을 정하려면
      머리 색이 짙은지 알아야 해서 그것도 함께 내어 준다. */
-  const painted = okPaint(paint) ? paint.slice() : null;
+  const painted = fixPaint(paint);
   const headHex = painted ? PAINTS[painted[1]].hex : c.base;
   const dark = ((headHex >> 16) & 255) * 0.3 + ((headHex >> 8) & 255) * 0.59 +
                (headHex & 255) * 0.11 < 120;

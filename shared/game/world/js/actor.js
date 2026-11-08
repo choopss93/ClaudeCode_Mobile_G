@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { toon, makeBlob } from '#look';
-import { PAINTS, okPaint } from '#pets';
+import { PAINTS, fixPaint } from '#pets';
 
 /*
  * 머리가 크고 몸이 작은, 동글동글한 캐릭터.
@@ -310,13 +310,14 @@ export function createPet(spec){
   /* 직접 칠한 아이는 부위마다 색이 다르다. 칠하지 않았으면 모두 털빛
      하나를 나눠 쓴다. `toon` 이 빛깔마다 재질을 하나씩 돌려주므로,
      같은 색으로 칠한 부위끼리는 저절로 같은 재질이 된다. */
-  const paint = okPaint(spec.paint) ? spec.paint : null;
+  const paint = fixPaint(spec.paint);
   const coat = i => paint ? toon(PAINTS[paint[i]].hex) : fur;
   /* 편집기가 눌린 자리를 알아보려면 조각마다 어느 부위인지 적어 둬야
      한다 (`paint.js`). 칠하지 않은 아이에도 적어 둔다 — 그래야 편집기를
      털빛에서 바로 열 수 있다. */
   const tag = (m, i) => { m.userData.part = i; return m; };
-  const BODY = 0, HEAD = 1, EAR = 2, LEG = 3, TAIL = 4, MUZZLE = 5;
+  const BODY = 0, HEAD = 1, EAR = 2, LEG = 3, TAIL = 4, MUZZLE = 5,
+        HIND = 6, BACK = 7, BELLY = 8, CHEST = 9, PAW = 10, PATCH = 11;
 
   const bodyL = K.bodyL * spec.body[0];
   const bodyW = K.bodyW * spec.body[1] * spec.fluff;
@@ -329,9 +330,18 @@ export function createPet(spec){
   /* 다리 — 네 개 */
   const legs = [];
   const legX = bodyW * 0.62, legZ = bodyL * 0.52;
+  /* 앞의 둘이 앞다리(+z), 뒤의 둘이 뒷다리다. 발은 다리에 **달아** 둔다 —
+     따로 두면 걸을 때 다리만 움직이고 발은 제자리에 남는다. */
   for (const [x, z] of [[-legX, legZ], [legX, legZ], [-legX, -legZ], [legX, -legZ]]){
-    legs.push(tag(piece(inner, ball, coat(LEG), x, legH / 2 + 0.01, z,
-                        0.046 * spec.body[1], legH, 0.046 * spec.body[1]), LEG));
+    const which = z > 0 ? LEG : HIND;
+    const leg = tag(piece(inner, ball, coat(which), x, legH / 2 + 0.01, z,
+                          0.046 * spec.body[1], legH, 0.046 * spec.body[1]), which);
+    legs.push(leg);
+    if (paint){
+      /* 다리 안쪽 자(1 이 다리 길이의 절반)로 적는다. 다리가 길쭉하게
+         눌려 있어서, 여기 1.4 는 바깥에서 보면 납작하고 넓은 발이 된다. */
+      tag(piece(leg, ball, coat(PAW), 0, -0.76, 0.22, 1.35, 0.26, 1.5), PAW);
+    }
   }
   const legRest = legH / 2 + 0.01;
 
@@ -343,6 +353,24 @@ export function createPet(spec){
     const puff = (spec.fluff - 1) * 0.9;
     tag(piece(inner, ball, coat(BODY), 0, bodyY + bodyH * 0.45, -bodyL * 0.35, bodyW * puff, bodyH * puff, bodyL * puff * 0.8), BODY);
     tag(piece(inner, ball, coat(BODY), 0, bodyY + bodyH * 0.3, bodyL * 0.3, bodyW * puff * 0.85, bodyH * puff * 0.8, bodyL * puff * 0.7), BODY);
+  }
+
+  /* 칠한 아이에게만 붙이는 자리들. 안 칠한 아이에게는 붙이지 않는다 —
+     털빛 하나로 칠해 봐야 보이지도 않으면서 그리는 값만 는다.
+     공처럼 둥근 것을 몸에 **걸쳐** 둔다. 같은 높이로 포개면 z-파이팅이
+     나므로, 파묻지 말고 비어져 나오게 놓는 것이 중요하다. */
+  if (paint){
+    /* **몸보다 비어져 나오게** 놓는 것이 요령이다. 몸 안에 들어가 있으면
+       칠해도 보이지 않고 눌러도 몸이 먼저 잡힌다 (배를 한 번 그렇게
+       만들어 아예 칠할 수가 없었다). 가운데 높이에서 몸의 반지름보다
+       넓게 잡으면 옆구리에 띠처럼 걸린다. */
+    tag(piece(inner, ball, coat(BACK), 0, bodyY + bodyH * 0.58, -bodyL * 0.1,
+              bodyW * 0.88, bodyH * 0.5, bodyL * 0.64), BACK);
+    tag(piece(inner, ball, coat(BELLY), 0, bodyY - bodyH * 0.55, -0.02,
+              bodyW * 1.02, bodyH * 0.52, bodyL), BELLY);
+    // 가슴은 머리에 가리기 쉽다. 턱 아래로 내리고 앞으로 더 내민다.
+    tag(piece(inner, ball, coat(CHEST), 0, bodyY - bodyH * 0.26, bodyL * 0.7,
+              bodyW * 0.52, bodyH * 0.6, bodyL * 0.42), CHEST);
   }
 
   // 화이트블랙 — 등에 무늬 한 점. 직접 칠했으면 무늬를 두지 않는다.
@@ -367,6 +395,14 @@ export function createPet(spec){
   }
   piece(head, ball, nose, 0, -headR * 0.14, headR * 0.76 + mz * 0.95,
         headR * 0.2, headR * 0.17, headR * 0.16);
+
+  // 눈 둘레 — 눈보다 크고 조금 뒤에 두어 얼굴에 점박이처럼 걸린다
+  if (paint){
+    for (const sx of [-1, 1]){
+      tag(piece(head, ball, coat(PATCH), sx * headR * 0.42, headR * 0.2, headR * 0.62,
+                headR * 0.3, headR * 0.3, headR * 0.26), PATCH);
+    }
+  }
 
   // 눈
   const eyeZ = headR * 0.72;

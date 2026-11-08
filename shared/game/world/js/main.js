@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { createWorld, resolve, START } from '#world';
 import { createActor, createPet, TRICKS, HAND_SPOT } from '#actor';
-import { KINDS, COATS, PAINTS, PARTS, resolvePet, paintFromCoat, okPaint } from '#pets';
+import { KINDS, COATS, PAINTS, PARTS,
+         resolvePet, paintFromCoat, fixPaint } from '#pets';
 import { createPaintEditor } from '#paint';
 import { makeCode, readCodes } from '#petcode';
 import { CAPACITY, PUBLIC, makeChannel, readChannel, showChannel,
@@ -82,7 +83,7 @@ function savedPets(){
     if (!Array.isArray(list)) return [];
     return list.filter(c => c && KINDS[c.kind] && Number.isInteger(c.breed) &&
                             typeof c.name === 'string' && c.name)
-               .map(c => ({ ...c, paint: okPaint(c.paint) ? c.paint : null }))
+               .map(c => ({ ...c, paint: fixPaint(c.paint) }))
                .slice(0, MAX_KEPT);
   } catch (_){ return []; }
 }
@@ -118,7 +119,7 @@ try {
     if (Number.isInteger(saved.breed)) choice.breed = saved.breed;
     choice.mix = Number.isInteger(saved.mix) ? saved.mix : null;
     if (COATS.some(c => c.key === saved.coat)) choice.coat = saved.coat;
-    choice.paint = okPaint(saved.paint) ? saved.paint.slice() : null;
+    choice.paint = fixPaint(saved.paint);     // 옛 여섯 자리면 펴 준다
     if (['new','load','code'].includes(saved.petMode)) petMode = saved.petMode;
   }
 } catch (_){}
@@ -735,7 +736,9 @@ function begin(myName, petName, petSpec, friends, myLook){
          **나와 같은 아이**(같은 코드)라면 한 마리를 함께 보는 것이므로
          따로 만들지 않고, 둘 중 하나만 움직인다 — 누가 움직일지는 id 가
          작은 쪽으로 정한다. 양쪽이 같은 답을 내므로 의논이 필요 없다. */
-      const card = info.pet ? { mix: null, ...info.pet, name: info.dog } : null;
+      const card = info.pet
+        ? { mix: null, ...info.pet, paint: fixPaint(info.pet.paint), name: info.dog }
+        : null;
       const entry = { id, actor, label: makeLabel(info.name),
                       s: { x:0, y:0, z:0, ry:0, speed:0 },
                       started: false,
@@ -789,7 +792,9 @@ function begin(myName, petName, petSpec, friends, myLook){
     onPet(id, info){
       const p = peers.get(id);
       if (!p) return;
-      p.card = info.pet ? { mix: null, ...info.pet, name: info.dog } : null;
+      p.card = info.pet
+        ? { mix: null, ...info.pet, paint: fixPaint(info.pet.paint), name: info.dog }
+        : null;
       p.petKey = p.card ? keyOf(p.card) : '';
       pickDriver();
       syncPeerPets();
