@@ -392,17 +392,17 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-08a",
-    "#world": "./js/world.js?v=2026-11-08a",
-    "#actor": "./js/actor.js?v=2026-11-08a",
-    "#controls": "./js/controls.js?v=2026-11-08a",
-    "#net": "./js/net.js?v=2026-11-08a",
-    "#pets": "./js/pets.js?v=2026-11-08a",
-    "#petcode": "./js/petcode.js?v=2026-11-08a",
-    "#channel": "./js/channel.js?v=2026-11-08a",
-    "#daylight": "./js/daylight.js?v=2026-11-08a",
-    "#mqtt": "./js/mqtt.js?v=2026-11-08a",
-    "#live": "./js/live.js?v=2026-11-08a"
+    "#look": "./js/look.js?v=2026-11-08b",
+    "#world": "./js/world.js?v=2026-11-08b",
+    "#actor": "./js/actor.js?v=2026-11-08b",
+    "#controls": "./js/controls.js?v=2026-11-08b",
+    "#net": "./js/net.js?v=2026-11-08b",
+    "#pets": "./js/pets.js?v=2026-11-08b",
+    "#petcode": "./js/petcode.js?v=2026-11-08b",
+    "#channel": "./js/channel.js?v=2026-11-08b",
+    "#daylight": "./js/daylight.js?v=2026-11-08b",
+    "#mqtt": "./js/mqtt.js?v=2026-11-08b",
+    "#live": "./js/live.js?v=2026-11-08b"
   }
 }
 </script>
@@ -493,25 +493,50 @@
       <button type="button" data-look="long">여자</button>
     </div>
 
-    <label>누구와 함께 갈까요</label>
-    <div class="seg" id="kind">
-      <button type="button" data-kind="dog" class="on">강아지</button>
-      <button type="button" data-kind="cat">고양이</button>
+    <label>반려동물</label>
+    <div class="seg" id="petMode">
+      <button type="button" data-pm="new" class="on">새로 만들기</button>
+      <button type="button" data-pm="load">불러오기</button>
+      <button type="button" data-pm="code">코드 입력</button>
     </div>
 
-    <label for="dogInput">이름</label>
-    <input id="dogInput" type="text" maxlength="12" required placeholder="곁에서 따라다녀요">
+    <div id="petNew">
+      <label>누구와 함께 갈까요</label>
+      <div class="seg" id="kind">
+        <button type="button" data-kind="dog" class="on">강아지</button>
+        <button type="button" data-kind="cat">고양이</button>
+      </div>
 
-    <label>품종</label>
-    <div class="picks" id="breeds"></div>
+      <label for="dogInput">이름</label>
+      <input id="dogInput" type="text" maxlength="12" required placeholder="곁에서 따라다녀요">
 
-    <label>섞을 품종 <span class="sel" id="mixName">안 섞어요</span></label>
-    <div class="picks" id="mixes"></div>
+      <label>품종</label>
+      <div class="picks" id="breeds"></div>
 
-    <label>털빛 <span class="sel" id="coatName">화이트</span></label>
-    <div class="coats" id="coats"></div>
+      <label>섞을 품종 <span class="sel" id="mixName">안 섞어요</span></label>
+      <div class="picks" id="mixes"></div>
 
-    <label>채널 <span class="sel" id="chName">열린 정원</span></label>
+      <label>털빛 <span class="sel" id="coatName">화이트</span></label>
+      <div class="coats" id="coats"></div>
+    </div>
+
+    <div id="petLoad" hidden>
+      <label>지금까지 지낸 아이 <span class="sel" id="savedName">—</span></label>
+      <div class="picks" id="saved"></div>
+      <p class="sel" id="savedHint" style="margin:-6px 4px 13px;font-size:11.5px">
+        들어갈 때마다 한 마리씩 기억해 둡니다.</p>
+    </div>
+
+    <div id="petCode" hidden>
+      <label for="friendCodes">강아지 코드</label>
+      <input id="friendCodes" type="text" autocapitalize="characters"
+             placeholder="받은 코드를 붙여넣으세요">
+      <p class="sel" id="codeNote" style="margin:-6px 4px 13px;font-size:11.5px">
+        코드를 넣으면 <b>그 아이</b>와 지냅니다. 같은 코드를 가진 사람끼리는
+        그 아이 <b>한 마리</b>를 함께 봐요.</p>
+    </div>
+
+    <label for="chCode">입장 채널 <span class="sel" id="chName">열린 정원</span></label>
     <div class="seg" id="chPick">
       <button type="button" data-ch="open" class="on">열린 정원</button>
       <button type="button" data-ch="mine">내 채널</button>
@@ -522,19 +547,12 @@
     <p class="sel" id="chHint" style="margin:-6px 4px 13px;font-size:11.5px">
       누구나 들어오는 정원이에요. 한 채널에 서른 명까지.</p>
 
-    <label for="friendCodes">친구 코드 <span class="sel">없어도 괜찮아요</span></label>
-    <input id="friendCodes" type="text" autocapitalize="characters"
-           placeholder="받은 코드를 붙여넣으면 그 아이와 지내요">
-    <p class="sel" id="codeNote" style="margin:-6px 4px 13px;font-size:11.5px">
-      코드를 넣으면 <b>그 아이</b>와 지냅니다. 위에서 고른 이름과 품종은
-      쓰지 않아요 — 정원에 아이는 한 마리예요.</p>
-
     <button type="submit">정원으로 들어가기</button>
     <p class="note">서두를 것도, 지는 것도 없는 곳이에요.
-      <span class="ver">2026-11-08a</span></p>
+      <span class="ver">2026-11-08b</span></p>
   </form>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-08a"></script>
+<script type="module" src="./js/main.js?v=2026-11-08b"></script>
 </body>
 </html>

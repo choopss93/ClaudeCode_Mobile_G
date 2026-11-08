@@ -67,7 +67,42 @@ $('scene').addEventListener('contextmenu', e => e.preventDefault());
 
 /* ── 이름과 반려동물 고르기 ── */
 
+/* 지금까지 지낸 아이들. 들어갈 때마다 한 마리씩 앞에 쌓아 둔다.
+   서버가 없으므로 이 기기에만 남는다 — 다른 폰에서는 코드로 불러온다. */
+const PETS = 'rainbowGarden.pets';
+const MAX_KEPT = 12;
+
+const cardKey = c => [c.kind, c.breed, c.mix ?? '', c.coat, c.name].join('|');
+
+function savedPets(){
+  try {
+    const list = JSON.parse(localStorage.getItem(PETS) || '[]');
+    if (!Array.isArray(list)) return [];
+    return list.filter(c => c && KINDS[c.kind] && Number.isInteger(c.breed) &&
+                            typeof c.name === 'string' && c.name)
+               .slice(0, MAX_KEPT);
+  } catch (_){ return []; }
+}
+
+/** 지낸 아이를 기억해 둔다. 같은 아이면 앞으로 끌어올린다. */
+function rememberPet(card){
+  if (!card || !card.name) return;
+  try {
+    const list = savedPets().filter(c => cardKey(c) !== cardKey(card));
+    list.unshift({ kind: card.kind, breed: card.breed, mix: card.mix ?? null,
+                   coat: card.coat, name: card.name });
+    localStorage.setItem(PETS, JSON.stringify(list.slice(0, MAX_KEPT)));
+  } catch (_){}
+}
+
 const choice = { look: 'short', kind: 'dog', breed: 3, mix: null, coat: 'white' };
+
+/* 아이를 정하는 세 가지 길 — 새로 만들기 · 불러오기 · 코드 입력.
+   어느 길로 왔든 마지막에는 카드 하나(`kind·breed·mix·coat·name`)가 되고,
+   그 뒤는 똑같다. */
+let petMode = 'new';
+let pickedPet = 0;
+let myPets = savedPets();
 
 try {
   const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
@@ -79,8 +114,10 @@ try {
     if (Number.isInteger(saved.breed)) choice.breed = saved.breed;
     choice.mix = Number.isInteger(saved.mix) ? saved.mix : null;
     if (COATS.some(c => c.key === saved.coat)) choice.coat = saved.coat;
+    if (['new','load','code'].includes(saved.petMode)) petMode = saved.petMode;
   }
 } catch (_){}
+if (petMode === 'load' && !myPets.length) petMode = 'new';
 
 /* ── 채널 ──
    열린 정원 / 내 채널 만들기 / 코드로 들어가기. 링크에 코드가 들어 있으면
@@ -238,20 +275,100 @@ for (const btn of $('kind').querySelectorAll('button[data-kind]')){
   btn.classList.toggle('on', btn.dataset.kind === choice.kind);
 }
 
+/* ── 아이를 정하는 세 가지 길 ── */
+const savedEl = $('saved');
+// 코드를 잘못 넣으면 안내문 자리에 까닭을 적는다. 길을 바꾸면 되돌린다.
+const CODE_NOTE = $('codeNote').innerHTML;
+const savedNameEl = $('savedName');
+const savedHintEl = $('savedHint');
+
+function paintSaved(){
+  savedEl.replaceChildren();
+  if (!myPets.length){
+    savedNameEl.textContent = '없음';
+    savedHintEl.textContent = '아직 기억해 둔 아이가 없어요. 새로 만들어 주세요.';
+    return;
+  }
+  if (pickedPet >= myPets.length) pickedPet = 0;
+  myPets.forEach((c, i) => {
+    const spec = resolvePet(c);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = c.name;
+    btn.title = spec.breedName + ' · ' + spec.coatName;
+    btn.className = i === pickedPet ? 'on' : '';
+    btn.setAttribute('aria-pressed', i === pickedPet ? 'true' : 'false');
+    btn.addEventListener('click', () => { pickedPet = i; paintSaved(); });
+    savedEl.appendChild(btn);
+  });
+  const cur = resolvePet(myPets[pickedPet]);
+  savedNameEl.textContent = myPets[pickedPet].name + ' · ' + cur.breedName;
+  savedHintEl.textContent = '들어갈 때마다 한 마리씩 기억해 둡니다.';
+}
+
+function paintPetMode(){
+  for (const b of $('petMode').querySelectorAll('button[data-pm]')){
+    b.classList.toggle('on', b.dataset.pm === petMode);
+  }
+  $('petNew').hidden = petMode !== 'new';
+  $('petLoad').hidden = petMode !== 'load';
+  $('petCode').hidden = petMode !== 'code';
+  if (petMode === 'code') $('codeNote').innerHTML = CODE_NOTE;
+  /* 숨긴 칸에 `required` 가 남아 있으면 폼이 아예 제출되지 않는다 —
+     브라우저가 보이지 않는 칸으로 커서를 옮기려다 막힌다. */
+  dogIn.required = petMode === 'new';
+}
+
+for (const btn of $('petMode').querySelectorAll('button[data-pm]')){
+  btn.addEventListener('click', () => {
+    petMode = btn.dataset.pm;
+    paintPetMode();
+    if (petMode === 'code') $('friendCodes').focus();
+  });
+}
+
 paintBreeds();
 paintCoats();
+paintSaved();
+paintPetMode();
 
 startForm.addEventListener('submit', e => {
   e.preventDefault();
   const name = nameIn.value.trim().slice(0, 12);
-  const dog  = dogIn.value.trim().slice(0, 12);
-  if (!name || !dog) return;
+  if (!name) return;
+
+  /* 어느 길로 왔든 카드 하나로 모은다. 그 뒤는 세 길이 똑같다. */
+  let card = null;
+  if (petMode === 'code'){
+    card = readCodes($('friendCodes').value)[0] || null;
+    if (!card){
+      $('codeNote').textContent = '코드를 읽지 못했어요. 다시 확인해 주세요.';
+      $('friendCodes').focus();
+      return;
+    }
+  } else if (petMode === 'load'){
+    card = myPets[pickedPet] || null;
+    if (!card){
+      savedHintEl.textContent = '기억해 둔 아이가 없어요. 새로 만들어 주세요.';
+      return;
+    }
+  } else {
+    const dog = dogIn.value.trim().slice(0, 12);
+    if (!dog) return;
+    /* 털빛이 '랜덤' 이면 여기서 **한 번만** 뽑아 카드에 박는다. 카드에
+       '랜덤' 을 그대로 두면 코드를 받은 사람 화면에서 다른 털빛이 된다. */
+    card = { kind: choice.kind, breed: choice.breed, mix: choice.mix,
+             coat: resolvePet(choice).coatKey, name: dog };
+  }
+
   try {
     localStorage.setItem(STORE, JSON.stringify({
-      name, dog, look: choice.look,
+      name, dog: card.name, look: choice.look, petMode,
       kind: choice.kind, breed: choice.breed, mix: choice.mix, coat: choice.coat
     }));
   } catch (_){}
+  rememberPet(card);
+
   if (chMode === 'join'){
     const got = readChannel(chCodeEl.value);
     if (!got){
@@ -266,8 +383,7 @@ startForm.addEventListener('submit', e => {
   writeChannelToHash(channel);
 
   startEl.hidden = true;
-  // 랜덤이면 여기서 한 번만 뽑는다. 들어갈 때마다 달라진다.
-  begin(name, dog, resolvePet(choice), readCodes($('friendCodes').value), choice.look);
+  begin(name, card.name, resolvePet(card), [card], choice.look);
 });
 if (!TOUCH) nameIn.focus();   // 폰에서는 키보드가 시작 화면을 가린다
 
@@ -805,6 +921,7 @@ function begin(myName, petName, petSpec, friends, myLook){
      바꾸는 것이다. */
   function swapPet(card){
     dropPet(myPet);
+    rememberPet(card);     // 코드로 데려온 아이도 다음에 불러올 수 있게
 
     myCard = card;
     myKey = keyOf(card);
