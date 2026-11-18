@@ -45,6 +45,10 @@ export function createPaintEditor({ canvas, onPaint, onSpray }){
   let mode = 'spray';        // 'part' 부위 칠하기 · 'spray' 뿌리기
   let big = 0;               // 자국 크기 — 보통 · 크게
   let sprays = [];
+  /* 부위를 **실제로** 칠했는가. 창을 열면 털빛을 부위마다 펴 놓고
+     시작하므로, 이것 없이 그대로 받아 가면 뿌리기만 하고 나와도 아이가
+     "직접 칠함" 이 되어 털빛의 등무늬 같은 것이 사라진다. */
+  let partUsed = false;
 
   function frame(){
     const w = canvas.clientWidth || 300;
@@ -110,15 +114,21 @@ export function createPaintEditor({ canvas, onPaint, onSpray }){
     ray.setFromCamera(ndc, camera);
     for (const hit of ray.intersectObjects(pivot.children, true)){
       if (mode === 'spray'){
-        /* 어디든 몸에 닿기만 하면 뿌린다 — 눈·코 위에도. 자리는
-           몸통 상자 안의 몇 할인지로 적고, **적을 때 쓰는 만큼만**
-           남긴다. 그래야 지금 보는 자리와 코드에 담기는 자리가 같다. */
+        /* 자리는 몸통 상자 안의 몇 할인지로 적고, **적을 때 쓰는
+           만큼만** 남긴다. 그래야 지금 보는 자리와 코드에 담기는 자리가
+           같다. */
         if (hit.object.userData.spray) continue;   // 자국은 뚫고 지나간다
         // 눈과 코는 덮지 않는다. 그 자리를 찍으면 아무 일도 하지 않는다.
         if (hit.object.userData.noPaint){
           if (onSpray) onSpray(null, sprays.length, 'eye');
           return;
         }
+        /* **몸이 아닌 것은 뚫고 지나간다.** 발밑 그림자 방울이 여기서
+           함정이다 — 보이지 않게 꺼 두었는데도 광선에는 그대로 걸린다
+           (three 는 `visible` 을 보지 않는다). 그걸 맞히면 땅바닥에
+           깔린 넓은 판 위에 자국이 적혀서, 몸에서 한참 떨어진 **허공에
+           뿌려진 꼴**이 됐다. 부위 번호가 적힌 조각만 몸으로 본다. */
+        if (hit.object.userData.part === undefined) continue;
         if (sprays.length >= SPRAY_MAX){
           if (onSpray) onSpray(null, sprays.length, 'full');
           return;
@@ -140,6 +150,7 @@ export function createPaintEditor({ canvas, onPaint, onSpray }){
       if (part === undefined) continue;     // 눈·코는 칠하지 않는다
       if (paint[part] === color) return;
       paint[part] = color;
+      partUsed = true;
       build();
       if (onPaint) onPaint(part, color);
       return;
@@ -156,10 +167,11 @@ export function createPaintEditor({ canvas, onPaint, onSpray }){
 
   return {
     /** 어떤 아이를 칠할 것인가 (품종 · 섞을 품종). */
-    setSpec(next, firstPaint, firstSprays){
+    setSpec(next, firstPaint, firstSprays, already){
       spec = next;
       if (okPaint(firstPaint)) paint = firstPaint.slice();
       else if (!okPaint(paint)) paint = PARTS.map(() => 0);
+      partUsed = already === true;
       sprays = fixSprays(firstSprays) || [];
       build();
     },
@@ -180,6 +192,8 @@ export function createPaintEditor({ canvas, onPaint, onSpray }){
     setColor(i){ color = Math.max(0, Math.min(PAINTS.length - 1, i | 0)); },
     getColor(){ return color; },
     getPaint(){ return paint ? paint.slice() : null; },
+    /** 부위를 직접 칠했는가 — 안 칠했으면 고른 털빛을 그대로 둔다. */
+    usedPart(){ return partUsed; },
     setPaint(arr){ if (okPaint(arr)){ paint = arr.slice(); build(); } },
     turn(by){ spin += by; frame(); },
     draw: frame,

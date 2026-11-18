@@ -97,6 +97,10 @@ export const PARTS = [
   { key: 'muzzle', label: '주둥이' },
   // ── 여기서부터 나중에 쪼갠 자리 ──
   { key: 'hind',   label: '뒷다리' },
+  /* 아래 다섯은 **지금 그리지 않는다.** 조각을 따로 붙여 보니 몸 밖으로
+     비어져 나온 덩어리들이 아이 모양을 망쳤다 (등 · 배 · 가슴 덩어리,
+     납작한 발, 눈 둘레 고리). 번호는 이미 나간 코드에 박혀 있으므로
+     목록에서 빼지 않는다 — 자리만 비워 두고 색은 읽어 둔다. */
   { key: 'back',   label: '등' },
   { key: 'belly',  label: '배' },
   { key: 'chest',  label: '가슴' },
@@ -162,7 +166,11 @@ export const PAINT_OLD = OLD_PARTS;
    자국이 살갗에 딱 붙는다. */
 export const SPRAY_MAX = 12;          // 코드가 너무 길어지지 않게
 export const SPRAY_BITS = 6;          // 자리 한 축에 쓰는 비트
-export const SPRAY_SIZE = [0.062, 0.108];   // 보통 · 크게 (반지름)
+/* 자국 크기 — 보통 · 크게 (반지름, m).
+   **아이가 생각보다 작다.** 몸통이 15cm 쯤이고 코부터 꼬리까지 40cm 쯤
+   이라, 한동안 두었던 6cm · 11cm 짜리 자국은 몸보다 넓어서 **허공에 뜬
+   동그란 판**으로 보였다. 몸에 얹힌 점으로 보이게 줄였다. */
+export const SPRAY_SIZE = [0.028, 0.048];
 
 /** 뿌린 자국 목록을 쓸 만하게 다듬는다. 없으면 null. */
 export function fixSprays(list){

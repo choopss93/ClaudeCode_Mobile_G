@@ -1,6 +1,9 @@
 import * as THREE from 'three';
-import { toon, makeBlob, makeSpray } from '#look';
+import { toon, makeBlob, makeSpray, sprayCap } from '#look';
 import { PAINTS, fixPaint, fixSprays, SPRAY_SIZE } from '#pets';
+
+/** 뿌린 자국을 살갗에서 띄우는 거리 (m). 깜빡이지 않을 만큼만. */
+const SPRAY_LIFT = 0.0015;
 
 /*
  * 머리가 크고 몸이 작은, 동글동글한 캐릭터.
@@ -42,13 +45,6 @@ export const HEAD_TOP = HEAD_Y + HEAD_R;
 
 const ball = new THREE.SphereGeometry(1, 16, 12);
 const eyeGeo = new THREE.SphereGeometry(0.042, 10, 8);
-/* 눈 둘레는 **가운데가 뚫린 고리**다. 덩어리로 두면 어떻게 놓아도 눈앞을
-   덮어 초승달만 남는다 — 눈은 머리에 거의 파묻혀 있고 앞머리만 내민
-   모양이라, 그 앞을 지나는 면은 전부 눈을 가린다. */
-/* 구멍은 **눈보다 넉넉히 커야** 한다. 눈 크기는 머리 크기와 상관없이
-   고정(반지름 0.034 · 0.040)이므로, 고리도 길이로 적는다. 머리 크기로
-   비례만 주면 작은 품종에서 구멍이 눈보다 작아져 테두리가 눈을 가른다. */
-const ringGeo = new THREE.RingGeometry(0.058, 0.105, 22);
 const rod = new THREE.CylinderGeometry(1, 1, 1, 6);
 
 function piece(group, geo, mat, x, y, z, sx, sy, sz){
@@ -323,8 +319,11 @@ export function createPet(spec){
      한다 (`paint.js`). 칠하지 않은 아이에도 적어 둔다 — 그래야 편집기를
      털빛에서 바로 열 수 있다. */
   const tag = (m, i) => { m.userData.part = i; return m; };
-  const BODY = 0, HEAD = 1, EAR = 2, LEG = 3, TAIL = 4, MUZZLE = 5,
-        HIND = 6, BACK = 7, BELLY = 8, CHEST = 9, PAW = 10, PATCH = 11;
+  /* 몸에 **실제로 있는** 조각만 번호를 쓴다. 등 · 배 · 가슴 · 발 ·
+     눈 둘레(7~11)는 조각을 따로 붙이지 않는다 — 붙여 봤더니 몸 밖으로
+     비어져 나온 덩어리들이 아이 모양을 망쳤다. 번호는 코드에 박혀
+     있으므로 목록에서 빼지는 않는다 (`pets.js` 의 `PARTS`). */
+  const BODY = 0, HEAD = 1, EAR = 2, LEG = 3, TAIL = 4, MUZZLE = 5, HIND = 6;
 
   const bodyL = K.bodyL * spec.body[0];
   const bodyW = K.bodyW * spec.body[1] * spec.fluff;
@@ -337,18 +336,12 @@ export function createPet(spec){
   /* 다리 — 네 개 */
   const legs = [];
   const legX = bodyW * 0.62, legZ = bodyL * 0.52;
-  /* 앞의 둘이 앞다리(+z), 뒤의 둘이 뒷다리다. 발은 다리에 **달아** 둔다 —
-     따로 두면 걸을 때 다리만 움직이고 발은 제자리에 남는다. */
+  /* 앞의 둘이 앞다리(+z), 뒤의 둘이 뒷다리다 — 조각은 전과 같고
+     어느 쪽인지만 적어 둔다. */
   for (const [x, z] of [[-legX, legZ], [legX, legZ], [-legX, -legZ], [legX, -legZ]]){
     const which = z > 0 ? LEG : HIND;
-    const leg = tag(piece(inner, ball, coat(which), x, legH / 2 + 0.01, z,
-                          0.046 * spec.body[1], legH, 0.046 * spec.body[1]), which);
-    legs.push(leg);
-    if (paint){
-      /* 다리 안쪽 자(1 이 다리 길이의 절반)로 적는다. 다리가 길쭉하게
-         눌려 있어서, 여기 1.4 는 바깥에서 보면 납작하고 넓은 발이 된다. */
-      tag(piece(leg, ball, coat(PAW), 0, -0.76, 0.22, 1.35, 0.26, 1.5), PAW);
-    }
+    legs.push(tag(piece(inner, ball, coat(which), x, legH / 2 + 0.01, z,
+                        0.046 * spec.body[1], legH, 0.046 * spec.body[1]), which));
   }
   const legRest = legH / 2 + 0.01;
 
@@ -360,24 +353,6 @@ export function createPet(spec){
     const puff = (spec.fluff - 1) * 0.9;
     tag(piece(inner, ball, coat(BODY), 0, bodyY + bodyH * 0.45, -bodyL * 0.35, bodyW * puff, bodyH * puff, bodyL * puff * 0.8), BODY);
     tag(piece(inner, ball, coat(BODY), 0, bodyY + bodyH * 0.3, bodyL * 0.3, bodyW * puff * 0.85, bodyH * puff * 0.8, bodyL * puff * 0.7), BODY);
-  }
-
-  /* 칠한 아이에게만 붙이는 자리들. 안 칠한 아이에게는 붙이지 않는다 —
-     털빛 하나로 칠해 봐야 보이지도 않으면서 그리는 값만 는다.
-     공처럼 둥근 것을 몸에 **걸쳐** 둔다. 같은 높이로 포개면 z-파이팅이
-     나므로, 파묻지 말고 비어져 나오게 놓는 것이 중요하다. */
-  if (paint){
-    /* **몸보다 비어져 나오게** 놓는 것이 요령이다. 몸 안에 들어가 있으면
-       칠해도 보이지 않고 눌러도 몸이 먼저 잡힌다 (배를 한 번 그렇게
-       만들어 아예 칠할 수가 없었다). 가운데 높이에서 몸의 반지름보다
-       넓게 잡으면 옆구리에 띠처럼 걸린다. */
-    tag(piece(inner, ball, coat(BACK), 0, bodyY + bodyH * 0.58, -bodyL * 0.1,
-              bodyW * 0.88, bodyH * 0.5, bodyL * 0.64), BACK);
-    tag(piece(inner, ball, coat(BELLY), 0, bodyY - bodyH * 0.55, -0.02,
-              bodyW * 1.02, bodyH * 0.52, bodyL), BELLY);
-    // 가슴은 머리에 가리기 쉽다. 턱 아래로 내리고 앞으로 더 내민다.
-    tag(piece(inner, ball, coat(CHEST), 0, bodyY - bodyH * 0.26, bodyL * 0.7,
-              bodyW * 0.52, bodyH * 0.6, bodyL * 0.42), CHEST);
   }
 
   // 화이트블랙 — 등에 무늬 한 점. 직접 칠했으면 무늬를 두지 않는다.
@@ -405,29 +380,6 @@ export function createPet(spec){
      저절로 비껴가고, 스프레이는 이 표시를 보고 비껴간다. */
   piece(head, ball, nose, 0, -headR * 0.14, headR * 0.76 + mz * 0.95,
         headR * 0.2, headR * 0.17, headR * 0.16).userData.noPaint = 1;
-
-  /* 눈 둘레 — 얼굴에 점박이처럼 걸린다.
-     **눈보다 앞으로 나오면 안 된다.** 눈이 가려져 초승달만 남는다.
-     머리 거죽(눈 자리에서 `0.79 * headR` 쯤)보다는 나오고, 눈 앞면
-     (`0.72 * headR + 0.025`)보다는 들어가야 한다. 지금 앞면이
-     `0.82 * headR` 이라 둘 사이에 든다. */
-  if (paint){
-    /* 고리는 **눈이 있는 쪽으로 눕혀** 머리 거죽에 붙인다. 평평한 판을
-       고정 높이에 두면 둥근 머리와 어긋나 한쪽은 눈을 가르고 한쪽은
-       허공으로 삐져나온다 — 한 번 그렇게 만들어 봤다. */
-    const rs = Math.max(0.9, headR / 0.16);
-    const front = new THREE.Vector3(0, 0, 1);
-    for (const sx of [-1, 1]){
-      const dir = new THREE.Vector3(sx * headR * 0.42, headR * 0.2, headR * 0.72).normalize();
-      // 머리 타원면과 만나는 자리까지의 거리
-      const t = 1 / Math.sqrt((dir.x / headR) ** 2 +
-                              (dir.y / (headR * 0.94)) ** 2 +
-                              (dir.z / (headR * 0.9)) ** 2);
-      const m = tag(piece(head, ringGeo, coat(PATCH), 0, 0, 0, rs, rs, 1), PATCH);
-      m.position.copy(dir).multiplyScalar(t + 0.005);
-      m.quaternion.setFromUnitVectors(front, dir);
-    }
-  }
 
   // 눈
   const eyeZ = headR * 0.72;
@@ -496,8 +448,9 @@ export function createPet(spec){
     const mid = box.getCenter(new THREE.Vector3());
     const at = new THREE.Vector3();
     const dir = new THREE.Vector3();
-    const flat = new THREE.Vector3(0, 0, 1);
-    const inv = new THREE.Matrix4();
+    const tmpPos = new THREE.Vector3();
+    const tmpQuat = new THREE.Quaternion();
+    const tmpScale = new THREE.Vector3();
     for (const s of sprays){
       at.set(box.min.x + s.x * (box.max.x - box.min.x),
              box.min.y + s.y * (box.max.y - box.min.y),
@@ -506,24 +459,29 @@ export function createPet(spec){
       if (dir.lengthSq() < 1e-8) dir.set(0, 1, 0);
       dir.normalize();
       ray.set(at.clone().addScaledVector(dir, 1.5), dir.clone().negate());
-      const hit = ray.intersectObject(inner, true)[0];
-      if (!hit || !hit.face) continue;
-
-      // 머리에 찍힌 자국은 머리에 달아야 고개를 숙일 때 같이 간다
-      let host = inner;
-      for (let o = hit.object; o && o !== inner; o = o.parent){
-        if (o === head){ host = head; break; }
+      /* **첫 번째로 맞은 면을 그냥 쓰면 안 된다.** 겨드랑이처럼 들어간
+         자리에 찍은 자국은 바깥에서 보면 다른 면에 먼저 가려서, 엉뚱한
+         데로 옮겨 붙는다. 적어 온 자리에 **가장 가까운** 면을 고른다 —
+         비율로 접느라 생긴 어긋남(몇 mm)만 남는다.
+         이미 붙인 자국도 거른다. 자국 위에 자국이 앉으면 살갗에서
+         떠 보인다. */
+      let hit = null;
+      for (const h of ray.intersectObject(inner, true)){
+        // 눈·코에는 붙이지 않는다. 이미 붙인 자국도 뚫고 지나간다.
+        if (!h.face || h.object.userData.spray || h.object.userData.noPaint) continue;
+        if (!hit || h.point.distanceToSquared(at) < hit.point.distanceToSquared(at)) hit = h;
       }
-      const scale = host === head ? spec.scale : spec.scale;   // 둘 다 inner 배율
-      const local = host.worldToLocal(hit.point.clone());
-      const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
-      n.transformDirection(inv.copy(host.matrixWorld).invert()).normalize();
+      if (!hit) continue;
 
-      const m = makeSpray(PAINTS[s.ci].hex);
+      /* 자국은 **맞은 조각에 그대로 단다.** 그 조각의 공 면을 떠서
+         만들므로 휜 채로 딱 붙고, 다리가 걷거나 고개를 숙여도 같이
+         간다. 몸통에 달아 두면 다리 자국이 제자리에 남는다. */
+      const host = hit.object;
+      host.matrixWorld.decompose(tmpPos, tmpQuat, tmpScale);
+      const at0 = host.worldToLocal(hit.point.clone());   // 공 반지름 1 자리
+      const cap = sprayCap(at0, tmpScale, SPRAY_SIZE[s.big], SPRAY_LIFT);
+      const m = makeSpray(PAINTS[s.ci].hex, cap);
       m.userData.spray = 1;      // 편집기가 자국 위에 또 찍지 않도록
-      m.position.copy(local).addScaledVector(n, 0.014 / scale);
-      m.quaternion.setFromUnitVectors(flat, n);
-      m.scale.setScalar(SPRAY_SIZE[s.big] * 2 / scale);
       host.add(m);
     }
   }

@@ -345,7 +345,8 @@ function openPaint(){
   editor.setSpec(resolvePet({ kind: choice.kind, breed: choice.breed,
                               mix: choice.mix, coat: choice.coat }),
                  choice.paint || paintFromCoat(choice.coat),
-                 choice.sprays);
+                 choice.sprays,
+                 !!choice.paint);
   paintSwatches();
   paintMode();
   $('paintSaid').textContent = '색을 고르고 아이를 콕 찍어 보세요.';
@@ -374,7 +375,10 @@ $('paintUndo').addEventListener('click', () => {
 
 $('paintDone').addEventListener('click', () => {
   if (editor){
-    choice.paint = editor.getPaint();
+    /* 부위를 안 칠했으면 고른 털빛을 그대로 둔다. 창을 열었다는 것만으로
+       "직접 칠함" 이 되면, 뿌리기만 하고 나왔는데 화이트블랙의 등무늬가
+       사라진다. */
+    choice.paint = editor.usedPart() ? editor.getPaint() : null;
     choice.sprays = fixSprays(editor.getSprays());
   }
   $('paintPanel').hidden = true;

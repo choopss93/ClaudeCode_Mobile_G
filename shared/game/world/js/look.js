@@ -120,11 +120,69 @@ export function sprayMat(color){
   return m;
 }
 
-let sprayGeo = null;
-/** 자국 하나. 크기는 바깥에서 정한다. */
-export function makeSpray(color){
-  if (!sprayGeo) sprayGeo = new THREE.PlaneGeometry(1, 1);
-  const m = new THREE.Mesh(sprayGeo, sprayMat(color));
+/* 자국은 **몸의 둥근 면을 따라 휜다.**
+   평평한 판을 살갗에 얹으면 가운데만 닿고 가장자리가 뜬다. 조금만 떠도
+   옆에서 보면 몸 밖으로 삐져나온 조각이 되어 **허공에 뿌려진 꼴**이
+   된다. 한참 그렇게 두었다.
+   몸 조각이 전부 공을 눌러 만든 것이라, 그 공의 겉면을 **조금 떠서**
+   쓴다. 자국은 그 조각에 그대로 달리므로 다리가 움직이면 같이 간다.
+
+   `at`   그 조각 안에서의 자리 (공 반지름 1 기준)
+   `scale` 그 조각이 바깥에서 갖는 배율 — 축마다 다르다
+   `r`    바깥에서 본 자국 반지름 (m)
+   `lift` 살갗에서 띄울 거리 (m). 깊이를 다투지 않을 만큼만. */
+const RINGS = 4, SEGS = 18;
+export function sprayCap(at, scale, r, lift){
+  const p = at.clone().normalize();
+  // p 에 직각인 두 방향
+  const t1 = new THREE.Vector3(0, 1, 0);
+  if (Math.abs(p.y) > 0.9) t1.set(1, 0, 0);
+  t1.crossVectors(p, t1).normalize();
+  const t2 = new THREE.Vector3().crossVectors(p, t1).normalize();
+
+  const pos = [], nor = [], uv = [], idx = [];
+  const v = new THREE.Vector3(), dir = new THREE.Vector3();
+  const push = (x, y, z, u, w) => {
+    const len = Math.hypot(x, y, z) || 1;
+    nor.push(x / len, y / len, z / len);
+    const out = 1 + lift / Math.max(1e-4, Math.min(scale.x, scale.y, scale.z));
+    pos.push(x * out, y * out, z * out);
+    uv.push(u, w);
+  };
+  push(p.x, p.y, p.z, 0.5, 0.5);
+  for (let i = 1; i <= RINGS; i++){
+    for (let j = 0; j < SEGS; j++){
+      const ph = j / SEGS * Math.PI * 2;
+      const cx = Math.cos(ph), cy = Math.sin(ph);
+      dir.copy(t1).multiplyScalar(cx).addScaledVector(t2, cy);
+      /* 그 방향으로 한 걸음이 **바깥에서** 몇 m 인지 — 배율이 축마다
+         달라서, 그만큼 각도를 나눠 줘야 자국이 둥글게 보인다. */
+      const step = Math.hypot(dir.x * scale.x, dir.y * scale.y, dir.z * scale.z) || 1;
+      const a = Math.min(1.3, r / step) * (i / RINGS);
+      v.copy(p).multiplyScalar(Math.cos(a)).addScaledVector(dir, Math.sin(a));
+      push(v.x, v.y, v.z,
+           0.5 + 0.5 * (i / RINGS) * cx, 0.5 + 0.5 * (i / RINGS) * cy);
+    }
+  }
+  const at_ = (i, j) => 1 + (i - 1) * SEGS + (j % SEGS);
+  for (let j = 0; j < SEGS; j++) idx.push(0, at_(1, j), at_(1, j + 1));
+  for (let i = 1; i < RINGS; i++){
+    for (let j = 0; j < SEGS; j++){
+      idx.push(at_(i, j), at_(i + 1, j), at_(i + 1, j + 1));
+      idx.push(at_(i, j), at_(i + 1, j + 1), at_(i, j + 1));
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  return g;
+}
+
+/** 자국 하나. 모양은 `sprayCap` 이 만들어 준다. */
+export function makeSpray(color, geo){
+  const m = new THREE.Mesh(geo, sprayMat(color));
   m.renderOrder = 2;
   return m;
 }
