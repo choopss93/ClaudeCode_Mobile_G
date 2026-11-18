@@ -159,18 +159,43 @@ export const PAINT_OLD = OLD_PARTS;
 
    자리는 아이 몸통(`inner`) 상자 안의 **0~1 비율**로 적는다. 품종마다
    몸집이 다르니 길이로 적으면 받는 쪽에서 엉뚱한 데 찍힌다.
-   한 자국은 3바이트다 — 자리 6+6+6비트, 색 4비트, 크기 1비트.
+   한 자국은 4바이트다 — 자리 6+6+6비트, 색 4비트, 크기 5비트
+   (남는 다섯 비트는 나중에 쓸 자리로 비워 둔다).
 
    **면이 어느 쪽을 보는지는 적지 않는다.** 받는 쪽에서 몸을 지어 놓고
    바깥에서 광선을 쏘아 다시 찾는다 (`createPet`). 그러면 비트를 아끼면서
    자국이 살갗에 딱 붙는다. */
-export const SPRAY_MAX = 12;          // 코드가 너무 길어지지 않게
+export const SPRAY_MAX = 30;          // 더 늘리면 코드가 감당이 안 된다
 export const SPRAY_BITS = 6;          // 자리 한 축에 쓰는 비트
-/* 자국 크기 — 보통 · 크게 (반지름, m).
+export const SIZE_BITS = 5;           // 크기에 쓰는 비트
+export const SIZE_STEPS = 1 << SIZE_BITS;     // 32단
+
+/* 자국 크기 — 가장 작은 것과 가장 큰 것 (반지름, m).
    **아이가 생각보다 작다.** 몸통이 15cm 쯤이고 코부터 꼬리까지 40cm 쯤
    이라, 한동안 두었던 6cm · 11cm 짜리 자국은 몸보다 넓어서 **허공에 뜬
-   동그란 판**으로 보였다. 몸에 얹힌 점으로 보이게 줄였다. */
-export const SPRAY_SIZE = [0.028, 0.048];
+   동그란 판**으로 보였다. 가장 큰 것이라야 옆구리를 덮는 정도다. */
+const SIZE_LOW = 0.011, SIZE_HIGH = 0.075;
+
+/** 크기 단(0~31)을 반지름으로 편다. 작은 쪽을 촘촘히 — 작은 자국일수록
+    조금만 달라져도 눈에 띄므로 **같은 비율로** 벌린다. */
+export function sprayRadius(sz){
+  const i = Math.max(0, Math.min(SIZE_STEPS - 1, sz | 0)) / (SIZE_STEPS - 1);
+  return SIZE_LOW * Math.pow(SIZE_HIGH / SIZE_LOW, i);
+}
+
+/** 눈금 없이 고르던 옛 판의 보통 · 크게. 옛 코드와 옛 인사를 펼 때 쓴다. */
+const OLD_SIZE = [0.028, 0.048];
+export function sizeFromBig(big){
+  const want = OLD_SIZE[big ? 1 : 0];
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < SIZE_STEPS; i++){
+    const d = Math.abs(sprayRadius(i) - want);
+    if (d < bd){ bd = d; best = i; }
+  }
+  return best;
+}
+/** 처음 열었을 때의 크기 — 옛 "보통" 자리. */
+export const SIZE_DEFAULT = sizeFromBig(0);
 
 /** 뿌린 자국 목록을 쓸 만하게 다듬는다. 없으면 null. */
 export function fixSprays(list){
@@ -180,9 +205,12 @@ export function fixSprays(list){
   for (const s of list){
     if (!s || !n(s.x) || !n(s.y) || !n(s.z)) continue;
     const clip = v => Math.max(0, Math.min(1, v));
+    /* 크기는 눈금 0~31 이다. `sz` 가 없으면 옛 판에서 온 것이라
+       `big`(보통 · 크게) 을 눈금으로 편다 — 코드도 인사도 그렇다. */
+    const sz = n(s.sz) ? Math.max(0, Math.min(SIZE_STEPS - 1, s.sz | 0))
+                       : sizeFromBig(s.big);
     out.push({ x: clip(s.x), y: clip(s.y), z: clip(s.z),
-               ci: Math.max(0, Math.min(PAINTS.length - 1, s.ci | 0)),
-               big: s.big ? 1 : 0 });
+               ci: Math.max(0, Math.min(PAINTS.length - 1, s.ci | 0)), sz });
     if (out.length >= SPRAY_MAX) break;
   }
   return out.length ? out : null;

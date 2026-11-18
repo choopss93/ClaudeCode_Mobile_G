@@ -63,7 +63,8 @@ function dots(list){
   if (!Array.isArray(list) || !list.length) return null;
   return list.map(s => [Math.round(s.x * 1000) / 1000,
                         Math.round(s.y * 1000) / 1000,
-                        Math.round(s.z * 1000) / 1000, s.ci | 0, s.big ? 1 : 0]);
+                        Math.round(s.z * 1000) / 1000, s.ci | 0,
+                        s.sz > 20 ? 1 : 0, s.sz | 0]);
 }
 
 function brokersToTry(){
@@ -130,7 +131,10 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
             paint: Array.isArray(m[5][4]) ? m[5][4].map(v => v | 0) : null,
             sprays: Array.isArray(m[5][5])
               ? m[5][5].map(s => ({ x: +s[0] || 0, y: +s[1] || 0, z: +s[2] || 0,
-                                    ci: s[3] | 0, big: s[4] | 0 }))
+                                    ci: s[3] | 0,
+                                    // 옛 판은 보통·크게(`s[4]`)만 보내 온다
+                                    sz: s.length > 5 ? s[5] | 0 : undefined,
+                                    big: s[4] | 0 }))
               : null } : null;
       const dog = typeof m[4] === 'string' ? m[4].slice(0, 12) : '친구';
       const sig = JSON.stringify([dog, spec]);

@@ -389,6 +389,40 @@
   }
   .panel .said.where{color:#7A7490}
 
+  /* 자국 크기 — 미는 단추. 손가락이 닿는 자리라 넉넉히 둔다 */
+  .sizeRow{display:flex;align-items:center;gap:11px;margin-bottom:13px}
+  .sizeRow label{margin:0;flex:0 0 auto;font-size:13px;font-weight:600;color:#6E6880}
+  .sizeRow input[type="range"]{
+    flex:1 1 auto;min-width:0;height:44px;margin:0;padding:0;
+    background:transparent;-webkit-appearance:none;appearance:none;
+    touch-action:none;cursor:pointer;
+  }
+  .sizeRow input[type="range"]::-webkit-slider-runnable-track{
+    height:8px;border-radius:4px;background:#E8E4F0;
+  }
+  .sizeRow input[type="range"]::-moz-range-track{
+    height:8px;border-radius:4px;background:#E8E4F0;
+  }
+  .sizeRow input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:28px;height:28px;margin-top:-10px;border-radius:50%;
+    background:#8FE3BC;border:2.5px solid #FFF;
+    box-shadow:0 1px 4px rgba(90,100,120,.3);
+  }
+  .sizeRow input[type="range"]::-moz-range-thumb{
+    width:28px;height:28px;border-radius:50%;
+    background:#8FE3BC;border:2.5px solid #FFF;
+    box-shadow:0 1px 4px rgba(90,100,120,.3);
+  }
+  /* 고른 크기를 눈으로 보여 주는 동그라미 */
+  .sizeRow .dot{
+    flex:0 0 auto;width:48px;height:48px;border-radius:14px;background:#F6F4FA;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .sizeRow .dot i{
+    display:block;width:14px;height:14px;border-radius:50%;background:#8C8498;
+  }
+
   #loading{
     position:fixed;inset:0;z-index:10;
     display:flex;align-items:center;justify-content:center;
@@ -415,18 +449,18 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-18a",
-    "#world": "./js/world.js?v=2026-11-18a",
-    "#actor": "./js/actor.js?v=2026-11-18a",
-    "#controls": "./js/controls.js?v=2026-11-18a",
-    "#net": "./js/net.js?v=2026-11-18a",
-    "#pets": "./js/pets.js?v=2026-11-18a",
-    "#petcode": "./js/petcode.js?v=2026-11-18a",
-    "#channel": "./js/channel.js?v=2026-11-18a",
-    "#daylight": "./js/daylight.js?v=2026-11-18a",
-    "#mqtt": "./js/mqtt.js?v=2026-11-18a",
-    "#live": "./js/live.js?v=2026-11-18a",
-    "#paint": "./js/paint.js?v=2026-11-18a"
+    "#look": "./js/look.js?v=2026-11-18b",
+    "#world": "./js/world.js?v=2026-11-18b",
+    "#actor": "./js/actor.js?v=2026-11-18b",
+    "#controls": "./js/controls.js?v=2026-11-18b",
+    "#net": "./js/net.js?v=2026-11-18b",
+    "#pets": "./js/pets.js?v=2026-11-18b",
+    "#petcode": "./js/petcode.js?v=2026-11-18b",
+    "#channel": "./js/channel.js?v=2026-11-18b",
+    "#daylight": "./js/daylight.js?v=2026-11-18b",
+    "#mqtt": "./js/mqtt.js?v=2026-11-18b",
+    "#live": "./js/live.js?v=2026-11-18b",
+    "#paint": "./js/paint.js?v=2026-11-18b"
   }
 }
 </script>
@@ -483,9 +517,13 @@
     <p class="said where" id="paintSaid">색을 고르고 아이를 콕 찍어 보세요.</p>
     <label>색</label>
     <div class="swatches" id="paintColors"></div>
-    <div class="seg" id="sprayBig">
-      <button type="button" data-big="0" class="on">보통</button>
-      <button type="button" data-big="1">크게</button>
+    <div class="sizeRow" id="sprayRow">
+      <label for="sizeInput">크기</label>
+      <input id="sizeInput" type="range" min="0" max="31" value="15"
+             aria-label="자국 크기">
+      <span class="dot"><i id="sizeDot"></i></span>
+    </div>
+    <div class="seg" id="sprayTools">
       <button type="button" id="paintUndo">방금 것 지우기</button>
     </div>
     <button type="button" class="go" id="paintDone">다 칠했어요</button>
@@ -597,10 +635,10 @@
 
     <button type="submit">정원으로 들어가기</button>
     <p class="note">서두를 것도, 지는 것도 없는 곳이에요.
-      <span class="ver">2026-11-18a</span></p>
+      <span class="ver">2026-11-18b</span></p>
   </form>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-18a"></script>
+<script type="module" src="./js/main.js?v=2026-11-18b"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 import { KINDS, COATS, PARTS, PAINT_OLD, SPRAY_MAX, SPRAY_BITS,
+         SIZE_BITS, sizeFromBig,
          mixable, okPaint, fixPaint, fixSprays } from '#pets';
 
 /*
@@ -17,6 +18,9 @@ import { KINDS, COATS, PARTS, PAINT_OLD, SPRAY_MAX, SPRAY_BITS,
  *
  *   둘째 바이트 — 칠했나(1비트) · 섞을 품종(4비트) · 진짜 털빛(3비트)
  *   칠했으면 뒤에 부위마다 4비트씩 (지금은 열두 자리라 6바이트)
+ *
+ * 뿌린 자국이 있으면 깃발이 `EXT3`(5) 가 되고, 칠 뒤에 자국 묶음이 온다.
+ * 묶음 앞의 머릿바이트가 `판 | 개수` 다 (아래 `SPRAY_V1`).
  *
  * 칠할 자리가 여섯에서 열둘로 늘면서 **깃발을 하나 더 만들었다.** 털빛
  * 자리의 `EXT2`(6) 가 지금 판이고, `EXT1`(7) 은 여섯 자리이던 옛 판이다.
@@ -76,21 +80,64 @@ const EXT3 = 5;              // 거기에 뿌린 자국까지
 const PAINT_BYTES = Math.ceil(PARTS.length / 2);
 const SPRAY_STEPS = (1 << SPRAY_BITS) - 1;
 
-/* 자국 하나를 3바이트에 접는다 — 자리 6+6+6 · 색 4 · 크기 1 (한 비트 남음) */
+/* ── 뿌린 자국을 접는 법 ──
+   자국 묶음 앞에 **머릿바이트 하나**를 둔다 — `판(3비트) | 개수(5비트)`.
+   옛 코드는 거기에 개수(열둘까지)만 적혀 있어 판이 저절로 `0` 이 된다.
+   그래서 옛 코드도 그대로 읽힌다.
+
+     판 0 — 자국 하나가 3바이트. 크기는 보통 · 크게 둘뿐이었다.
+     판 1 — 자국 하나가 4바이트. 크기가 32단이다 (미는 단추로 고른다).
+
+   **판을 늘릴 때는 꼭 새 번호를 쓸 것.** 같은 번호에 길이만 바꾸면 이미
+   나간 코드가 엉뚱한 아이가 된다. 모르는 판이면 읽지 않고 되돌린다. */
+const SPRAY_V0 = 0, SPRAY_V1 = 1;
+const SPRAY_BYTES = 4;            // 판 1 — 6+6+6+4+5 = 27비트, 다섯 비트 남음
+
+/* 비트를 차곡차곡 쌓는다. `<<` 로 32비트를 넘기면 부호가 끼어들어 값이
+   망가지므로 곱셈으로 민다. */
 function packSpray(s){
   const q = v => Math.round(Math.max(0, Math.min(1, v)) * SPRAY_STEPS);
-  const v = (q(s.x) << 18) | (q(s.y) << 12) | (q(s.z) << 6) |
-            ((s.ci & 15) << 2) | ((s.big ? 1 : 0) << 1);
-  return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+  const out = [];
+  let acc = 0, bits = 0;
+  const put = (v, n) => {
+    acc = acc * Math.pow(2, n) + (v & ((1 << n) - 1));
+    bits += n;
+    while (bits >= 8){
+      bits -= 8;
+      const d = Math.pow(2, bits);
+      out.push(Math.floor(acc / d) & 255);
+      acc %= d;
+    }
+  };
+  put(q(s.x), SPRAY_BITS); put(q(s.y), SPRAY_BITS); put(q(s.z), SPRAY_BITS);
+  put(s.ci & 15, 4); put(s.sz & 31, SIZE_BITS);
+  if (bits) put(0, 8 - bits);          // 남는 자리는 0 으로 채워 둔다
+  return out;
 }
 
-function unpackSpray(a, b, c){
+function unpackSpray(bytes, at){
+  let acc = 0, bits = 0, i = at;
+  const take = n => {
+    while (bits < n){ acc = acc * 256 + bytes[i++]; bits += 8; }
+    bits -= n;
+    const d = Math.pow(2, bits);
+    const v = Math.floor(acc / d);
+    acc %= d;
+    return v;
+  };
+  const x = take(SPRAY_BITS), y = take(SPRAY_BITS), z = take(SPRAY_BITS);
+  return { x: x / SPRAY_STEPS, y: y / SPRAY_STEPS, z: z / SPRAY_STEPS,
+           ci: take(4), sz: take(SIZE_BITS) };
+}
+
+/** 판 0 — 옛 코드의 3바이트짜리 자국. */
+function unpackSprayOld(a, b, c){
   const v = (a << 16) | (b << 8) | c;
   return { x: ((v >> 18) & 63) / SPRAY_STEPS,
            y: ((v >> 12) & 63) / SPRAY_STEPS,
            z: ((v >> 6) & 63) / SPRAY_STEPS,
            ci: (v >> 2) & 15,
-           big: (v >> 1) & 1 };
+           sz: sizeFromBig((v >> 1) & 1) };
 }
 
 /** 고른 반려동물을 코드로 접는다. */
@@ -110,7 +157,7 @@ export function makeCode({ kind, breed, mix, coat, paint, sprays, name }){
   const nameBytes = new TextEncoder().encode((name || '').slice(0, 12));
   let at = ext ? 2 : 1;
   if (ext && painted) at += PAINT_BYTES;
-  if (dots.length) at += 1 + dots.length * 3;
+  if (dots.length) at += 1 + dots.length * SPRAY_BYTES;
 
   const bytes = new Uint8Array(at + nameBytes.length);
   bytes[0] = head;
@@ -125,11 +172,9 @@ export function makeCode({ kind, breed, mix, coat, paint, sprays, name }){
       }
     }
     if (dots.length){
-      // 윗 네 비트는 나중에 쓸 자리로 비워 둔다
-      bytes[i++] = dots.length & 15;
+      bytes[i++] = (SPRAY_V1 << 5) | (dots.length & 31);
       for (const s of dots){
-        const [a, b, c] = packSpray(s);
-        bytes[i++] = a; bytes[i++] = b; bytes[i++] = c;
+        for (const b of packSpray(s)) bytes[i++] = b;
       }
     }
   }
@@ -176,13 +221,18 @@ export function readCode(code){
     }
     if (slot === EXT3){
       if (bytes.length < at + 1) return null;
-      const many = bytes[at] & 15;
+      const ver = (bytes[at] >> 5) & 7;
+      const many = bytes[at] & 31;
       at += 1;
-      if (bytes.length < at + many * 3) return null;
+      if (ver !== SPRAY_V0 && ver !== SPRAY_V1) return null;   // 모르는 판
+      const wide = ver === SPRAY_V1 ? SPRAY_BYTES : 3;
+      if (bytes.length < at + many * wide) return null;
       const out = [];
       for (let i = 0; i < many; i++){
-        out.push(unpackSpray(bytes[at], bytes[at + 1], bytes[at + 2]));
-        at += 3;
+        out.push(ver === SPRAY_V1
+          ? unpackSpray(bytes, at)
+          : unpackSprayOld(bytes[at], bytes[at + 1], bytes[at + 2]));
+        at += wide;
       }
       sprays = fixSprays(out);
     }
@@ -209,7 +259,7 @@ export function readCodes(text){
     if (!pet) continue;
     const key = pet.kind + pet.breed + '/' + pet.mix + pet.coat +
                 (pet.paint || []).join('') +
-                (pet.sprays || []).map(s => [s.x, s.y, s.z, s.ci, s.big].join()).join(';') +
+                (pet.sprays || []).map(s => [s.x, s.y, s.z, s.ci, s.sz].join()).join(';') +
                 pet.name;
     if (seen.has(key)) continue;
     seen.add(key);

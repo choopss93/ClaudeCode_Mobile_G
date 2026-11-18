@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createPet } from '#actor';
-import { PAINTS, PARTS, okPaint, fixSprays, SPRAY_MAX, SPRAY_BITS } from '#pets';
+import { PAINTS, PARTS, okPaint, fixSprays,
+         SPRAY_MAX, SPRAY_BITS, SIZE_STEPS, SIZE_DEFAULT } from '#pets';
 
 /*
  * 직접 칠하기 편집기.
@@ -43,7 +44,7 @@ export function createPaintEditor({ canvas, onPaint, onSpray }){
   let color = 0;
   let paint = null;
   let mode = 'spray';        // 'part' 부위 칠하기 · 'spray' 뿌리기
-  let big = 0;               // 자국 크기 — 보통 · 크게
+  let sz = SIZE_DEFAULT;     // 자국 크기 — 0~31 눈금 (미는 단추)
   let sprays = [];
   /* 부위를 **실제로** 칠했는가. 창을 열면 털빛을 부위마다 펴 놓고
      시작하므로, 이것 없이 그대로 받아 가면 뿌리기만 하고 나와도 아이가
@@ -141,7 +142,7 @@ export function createPaintEditor({ canvas, onPaint, onSpray }){
         sprays.push({ x: q(p.x, b.min.x, b.max.x),
                       y: q(p.y, b.min.y, b.max.y),
                       z: q(p.z, b.min.z, b.max.z),
-                      ci: color, big });
+                      ci: color, sz });
         build();
         if (onSpray) onSpray(color, sprays.length, 'ok');
         return;
@@ -178,8 +179,8 @@ export function createPaintEditor({ canvas, onPaint, onSpray }){
 
     setMode(m){ mode = m === 'part' ? 'part' : 'spray'; },
     getMode(){ return mode; },
-    setBig(v){ big = v ? 1 : 0; },
-    getBig(){ return big; },
+    setSize(v){ sz = Math.max(0, Math.min(SIZE_STEPS - 1, v | 0)); },
+    getSize(){ return sz; },
     getSprays(){ return sprays.map(s => ({ ...s })); },
     /** 방금 뿌린 것을 되돌린다. 뿌리기는 한 번에 자국이 남으니 필요하다. */
     undo(){

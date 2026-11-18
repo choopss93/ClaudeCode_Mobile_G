@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { toon, makeBlob, makeSpray, sprayCap } from '#look';
-import { PAINTS, fixPaint, fixSprays, SPRAY_SIZE } from '#pets';
+import { PAINTS, fixPaint, fixSprays, sprayRadius } from '#pets';
 
 /** 뿌린 자국을 살갗에서 띄우는 거리 (m). 깜빡이지 않을 만큼만. */
 const SPRAY_LIFT = 0.0015;
@@ -479,7 +479,7 @@ export function createPet(spec){
       const host = hit.object;
       host.matrixWorld.decompose(tmpPos, tmpQuat, tmpScale);
       const at0 = host.worldToLocal(hit.point.clone());   // 공 반지름 1 자리
-      const cap = sprayCap(at0, tmpScale, SPRAY_SIZE[s.big], SPRAY_LIFT);
+      const cap = sprayCap(at0, tmpScale, sprayRadius(s.sz), SPRAY_LIFT);
       const m = makeSpray(PAINTS[s.ci].hex, cap);
       m.userData.spray = 1;      // 편집기가 자국 위에 또 찍지 않도록
       host.add(m);

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createWorld, resolve, START } from '#world';
 import { createActor, createPet, TRICKS, HAND_SPOT } from '#actor';
-import { KINDS, COATS, PAINTS, PARTS, SPRAY_MAX,
+import { KINDS, COATS, PAINTS, PARTS, SPRAY_MAX, sprayRadius,
          resolvePet, paintFromCoat, fixPaint, fixSprays } from '#pets';
 import { createPaintEditor } from '#paint';
 import { makeCode, readCodes } from '#petcode';
@@ -75,7 +75,7 @@ const PETS = 'rainbowGarden.pets';
 const MAX_KEPT = 12;
 
 const sprayKey = c => (c.sprays || [])
-  .map(s => [s.x.toFixed(3), s.y.toFixed(3), s.z.toFixed(3), s.ci, s.big].join()).join(';');
+  .map(s => [s.x.toFixed(3), s.y.toFixed(3), s.z.toFixed(3), s.ci, s.sz].join()).join(';');
 
 const cardKey = c =>
   [c.kind, c.breed, c.mix ?? '', c.coat, (c.paint || []).join(''),
@@ -307,7 +307,7 @@ function paintSwatches(){
     b.setAttribute('aria-label', c.label);
     b.className = i === editor.getColor() ? 'on' : '';
     b.setAttribute('aria-pressed', i === editor.getColor() ? 'true' : 'false');
-    b.addEventListener('click', () => { editor.setColor(i); paintSwatches(); });
+    b.addEventListener('click', () => { editor.setColor(i); paintSwatches(); showSize(); });
     box.appendChild(b);
   });
 }
@@ -318,10 +318,23 @@ function paintMode(){
   for (const b of $('paintMode').querySelectorAll('button[data-paint]')){
     b.classList.toggle('on', b.dataset.paint === m);
   }
-  $('sprayBig').hidden = m !== 'spray';
-  for (const b of $('sprayBig').querySelectorAll('button[data-big]')){
-    b.classList.toggle('on', editor && (+b.dataset.big) === editor.getBig());
-  }
+  $('sprayRow').hidden = m !== 'spray';
+  $('sprayTools').hidden = m !== 'spray';
+  if (editor) $('sizeInput').value = editor.getSize();
+  showSize();
+}
+
+/* 고른 크기를 동그라미로 보여 준다. 반지름을 그대로 재서 그리므로
+   미는 만큼 커지는 것이 눈에 보인다 (1.1cm ~ 7.5cm). */
+function showSize(){
+  const r = sprayRadius(+$('sizeInput').value);
+  const px = 10 + (r - 0.011) / (0.075 - 0.011) * 32;
+  const dot = $('sizeDot');
+  dot.style.width = px.toFixed(1) + 'px';
+  dot.style.height = px.toFixed(1) + 'px';
+  // 고른 빛깔로 보여 준다 — 크기와 색을 한자리에서 본다
+  if (editor) dot.style.background =
+    '#' + PAINTS[editor.getColor()].hex.toString(16).padStart(6, '0');
 }
 
 function openPaint(){
@@ -361,12 +374,10 @@ for (const b of document.querySelectorAll('#paintMode button[data-paint]')){
       : '누른 자리의 **부위**가 통째로 칠해져요.'.replace(/\*\*/g, '');
   });
 }
-for (const b of document.querySelectorAll('#sprayBig button[data-big]')){
-  b.addEventListener('click', () => {
-    if (editor) editor.setBig(+b.dataset.big);
-    paintMode();
-  });
-}
+$('sizeInput').addEventListener('input', () => {
+  if (editor) editor.setSize(+$('sizeInput').value);
+  showSize();
+});
 $('paintUndo').addEventListener('click', () => {
   if (!editor) return;
   $('paintSaid').textContent = editor.undo()
@@ -746,7 +757,7 @@ function begin(myName, petName, petSpec, friends, myLook){
      아이로 묶여, 서로 다른 아이를 한 마리로 함께 보게 된다. */
   const keyOf = c => c
     ? [c.kind, c.breed, c.mix ?? '', c.coat, (c.paint || []).join(''),
-       (c.sprays || []).map(s => [s.x, s.y, s.z, s.ci, s.big].join()).join(';'),
+       (c.sprays || []).map(s => [s.x, s.y, s.z, s.ci, s.sz].join()).join(';'),
        c.name].join('|') : '';
   let myKey = keyOf(myCard);
 
