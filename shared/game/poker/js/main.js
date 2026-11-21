@@ -1,5 +1,5 @@
-import { shuffled, evaluate, compare, label, isRed, SUITS, suitOf, cellName } from './cards.js?v=5';
-import { joinRoom, makeId, MAX_SEATS } from './room.js?v=1';
+import { shuffled, evaluate, compare, label, isRed, SUITS, suitOf, cellName } from './cards.js?v=8';
+import { joinRoom, makeId, MAX_SEATS } from './room.js?v=8';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 
 /*
@@ -14,7 +14,10 @@ import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToH
  * 16장은 모두에게 똑같이 보이고, 같은 칸을 여럿이 골라도 된다.
  */
 
-const COMM = 2;              // 가운데에 놓이는 장수 (사용자 요청으로 3 → 2)
+/* 가운데에 놓이는 장수 — 첫 화면에서 2장 · 3장 중 고른다.
+   방의 규칙이므로 **방장의 것**을 쓰고, 판 꾸러미(rd)의 comm 길이로 모두에게
+   퍼진다. 방장이 바뀌어도 지난 판의 장수를 이어 쓴다 (roomComm). */
+const COMMS = [2, 3];
 const SHOW = 20000;          // 외우는 시간
 const PICK = 10000;          // 고르는 시간
 const GRACE = 1500;          // 고른 칸이 방장에게 닿을 여유
@@ -28,6 +31,8 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 let store = {};
 try { store = JSON.parse(localStorage.getItem('memPoker') || '{}') || {}; } catch (_){}
 const save = () => { try { localStorage.setItem('memPoker', JSON.stringify(store)); } catch (_){} };
+if (!COMMS.includes(store.comm)) store.comm = 2;
+let roomComm = store.comm;   // 이 방에서 쓰는 가운데 장수
 
 /* 확대 막기 — 사파리는 viewport 의 user-scalable 을 듣지 않는다.
    두 손가락 오므리기(gesturestart · 두 손가락 touchmove)를 막는다. */
@@ -49,6 +54,14 @@ const stats = {};      // id → { w: 이긴 판, l: 진 판, last: { hand, card
 let sheetFor = null;   // 열린 창: 'result' | 사람 id | null
 let shownResult = 0;   // 결과 창을 저절로 띄운 마지막 판
 
+/* 이 방의 가운데 장수 — 방장의 것. 방장이 나면 내 것, 남이면 그 사람이 인사에 실어 보낸 것 */
+function commNow(){
+  if (round) return round.comm.length;
+  const h = net && net.order()[0];
+  if (!h || h.id === me.id) return roomComm;
+  const c = net.peers.get(h.id)?.comm;
+  return COMMS.includes(c) ? c : roomComm;
+}
 const isHost = () => net && net.order()[0].id === me.id;
 const seatsNow = () => net.order().slice(0, MAX_SEATS);
 const nameOf = id => (id === me.id ? me.name : (net.peers.get(id)?.name || names[id] || '나간 사람'));
@@ -64,6 +77,7 @@ function enter(id){
   if (!name){ nameIn.focus(); $('#lobbyMsg').textContent = '이름을 먼저 적어 주세요.'; return; }
   store.name = name; save();
   me.name = name; me.at = Date.now();
+  roomComm = me.comm = store.comm;   // 내가 방장이면 이 장수로 판을 돌린다
   roomId = id;
   writeChannelToHash(id);
   $('#lobby').hidden = true; $('#room').hidden = false;
@@ -107,7 +121,7 @@ function flash(text){
 function startRound(seats, tie){
   const deck = shuffled();
   const n = Math.max(round ? round.n : 0, result ? result.n : 0) + 1;
-  applyRound({ n, seats, grid: deck.slice(0, 16), comm: deck.slice(16, 16 + COMM), el: 0, tie, scores, names: namesFor(seats) });
+  applyRound({ n, seats, grid: deck.slice(0, 16), comm: deck.slice(16, 16 + roomComm), el: 0, tie, scores, names: namesFor(seats) });
   sendRound();
 }
 
@@ -172,7 +186,7 @@ setInterval(() => {
 
 /* ─────────── 꾸러미 받기 ─────────── */
 function onMessage(m){
-  if (m.t === 'rd' && Array.isArray(m.grid) && m.grid.length === 16){
+  if (m.t === 'rd' && Array.isArray(m.grid) && m.grid.length === 16 && Array.isArray(m.comm) && COMMS.includes(m.comm.length)){
     if (round && m.n <= round.n) return;
     applyRound(m);
   } else if (m.t === 'rs' && Array.isArray(m.rows)){
@@ -186,6 +200,7 @@ function onMessage(m){
 
 function applyRound(m){
   round = { n: m.n, seats: m.seats, grid: m.grid, comm: m.comm, tie: !!m.tie, start: now() - (+m.el || 0) };
+  roomComm = me.comm = m.comm.length;
   picks = new Map(); mine = [];
   if (sheetFor === 'result') closeSheet();
   if (m.scores) scores = { ...m.scores };
@@ -298,15 +313,17 @@ const HAND_GUIDE = [
 function openHands(){
   sheetFor = 'hands';
   $('#sheetTitle').textContent = '포커 족보';
-  $('#sheetSub').textContent = '위에 있을수록 높아요. 이 게임은 4장이라 ‘나와요’ 표시만 나와요.';
-  $('#sheetBody').innerHTML = '<ol id="handList">' + HAND_GUIDE.map(([nm, ds, ex, kick, ok], i) => `
+  const total = 2 + (net ? commNow() : store.comm);
+  $('#sheetSub').textContent = total >= 5 ? '위에 있을수록 높아요. 가운데 3장 판이라 열 가지 모두 나와요.'
+    : '위에 있을수록 높아요. 가운데 2장 판은 4장이라 ‘나와요’ 표시만 나와요.';
+  $('#sheetBody').innerHTML = '<ol id="handList">' + HAND_GUIDE.map(([nm, ds, ex, kick, four], i) => { const ok = four || total >= 5; return `
     <li class="${ok ? '' : 'off'}">
       <span class="no">${i + 1}</span>
       <span class="nm">${nm}</span>
       <span class="ok">${ok ? '나와요' : '5장 필요'}</span>
       <span class="ds">${ds}</span>
       <span class="ex">${ex.map(([n, s], k) => `<span class="mini up ${k >= ex.length - kick ? 'dim' : ''}">${face(C(n, s))}</span>`).join('')}</span>
-    </li>`).join('') + `</ol>
+    </li>`; }).join('') + `</ol>
     <div class="tips">
       <p><b>같은 족보끼리는</b> 숫자가 높은 쪽이 이겨요. 투페어는 높은 쌍부터, 그다음 낮은 쌍, 그다음 남은 카드 순서로 견줘요.</p>
       <p><b>A</b> 는 가장 높은 카드예요. A-2-3-4-5 스트레이트에서만 가장 낮게 쳐요.</p>
@@ -318,6 +335,19 @@ function openHands(){
   $('#sheetBody').scrollTop = 0;
 }
 $('#handsBtn').onclick = openHands;
+
+/* 첫 화면 — 가운데 카드 2장 · 3장 */
+function showComm(){
+  for (const r of document.querySelectorAll('input[name="comm"]')) r.checked = +r.value === store.comm;
+  for (const el of document.querySelectorAll('[data-comm]')) el.textContent = store.comm;
+  const t = document.querySelector('[data-total]'); if (t) t.textContent = 2 + store.comm;
+}
+document.querySelectorAll('input[name="comm"]').forEach(r => r.addEventListener('change', () => {
+  store.comm = +r.value; save();
+  if (!net) roomComm = store.comm;   // 방에 들어간 뒤에는 방의 규칙을 따른다
+  showComm();
+}));
+showComm();
 
 function drawSheet(){
   if (!sheetFor || sheetFor === 'hands' || !net) return;
@@ -417,20 +447,20 @@ function render(){
 
   // 가운데 카드 — 나오기 전에는 빈 자리로 남겨 둔다 (자리가 바뀌지 않게)
   const commUp = round && (ph === 'pick' || ph === 'wait' || ph === 'result');
-  $('#comm').innerHTML = Array.from({ length: COMM }, (_, k) =>
+  $('#comm').innerHTML = Array.from({ length: commNow() }, (_, k) =>
     commUp ? `<span class="mini up">${face(round.comm[k])}</span>` : '<span class="mini back"></span>').join('');
 
   // 안내 두 줄 — 줄 수가 늘 같다
   let head = '', sub = '';
   if (ph === 'idle'){
     head = '기다리는 중';
-    sub = iHost ? (seated.length > 1 ? `${seated.length}명이 모였어요` : '혼자서도 연습할 수 있어요 · 위의 초대로 친구를') : `방장 ${nameOf(host)} 님이 시작하길 기다려요`;
+    sub = `가운데 ${commNow()}장 · ` + (iHost ? (seated.length > 1 ? `${seated.length}명이 모였어요` : '혼자서도 연습할 수 있어요 · 위의 초대로') : `방장 ${nameOf(host)} 님이 시작하길 기다려요`);
   } else if (ph === 'show'){
     head = round.tie ? '결승 · 외우세요' : '외우세요';
     sub = '16장의 자리를 기억해 두세요';
   } else if (ph === 'pick'){
     head = round.tie ? '결승 · 두 칸을 고르세요' : '두 칸을 고르세요';
-    sub = amIn() ? (mine.length ? `고른 칸 ${mine.map(cellName).join(' · ')}` : '가운데 두 장과 함께 족보를 만들 칸 둘') : '이번 판은 지켜봐요';
+    sub = amIn() ? (mine.length ? `고른 칸 ${mine.map(cellName).join(' · ')}` : `가운데 ${round.comm.length}장과 함께 족보를 만들 칸 둘`) : '이번 판은 지켜봐요';
   } else if (ph === 'wait'){
     head = '결과를 모으는 중…';
   } else if (ph === 'result'){

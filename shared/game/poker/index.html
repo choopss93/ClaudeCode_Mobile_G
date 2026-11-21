@@ -63,6 +63,21 @@
   #joinForm{display:flex;gap:8px}
   #joinForm .field{text-transform:uppercase;letter-spacing:.1em;min-width:0}
   #joinForm .btn{white-space:nowrap;flex:none;padding-inline:18px}
+  /* 가운데 카드 장수 — 둥근 라디오 둘. 방을 만든 사람(방장)의 것이 방의 규칙이 된다 */
+  .seg{border:0;margin:0;padding:0;display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:center;min-width:0}
+  .seg legend{float:left;font-size:12px;color:var(--muted);font-weight:600;padding:0;margin-right:2px}
+  /* #lobby label(이름 칸 머리글)보다 구체적이어야 덮인다 */
+  #lobby .seg label{display:flex;align-items:center;gap:7px;min-height:44px;padding:0 12px;cursor:pointer;font-size:inherit;font-weight:400;color:inherit;
+    border:1px solid var(--line);border-radius:12px;background:var(--surface-2);margin:0;-webkit-tap-highlight-color:transparent}
+  #lobby .seg label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+  .seg input{appearance:none;-webkit-appearance:none;margin:0;flex:none;width:18px;height:18px;border-radius:50%;
+    border:2px solid var(--faint);display:grid;place-content:center}
+  .seg input::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);transform:scale(0);transition:transform .12s}
+  .seg input:checked{border-color:var(--accent)}
+  .seg input:checked::before{transform:scale(1)}
+  .seg input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .seg span{font-size:15px;font-weight:600;color:var(--ink)}
+  .seg small{font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap}
   #lobbyMsg{color:#F08A6A;font-size:12.5px;min-height:1.2em;margin:0}
   .rules{margin:12px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.5}
   .rules li{margin:2px 0}
@@ -75,6 +90,18 @@
     #lobby .sub{display:none}
     #lobby .panel{margin-top:10px}
     .rules{font-size:11.5px;margin-top:8px}
+  }
+  /* 아이폰 SE 처럼 낮은 화면 — 사이를 좁혀 족보 단추까지 한 화면에 */
+  @media (max-height:600px){
+    #lobby header{padding-block:8px 8px}
+    #lobby .back{margin-bottom:4px}
+    #lobby h1{font-size:22px}
+    #lobby .panel{margin-top:8px;padding:12px 12px;gap:7px}
+    #lobby .or{display:none}
+    #lobby .btn,#handsBtn,#lobby .seg label{min-height:42px}
+    #lobby .field{min-height:42px;padding-block:7px}
+    #lobbyMsg{min-height:0}
+    .rules{margin-top:6px;line-height:1.4}
   }
   /* 가로로 눕힌 폰: 제목은 왼쪽, 입력은 오른쪽 */
   @media (orientation:landscape) and (max-height:520px){
@@ -284,6 +311,11 @@
         <label for="name">내 이름</label>
         <input class="field" id="name" maxlength="12" autocomplete="nickname" placeholder="친구들에게 보일 이름">
       </div>
+      <fieldset class="seg">
+        <legend>가운데 카드</legend>
+        <label><input type="radio" name="comm" value="2"><span>2장</span><small>4장 족보</small></label>
+        <label><input type="radio" name="comm" value="3"><span>3장</span><small>5장 족보</small></label>
+      </fieldset>
       <button class="btn primary" id="make" type="button">새 방 만들기</button>
       <p class="or">또는 받은 방 코드로</p>
       <form id="joinForm">
@@ -295,9 +327,9 @@
 
     <ol class="rules">
       <li>4×4 로 깔린 16장을 <b>20초</b> 동안 외워요.</li>
-      <li>카드가 뒤집히고 가운데에 2장이 놓여요.</li>
+      <li>카드가 뒤집히고 가운데에 <span data-comm>2</span>장이 놓여요.</li>
       <li><b>10초</b> 안에 A~P 칸 중 두 칸을 골라요.</li>
-      <li>고른 2장 + 가운데 2장으로 포커 족보를 내요.</li>
+      <li>고른 2장 + 가운데 <span data-comm>2</span>장, <span data-total>4</span>장으로 족보를 내요.</li>
       <li>이긴 한 명 <b>+1</b>, 나머지 <b>−1</b>. 동점이면 1등끼리 결승.</li>
     </ol>
 
@@ -331,7 +363,7 @@
     </div>
   </section>
 
-  <p class="ver">판 7</p>
+  <p class="ver">판 8</p>
 </div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="card2">
@@ -343,6 +375,6 @@
   </div>
 </div>
 <div id="toast" hidden></div>
-<script type="module" src="js/main.js?v=7"></script>
+<script type="module" src="js/main.js?v=8"></script>
 </body>
 </html>

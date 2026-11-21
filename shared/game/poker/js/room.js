@@ -12,7 +12,7 @@ import { connectMqtt } from '../../world/js/mqtt.js';
  * 판의 카드와 사람들이 고른 칸을 알고 있다.
  *
  * 꾸러미 (JSON)
- *   {t:'hi', id, name, at}                     들어왔음 · 3초마다 다시
+ *   {t:'hi', id, name, at, comm}               들어왔음 · 3초마다 다시 (comm = 그 사람이 방장일 때 쓸 가운데 장수)
  *   {t:'rd', n, seats, grid, comm, el, tie, scores, names}
  *                                               판 시작 · 판이 도는 동안 2초마다 다시
  *                                               (el = 시작한 뒤 지난 밀리초)
@@ -56,7 +56,7 @@ export function joinRoom({ room, me, onMessage, onPeers, onStatus }){
   const list = brokersToTry();
 
   function send(obj){ client && client.ready && client.publish(topic, JSON.stringify(obj)); }
-  const hi = () => { lastHi = performance.now(); send({ t: 'hi', id: me.id, name: me.name, at: me.at }); };
+  const hi = () => { lastHi = performance.now(); send({ t: 'hi', id: me.id, name: me.name, at: me.at, comm: me.comm }); };
 
   function open(){
     const url = list[tries % list.length];
@@ -76,7 +76,7 @@ export function joinRoom({ room, me, onMessage, onPeers, onStatus }){
         if (!m || typeof m !== 'object' || m.id === me.id && m.t !== 'rd' && m.t !== 'rs') return;
         if (m.t === 'hi'){
           const known = peers.has(m.id);
-          peers.set(m.id, { name: String(m.name || '').slice(0, 12) || '손님', at: +m.at || 0, seen: performance.now() });
+          peers.set(m.id, { name: String(m.name || '').slice(0, 12) || '손님', at: +m.at || 0, comm: +m.comm || 0, seen: performance.now() });
           if (!known){ hi(); onPeers(); }      // 새로 온 사람이 나를 바로 알게
           return;
         }
