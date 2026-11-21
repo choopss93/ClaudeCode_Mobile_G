@@ -45,6 +45,9 @@ let mine = [];         // 내가 고른 칸
 let result = null;     // { n, rows, tie, at }
 let scores = {}, names = {};
 let lastSent = 0, lastPick = 0;
+const stats = {};      // id → { w: 이긴 판, l: 진 판, last: { hand, cards } }  (이 방에 있는 동안)
+let sheetFor = null;   // 열린 창: 'result' | 사람 id | null
+let shownResult = 0;   // 결과 창을 저절로 띄운 마지막 판
 
 const isHost = () => net && net.order()[0].id === me.id;
 const seatsNow = () => net.order().slice(0, MAX_SEATS);
@@ -84,7 +87,7 @@ $('#joinForm').onsubmit = e => {
   enter(id);
 };
 
-$('#copy').onclick = async () => {
+$('#roomBtn').onclick = async () => {
   const link = inviteLink(roomId);
   try {
     if (navigator.share) await navigator.share({ title: '기억 포커', text: '같이 기억 포커 해요', url: link });
@@ -184,6 +187,7 @@ function onMessage(m){
 function applyRound(m){
   round = { n: m.n, seats: m.seats, grid: m.grid, comm: m.comm, tie: !!m.tie, start: now() - (+m.el || 0) };
   picks = new Map(); mine = [];
+  if (sheetFor === 'result') closeSheet();
   if (m.scores) scores = { ...m.scores };
   if (m.names) Object.assign(names, m.names);
   render();
@@ -191,6 +195,11 @@ function applyRound(m){
 
 function applyResult(m){
   result = { n: m.n, rows: m.rows, tie: m.tie, at: now() };
+  if (round && round.n === m.n) for (const r of m.rows){
+    const st = stats[r.id] || (stats[r.id] = { w: 0, l: 0, last: null });
+    if (r.pt > 0) st.w++; else if (r.pt < 0) st.l++;
+    st.last = { hand: r.hand, cards: [...r.p.map(i => round.grid[i]), ...round.comm], own: r.p.length, n: m.n };
+  }
   if (m.scores) scores = { ...m.scores };
   if (m.names) Object.assign(names, m.names);
   if (round && round.n === m.n){
@@ -230,7 +239,102 @@ $('#grid').addEventListener('click', e => {
   const b = e.target.closest('[data-i]');
   if (b) tap(+b.dataset.i);
 });
-$('#start').onclick = () => { if (isHost()) { result = null; startRound(seatsNow().map(s => s.id), false); } };
+function startNext(){ if (isHost()) { result = null; closeSheet(); startRound(seatsNow().map(s => s.id), false); } }
+
+/* ─────────── 올라오는 창 ───────────
+   화면에 늘어놓으면 판이 밀리므로, 결과와 사람별 자세한 내용은 여기에 띄운다. */
+const sheet = $('#sheet');
+function openSheet(what){ sheetFor = what; sheet.hidden = false; drawSheet(); }
+function closeSheet(){ sheetFor = null; sheet.hidden = true; render(); }
+$('#sheetClose').onclick = closeSheet;
+sheet.addEventListener('click', e => {
+  if (e.target === sheet) return closeSheet();
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  if (b.dataset.act === 'next') startNext();
+  else if (b.dataset.act === 'close') closeSheet();
+  else if (b.dataset.act === 'result') openSheet('result');
+});
+addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
+
+$('#seats').addEventListener('click', e => {
+  const b = e.target.closest('[data-id]');
+  if (b) openSheet(b.dataset.id);
+});
+$('#actions').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  if (b.dataset.act === 'start' || b.dataset.act === 'next') startNext();
+  else if (b.dataset.act === 'result') openSheet('result');
+});
+
+const ptText = r => r.pt > 0 ? '+1' : r.pt < 0 ? '−1' : r.win && result.tie ? '결승' : '·';
+const ptCls = v => v > 0 ? 'up' : v < 0 ? 'down' : '';
+
+function resultTitle(){
+  if (result.tie) return '동점!';
+  if (round.seats.length === 1) return '연습 끝';
+  const w = result.rows.find(r => r.win);
+  return w ? (w.id === me.id ? '이겼어요!' : `${nameOf(w.id)} 님 승리`) : '끝';
+}
+
+function drawSheet(){
+  if (!sheetFor || !net) return;
+  const T = $('#sheetTitle'), S = $('#sheetSub'), B = $('#sheetBody'), F = $('#sheetBtns');
+  const host = net.order()[0].id;
+
+  if (sheetFor === 'result'){
+    if (!result || !round){ closeSheet(); return; }
+    T.textContent = resultTitle();
+    S.textContent = result.tie ? `${result.tie.map(nameOf).join(' · ')} 님이 곧 결승을 해요.` : '흰 테두리가 고른 카드예요.';
+    B.innerHTML = '<ul id="results">' + [...result.rows].sort((a, b) => compare(b.key, a.key)).map(r => {
+      const cards = [...r.p.map(i => round.grid[i]), ...round.comm];
+      return `<li class="${r.win ? 'win' : ''}">
+        <div class="who"><b>${esc(nameOf(r.id))}${r.id === me.id ? ' <small>나</small>' : ''}</b>
+          <span>${esc(r.hand)} · ${r.p.length ? r.p.map(cellName).join(' ') : '못 골랐어요'}</span></div>
+        <div class="row4">${cards.map((c, k) => `<span class="mini up ${k < r.p.length ? 'own' : ''}">${face(c)}</span>`).join('')}</div>
+        <span class="pt ${ptCls(r.pt)}">${ptText(r)}</span>
+      </li>`;
+    }).join('') + '</ul>';
+    F.innerHTML = `<button class="btn" data-act="close" type="button">판 보기</button>` +
+      (!result.tie && host === me.id ? `<button class="btn primary" data-act="next" type="button">다음 판</button>` : '');
+    return;
+  }
+
+  // 사람 창
+  const id = sheetFor;
+  if (!net.present(id)){ closeSheet(); return; }
+  const st = stats[id] || { w: 0, l: 0, last: null };
+  const sc = scores[id] || 0;
+  const order = net.order();
+  const seat = order.findIndex(o => o.id === id);
+  T.textContent = nameOf(id);
+  S.textContent = '';
+  const tags = [id === host ? '★ 방장' : '', id === me.id ? '나' : '', seat >= MAX_SEATS ? '관전 중' : `${seat + 1}번 자리`].filter(Boolean);
+  const ph = phase();
+  let cur = '';
+  if (round && round.seats.includes(id) && (ph === 'pick' || ph === 'wait')){
+    const n = (picks.get(id) || []).length;
+    cur = `<p>${n === 2 ? '두 칸을 다 골랐어요' : n === 1 ? '한 칸 골랐어요' : '아직 고르는 중'} · ${n}/2</p>`;
+  } else if (ph === 'show' && round && round.seats.includes(id)){
+    cur = '<p>카드를 외우는 중</p>';
+  } else if (st.last){
+    cur = `<div class="row4">${st.last.cards.map((c, k) => `<span class="mini up ${k < st.last.own ? 'own' : ''}">${face(c)}</span>`).join('')}</div><p><b>${esc(st.last.hand)}</b></p>`;
+  } else cur = '<p style="color:var(--muted)">아직 한 판도 안 했어요</p>';
+  const watchers = order.slice(MAX_SEATS);
+  B.innerHTML = `<div class="person">
+    <div class="tags">${tags.map(t => `<span class="pill">${esc(t)}</span>`).join('')}</div>
+    <div class="stats">
+      <div><b class="${ptCls(sc)}">${sc > 0 ? '+' : ''}${sc}</b><span>점수</span></div>
+      <div><b>${st.w}</b><span>이긴 판</span></div>
+      <div><b>${st.l}</b><span>진 판</span></div>
+    </div>
+    <h3>${st.last && !(round && (ph === 'pick' || ph === 'wait' || ph === 'show')) ? '지난 판' : '지금'}</h3>
+    <div class="now">${cur}</div>
+    ${watchers.length ? `<h3 style="margin-top:12px">관전 ${watchers.length}명</h3><p style="margin:0;font-size:13px">${watchers.map(w => esc(w.name)).join(' · ')}</p>` : ''}
+  </div>`;
+  F.innerHTML = `<button class="btn" data-act="close" type="button">닫기</button>`;
+}
 
 /* ─────────── 그리기 ─────────── */
 function face(c, extra = ''){
@@ -243,94 +347,77 @@ function render(){
   const order = net.order();
   const seated = order.slice(0, MAX_SEATS);
   const host = order[0].id;
+  const iHost = host === me.id;
 
-  // 자리
-  const inRound = round && ph !== 'idle' ? round.seats : seated.map(s => s.id);
+  // 자리 — 이름 · 점수 · 고른 수만. 자세한 것은 눌러서 본다
   $('#seats').innerHTML = seated.map(s => {
     const sc = scores[s.id] || 0;
-    const picked = round && ph === 'pick' || ph === 'wait' ? (picks.get(s.id) || []).length : -1;
-    const out = round && ph !== 'result' && !round.seats.includes(s.id);
-    return `<li class="${s.id === me.id ? 'me' : ''} ${out ? 'out' : ''}">
-      <span class="nm">${s.id === host ? '<em title="방장">★</em>' : ''}${esc(s.name)}${s.id === me.id ? ' <small>나</small>' : ''}</span>
-      <span class="sc ${sc > 0 ? 'up' : sc < 0 ? 'down' : ''}">${sc > 0 ? '+' : ''}${sc}</span>
-      ${picked >= 0 && !out ? `<span class="pk">${picked}/2</span>` : ''}
-    </li>`;
+    const out = round && ph !== 'result' && ph !== 'idle' && !round.seats.includes(s.id);
+    const n = (ph === 'pick' || ph === 'wait') && !out ? (picks.get(s.id) || []).length : -1;
+    const res = ph === 'result' && result.rows.find(r => r.id === s.id);
+    const right = n >= 0 ? `${n}/2` : res ? ptText(res) : '';
+    return `<li class="${s.id === me.id ? 'me' : ''} ${out ? 'out' : ''}"><button type="button" data-id="${s.id}" aria-label="${esc(s.name)} 자세히">
+      <span class="nm">${s.id === host ? '<em>★</em>' : ''}${esc(s.name)}</span>
+      <span class="sc ${ptCls(sc)}">${sc > 0 ? '+' : ''}${sc}</span>
+      <span class="pk ${res ? ptCls(res.pt) : ''}">${right}</span>
+    </button></li>`;
   }).join('') + Array.from({ length: MAX_SEATS - seated.length }, () => '<li class="emptyseat">빈자리</li>').join('');
-  const watchers = order.length - seated.length;
-  $('#watch').textContent = watchers > 0 ? `관전 ${watchers}명` : '';
-  $('#watch').hidden = watchers <= 0;
 
-  // 판
+  // 판 — 늘 같은 자리, 같은 크기
   const showCards = ph === 'show' || ph === 'result';
   const g = round ? round.grid : null;
+  const myRes = ph === 'result' && result.rows.find(r => r.id === me.id);
   $('#grid').innerHTML = Array.from({ length: 16 }, (_, i) => {
-    const sel = mine.includes(i);
-    const res = ph === 'result' && result.rows.find(r => r.id === me.id);
-    const chosen = res && res.p.includes(i);
     if (!g) return `<button class="cell back" disabled><span class="ltr">${cellName(i)}</span></button>`;
-    if (showCards) return `<button class="cell up ${chosen ? 'chosen' : ''}" disabled>${face(g[i])}<span class="tag">${cellName(i)}</span></button>`;
+    if (showCards) return `<button class="cell up ${myRes && myRes.p.includes(i) ? 'chosen' : ''}" disabled>${face(g[i])}<span class="tag">${cellName(i)}</span></button>`;
+    const sel = mine.includes(i);
     return `<button class="cell back ${sel ? 'sel' : ''}" data-i="${i}" ${ph === 'pick' && amIn() ? '' : 'disabled'} aria-pressed="${sel}"><span class="ltr">${cellName(i)}</span></button>`;
   }).join('');
 
-  // 가운데 카드
+  // 가운데 카드 — 나오기 전에는 빈 자리로 남겨 둔다 (자리가 바뀌지 않게)
   const commUp = round && (ph === 'pick' || ph === 'wait' || ph === 'result');
   $('#comm').innerHTML = Array.from({ length: COMM }, (_, k) =>
     commUp ? `<span class="mini up">${face(round.comm[k])}</span>` : '<span class="mini back"></span>').join('');
 
-  // 안내
-  const head = $('#phase'), sub = $('#hint');
-  $('#start').hidden = true;
+  // 안내 두 줄 — 줄 수가 늘 같다
+  let head = '', sub = '';
   if (ph === 'idle'){
-    head.textContent = '기다리는 중';
-    if (host === me.id){
-      $('#start').hidden = false;
-      sub.textContent = seated.length > 1 ? `${seated.length}명이 모였어요. 시작을 누르세요.` : '혼자서도 연습할 수 있어요. 친구를 부르려면 링크를 보내세요.';
-    } else sub.textContent = `방장 ${esc(nameOf(host))} 님이 시작하길 기다려요.`;
+    head = '기다리는 중';
+    sub = iHost ? (seated.length > 1 ? `${seated.length}명이 모였어요` : '혼자서도 연습할 수 있어요 · 위의 초대로 친구를') : `방장 ${nameOf(host)} 님이 시작하길 기다려요`;
   } else if (ph === 'show'){
-    head.textContent = round.tie ? '결승 · 외우세요' : '외우세요';
-    sub.textContent = '16장의 자리를 기억해 두세요.';
+    head = round.tie ? '결승 · 외우세요' : '외우세요';
+    sub = '16장의 자리를 기억해 두세요';
   } else if (ph === 'pick'){
-    head.textContent = round.tie ? '결승 · 두 칸을 고르세요' : '두 칸을 고르세요';
-    sub.textContent = amIn()
-      ? (mine.length ? `고른 칸 ${mine.map(cellName).join(' · ')}` : '가운데 두 장과 함께 족보를 만들 칸 둘')
-      : '이번 판은 지켜봐요.';
+    head = round.tie ? '결승 · 두 칸을 고르세요' : '두 칸을 고르세요';
+    sub = amIn() ? (mine.length ? `고른 칸 ${mine.map(cellName).join(' · ')}` : '가운데 두 장과 함께 족보를 만들 칸 둘') : '이번 판은 지켜봐요';
   } else if (ph === 'wait'){
-    head.textContent = '결과를 모으는 중…';
-    sub.textContent = '';
+    head = '결과를 모으는 중…';
   } else if (ph === 'result'){
-    if (result.tie){
-      head.textContent = '동점!';
-      sub.textContent = `${result.tie.map(nameOf).map(esc).join(' · ')} 님이 결승을 해요.`;
-    } else if (round.seats.length === 1){
-      head.textContent = '연습 끝';
-      sub.textContent = '';
-    } else {
-      const w = result.rows.find(r => r.win);
-      head.textContent = w ? (w.id === me.id ? '이겼어요!' : `${nameOf(w.id)} 님 승리`) : '끝';
-      sub.textContent = '';
-    }
-    if (!result.tie && host === me.id){ $('#start').hidden = false; $('#start').textContent = '다음 판'; }
-    else if (!result.tie) sub.textContent = '방장이 다음 판을 시작해요.';
+    head = resultTitle();
+    const mineR = result.rows.find(r => r.id === me.id);
+    sub = mineR ? `내 족보 ${mineR.hand}` : '';
   }
-  if (ph === 'idle') $('#start').textContent = '시작';
+  $('#phase').textContent = head;
+  $('#hint').textContent = sub;
 
-  // 결과 목록
-  const box = $('#results');
-  if (ph === 'result'){
-    box.hidden = false;
-    box.innerHTML = [...result.rows].sort((a, b) => compare(b.key, a.key)).map(r => {
-      const cards = [...r.p.map(i => round.grid[i]), ...round.comm];
-      const pt = r.pt > 0 ? '+1' : r.pt < 0 ? '−1' : r.win && result.tie ? '결승' : '·';
-      return `<li class="${r.win ? 'win' : ''}">
-        <div class="who"><b>${esc(nameOf(r.id))}${r.id === me.id ? ' <small>나</small>' : ''}</b>
-          <span>${esc(r.hand)} · ${r.p.length ? r.p.map(cellName).join(' ') : '못 골랐어요'}</span></div>
-        <div class="row5">${cards.map((c, k) => `<span class="mini up ${k < r.p.length ? 'own' : ''}">${face(c)}</span>`).join('')}</div>
-        <span class="pt ${r.pt > 0 ? 'up' : r.pt < 0 ? 'down' : ''}">${pt}</span>
-      </li>`;
-    }).join('');
-  } else box.hidden = true;
+  // 단추 한 줄 — 무엇이 오든 같은 자리, 같은 높이
+  let act = '';
+  if (ph === 'idle') act = iHost ? '<button class="btn primary" data-act="start" type="button">시작</button>' : '<span class="wait">방장이 시작해요</span>';
+  else if (ph === 'show' || ph === 'pick') act = `<span class="wait">${ph === 'show' ? '외우는 중' : amIn() ? `${mine.length}/2 골랐어요` : '지켜보는 중'}</span>`;
+  else if (ph === 'wait') act = '<span class="wait">잠깐만요…</span>';
+  else if (ph === 'result'){
+    act = '<button class="btn" data-act="result" type="button">결과 보기</button>';
+    if (result.tie) act += '<span class="wait">곧 결승</span>';
+    else if (iHost) act += '<button class="btn primary" data-act="next" type="button">다음 판</button>';
+  }
+  const A = $('#actions');
+  if (A.dataset.html !== act){ A.innerHTML = act; A.dataset.html = act; }
 
   document.body.dataset.phase = ph;
+
+  // 결과가 나오면 창을 한 번 저절로 띄운다
+  if (ph === 'result' && shownResult !== result.n){ shownResult = result.n; openSheet('result'); return; }
+  if (sheetFor) drawSheet();
 }
 
 /* 시간 띠는 따로 자주 그린다 */

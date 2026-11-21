@@ -51,7 +51,7 @@
     padding:0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
     padding-bottom:max(10px, env(safe-area-inset-bottom))}
   section{flex:1;min-height:0;display:flex;flex-direction:column}
-  .ver{flex:none;margin:4px 0 0;text-align:center;color:var(--faint);font-size:10.5px}
+  .ver{flex:none;margin:4px 0 0;text-align:center;color:var(--faint);font-size:10.5px;height:14px;line-height:14px}
 
   /* ─── 첫 화면 ─── */
   #lobby header{padding-block:14px 12px}
@@ -84,56 +84,63 @@
     #lobbyMsg{min-height:0}
   }
 
-  /* ─── 방 화면: 위에서부터 차곡차곡, 판은 남은 자리 전부 ─── */
+  /* ─── 방 화면 ───
+     자리마다 높이를 **고정**한다. 단계가 바뀌어도(외우기 → 고르기 → 결과)
+     글줄이 생기고 사라지며 판이 밀리는 일이 없게. 결과와 사람별 자세한
+     내용은 화면에 늘어놓지 않고 아래에서 올라오는 창(.sheet)에 띄운다. */
   #room{padding-top:max(8px, env(safe-area-inset-top));gap:8px}
-  .top{display:flex;align-items:center;gap:6px;flex:none;min-width:0}
-  .top .back{margin:0;min-height:36px;flex:none}
+  .top{display:flex;align-items:center;gap:6px;flex:none;min-width:0;height:36px}
+  .top .back{margin:0;min-height:36px;flex:none;font-size:13px}
   .top .spacer{flex:1}
-  .top .pill{white-space:nowrap;min-width:0}
-  .code{font-weight:700;letter-spacing:.06em;font-variant-numeric:tabular-nums}
-  #copy{min-height:36px;flex:none}
-  #netText{overflow:hidden;text-overflow:ellipsis;max-width:22vw}
-  .meta{display:flex;gap:6px;align-items:center;flex:none;min-width:0}
+  .top .pill{white-space:nowrap;min-width:0;min-height:32px}
+  #roomBtn{font:inherit;cursor:pointer;color:var(--ink);gap:6px}
+  #roomBtn .code{font-weight:700;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+  #roomBtn .inv{color:var(--accent);font-weight:600}
+  #netText{overflow:hidden;text-overflow:ellipsis;max-width:18vw}
 
+  /* 자리 — 이름과 점수만. 누르면 그 사람 창이 뜬다 */
   #seats{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;flex:none}
-  #seats li{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:5px 7px;
-    font-size:12px;display:flex;flex-direction:column;min-width:0;position:relative;min-height:46px}
-  #seats li.me{border-color:var(--accent);background:var(--accent-soft)}
-  #seats li.out{opacity:.45}
-  #seats li.emptyseat{color:var(--faint);border-style:dashed;justify-content:center;align-items:center}
-  #seats .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}
+  #seats button{all:unset;box-sizing:border-box;width:100%;height:44px;cursor:pointer;
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px 7px;
+    display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:1fr 1fr;column-gap:4px;align-items:center;
+    font-size:12px;-webkit-tap-highlight-color:transparent}
+  #seats button:active{background:var(--surface-2)}
+  #seats button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  #seats .me button{border-color:var(--accent);background:var(--accent-soft)}
+  #seats .out button{opacity:.45}
+  #seats .emptyseat{height:44px;border:1px dashed var(--line);border-radius:10px;color:var(--faint);
+    display:flex;align-items:center;justify-content:center;font-size:11.5px}
+  #seats .nm{grid-column:1 / -1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
   #seats .nm em{font-style:normal;color:var(--accent);margin-right:2px}
-  #seats small,#results small{font-size:10px;color:var(--muted);font-weight:500}
-  #seats .sc{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
-  #seats .pk{position:absolute;right:6px;bottom:5px;font-size:10.5px;color:var(--muted)}
+  #seats .sc{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+  #seats .pk{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.1}
 
-  .status{display:flex;align-items:flex-end;gap:10px;flex:none;min-width:0}
+  .status{display:flex;align-items:center;gap:10px;flex:none;min-width:0;height:44px}
   .status .txt{flex:1;min-width:0}
-  #phase,#hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #phase{margin:0;font-size:18px;font-weight:700;line-height:1.3}
-  #hint{margin:1px 0 0;color:var(--muted);font-size:12.5px;min-height:1.3em;line-height:1.3}
-  #count{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);min-width:1.4em;text-align:right;line-height:1}
+  #phase,#hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
+  #phase{font-size:17px;font-weight:700;line-height:24px;height:24px}
+  #hint{color:var(--muted);font-size:12.5px;line-height:18px;height:18px}
+  #count{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);width:1.5em;text-align:right;line-height:1;flex:none}
   .track{height:4px;border-radius:4px;background:var(--surface-2);overflow:hidden;flex:none}
   #bar{height:100%;background:var(--accent);transform-origin:left;transform:scaleX(0)}
   body[data-phase="pick"] #bar{background:#F2F2F2}
 
-  /* 판 — 남은 자리(.board)의 폭과 높이 중 작은 쪽에 맞춘다.
+  /* 판 — 남은 자리(.board)의 폭과 높이 중 작은 쪽에 맞추고, 조금 여유를 둔다.
      카드 비율이 3:4 이므로 높이 H 에 들어가는 폭은 (H − 간격3) × 3/4 + 간격3 */
   .board{flex:1;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
   #grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--gap);
-    width:min(100cqw, calc((100cqh - 3 * var(--gap)) * 0.75 + 3 * var(--gap)))}
-  .cell{all:unset;box-sizing:border-box;aspect-ratio:3/4;border-radius:9px;position:relative;
+    width:min(92cqw, 400px, calc((96cqh - 3 * var(--gap)) * 0.75 + 3 * var(--gap)))}
+  .cell{all:unset;box-sizing:border-box;aspect-ratio:3/4;border-radius:8px;position:relative;
     display:flex;align-items:center;justify-content:center;cursor:default;container-type:inline-size;
-    -webkit-tap-highlight-color:transparent;transition:transform .12s}
+    -webkit-tap-highlight-color:transparent}
   .cell.up{background:var(--paper);box-shadow:0 2px 10px rgba(0,0,0,.6)}
   .cell.back{background:var(--accent);color:var(--accent-ink);
     background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.09) 0 6px,transparent 6px 12px)}
   .cell.back:not(:disabled){cursor:pointer}
-  .cell.back:not(:disabled):active{transform:scale(.95)}
-  .cell.sel{outline:3px solid var(--pick);outline-offset:2px;transform:translateY(-2px)}
-  .cell.chosen{outline:3px solid var(--pick);outline-offset:2px}
+  .cell.back:not(:disabled):active{filter:brightness(.9)}
+  /* 고른 칸은 테두리만 — 들썩이면 판이 흔들려 보인다 */
+  .cell.sel,.cell.chosen{outline:3px solid var(--pick);outline-offset:2px}
   .cell:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-  /* 글자도 카드 폭에 견주어 — 판이 작아지면 같이 작아진다 */
   .ltr{font-size:36cqw;font-weight:700}
   .cell .tag{position:absolute;right:7cqw;bottom:4cqw;font-size:14cqw;font-weight:600;color:#9A9488}
   .cell .face b{font-size:30cqw}
@@ -144,53 +151,96 @@
   .face b{font-weight:700}
   .face i{font-style:normal}
 
-  /* 아래: 가운데 카드 · 단추 · 결과 */
-  .foot{flex:0 1 auto;display:flex;flex-direction:column;gap:8px;min-height:0}
-  /* 판에 남은 자리가 너무 작으면(결과를 보는 동안 작은 폰) 판을 접는다.
-     결과 줄마다 그 사람의 카드가 다 보이므로 잃는 것이 없다. */
-  @container (max-height:150px){ #grid{display:none} }
-  .commrow{display:flex;align-items:center;justify-content:center;gap:8px}
+  /* 아래 — 가운데 카드 한 줄 + 단추 한 줄. 두 줄 모두 높이가 늘 같다 */
+  .foot{flex:none;display:flex;flex-direction:column;gap:8px}
+  .commrow{display:flex;align-items:center;justify-content:center;gap:8px;height:52px}
   .commrow .lbl{font-size:11.5px;color:var(--muted)}
-  #comm{display:flex;gap:8px}
-  .mini{width:clamp(30px, 10vw, 44px);aspect-ratio:3/4;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;container-type:inline-size;flex:none}
+  #comm{display:flex;gap:8px;align-items:center;height:52px}
+  .mini{width:39px;aspect-ratio:3/4;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;container-type:inline-size;flex:none}
   .mini.up{background:var(--paper)}
   .mini.back{background:var(--surface-2);border:1px dashed var(--line)}
   .mini .face b,.mini .face i{font-size:36cqw}
   .mini.own{outline:2px solid var(--pick);outline-offset:1px}
-  #start{min-height:46px;width:100%;font-size:15px}
+  /* 빈 자리와 펼친 카드가 같은 높이여야 줄이 들썩이지 않는다 — 빈 칸은 비율만으로는 높이가 안 잡힌다 */
+  #comm .mini{height:52px;aspect-ratio:auto}
+  .actions{display:flex;gap:8px;height:46px}
+  .actions .btn{flex:1;min-height:46px;font-size:15px}
+  .actions .wait{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;
+    border:1px dashed var(--line);border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 12px}
 
-  /* 결과 — 한 사람 한 줄. 넷이 다 들어가게 촘촘히 */
-  /* 넷이 다 들어가지 않을 만큼 낮은 화면이면 목록 안에서만 넘긴다 (페이지는 그대로) */
-  #results{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;
-    min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
-  #results li{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:5px 8px;
-    display:flex;align-items:center;gap:8px;min-width:0}
+  /* ─── 올라오는 창 (결과 · 사람별) ─── */
+  .sheet{position:fixed;inset:0;z-index:10;display:flex;align-items:flex-end;justify-content:center;
+    background:rgba(0,0,0,.62);animation:fade .16s ease-out}
+  .sheet .card2{width:100%;max-width:560px;max-height:min(86dvh, 640px);display:flex;flex-direction:column;
+    background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:18px 18px 0 0;
+    padding:8px 16px max(14px, env(safe-area-inset-bottom));animation:rise .2s ease-out}
+  .sheet .grip{width:38px;height:4px;border-radius:4px;background:var(--line);margin:2px auto 8px;flex:none}
+  .sheet header{display:flex;align-items:center;gap:8px;padding:0;border:0;flex:none}
+  .sheet h2{margin:0;font-size:18px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sheet .x{all:unset;cursor:pointer;width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+    border-radius:50%;color:var(--muted);font-size:20px;flex:none}
+  .sheet .x:active{background:var(--surface-2)}
+  .sheet .sub2{margin:2px 0 10px;color:var(--muted);font-size:12.5px;flex:none}
+  /* 넷이면 다 들어간다. 그래도 넘치면 창 안에서만 넘긴다 */
+  .sheet .body{min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+  .sheet .btns{display:flex;gap:8px;margin-top:12px;flex:none}
+  .sheet .btns .btn{flex:1;min-height:46px;font-size:15px}
+  @keyframes fade{from{opacity:0}}
+  @keyframes rise{from{transform:translateY(24px);opacity:.4}}
+
+  #results{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+  #results li{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:8px 10px;
+    display:flex;align-items:center;gap:10px;min-width:0}
   #results li.win{border-color:var(--accent)}
-  #results .who{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+  #results .who{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
   #results .who b,#results .who span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #results .who b{font-size:13px}
-  #results .who span{font-size:11px;color:var(--muted)}
-  #results .row5{display:flex;gap:3px;flex:none}
-  #results .mini{width:clamp(22px, 7vw, 30px);border-radius:4px}
-  #results .pt{font-weight:700;font-variant-numeric:tabular-nums;width:2.1em;text-align:right;flex:none;font-size:14px}
-  body[data-phase="result"] .commrow{display:none}
+  #results .who b{font-size:14px}
+  #results .who span{font-size:11.5px;color:var(--muted)}
+  #results small,.person small{font-size:10.5px;color:var(--muted);font-weight:500}
+  .row4{display:flex;gap:4px;flex:none}
+  #results .mini{width:clamp(26px, 8vw, 34px);border-radius:5px}
+  #results .pt{font-weight:700;font-variant-numeric:tabular-nums;width:2.3em;text-align:right;flex:none;font-size:15px}
+
+  /* 사람 창 */
+  .person .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+  .person .stats div{background:var(--surface-2);border-radius:10px;padding:8px 10px}
+  .person .stats b{display:block;font-size:20px;font-variant-numeric:tabular-nums;line-height:1.2}
+  .person .stats span{font-size:11px;color:var(--muted)}
+  .person h3{margin:0 0 6px;font-size:12px;color:var(--muted);font-weight:600}
+  .person .now{display:flex;align-items:center;gap:10px;background:var(--surface-2);border-radius:10px;padding:8px 10px;min-height:56px}
+  .person .now .mini{width:34px}
+  .person .now p{margin:0;font-size:13px}
+  .person .tags{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
 
   /* 낮은 화면(가로로 눕힌 폰): 판을 왼쪽에, 나머지를 오른쪽에 */
   @media (orientation:landscape) and (max-height:520px){
     .wrap{max-width:none}
     #room{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto auto auto 1fr;
-      column-gap:14px;row-gap:6px}
-    #room > .board{grid-column:1;grid-row:1 / -1;width:calc((100dvh - 30px) * 0.75);height:100%}
+      column-gap:16px;row-gap:6px}
+    #room > .board{grid-column:1;grid-row:1 / -1;width:calc((100dvh - 24px) * 0.72);height:100%}
     #room > :not(.board){grid-column:2}
-    #room > .foot{min-height:0}
-    #hint{display:none}
+    #room > .foot{align-self:end}
+    .commrow{height:44px} .mini{width:32px} #comm .mini{height:43px} #comm{height:43px}
     .ver{display:none}
-    /* 결과는 두 줄씩 나란히 — 낮은 화면에 넷이 다 들어가게 */
-    #results{display:grid;grid-template-columns:1fr 1fr;gap:5px}
-    #results .who span{display:none}
-    #results li{padding:4px 6px;gap:6px}
-    #results .mini{width:clamp(18px, 3.2vw, 26px)}
-    #start{min-height:40px}
+    /* 창도 낮은 화면에 맞춰 촘촘히, 옆으로 나란히 */
+    .sheet .card2{max-height:96dvh;max-width:680px;padding-top:6px}
+    .sheet .grip{display:none}
+    .sheet h2{font-size:16px}
+    .sheet .x{width:34px;height:34px}
+    .sheet .sub2{margin:0 0 6px}
+    .sheet .btns{margin-top:8px}
+    .sheet .btns .btn{min-height:40px}
+    #results{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    #results li{padding:5px 8px;gap:6px}
+    #results .mini{width:24px}
+    .person{display:grid;grid-template-columns:1fr 1fr;column-gap:10px;align-items:start}
+    .person .tags{grid-column:1 / -1;margin-bottom:6px}
+    .person .stats{margin:0;grid-row:2 / span 2}
+    .person .stats div{padding:6px 8px}
+    .person .stats b{font-size:17px}
+    .person h3{grid-column:2;margin-bottom:4px}
+    .person .now{grid-column:2;min-height:0;padding:6px 8px}
+    .person .now .mini{width:26px}
   }
 
   #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
@@ -232,13 +282,9 @@
   <section id="room" hidden>
     <div class="top">
       <a class="back" href="./">← 나가기</a>
+      <button class="pill" id="roomBtn" type="button" aria-label="친구 부르기">방 <span class="code" id="roomCode"></span> <span class="inv">초대</span></button>
       <span class="spacer"></span>
       <span class="pill"><span class="dot off" id="netDot"></span><span id="netText">연결 중</span></span>
-    </div>
-    <div class="top meta">
-      <span class="pill">방 <span class="code" id="roomCode"></span></span>
-      <button class="btn sm" id="copy" type="button">친구 부르기</button>
-      <span class="pill" id="watch" hidden></span>
     </div>
 
     <ul id="seats"></ul>
@@ -256,14 +302,22 @@
 
     <div class="foot">
       <div class="commrow"><span class="lbl">가운데</span><span id="comm"></span></div>
-      <ul id="results" hidden></ul>
-      <button class="btn primary" id="start" type="button" hidden>시작</button>
+      <div class="actions" id="actions"></div>
     </div>
   </section>
 
-  <p class="ver">판 5</p>
+  <p class="ver">판 6</p>
+</div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="card2">
+    <div class="grip"></div>
+    <header><h2 id="sheetTitle"></h2><button class="x" id="sheetClose" type="button" aria-label="닫기">✕</button></header>
+    <p class="sub2" id="sheetSub"></p>
+    <div class="body" id="sheetBody"></div>
+    <div class="btns" id="sheetBtns"></div>
+  </div>
 </div>
 <div id="toast" hidden></div>
-<script type="module" src="js/main.js?v=5"></script>
+<script type="module" src="js/main.js?v=6"></script>
 </body>
 </html>
