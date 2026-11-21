@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>기억 포커</title>
+<meta name="description" content="16장을 20초 동안 외우고, 두 칸을 골라 포커 족보로 겨루는 1~4인 온라인 게임.">
+<meta name="color-scheme" content="light dark">
+<meta property="og:title" content="기억 포커">
+<meta property="og:description" content="16장을 외우고 두 칸을 골라 겨뤄요. 1~4명.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../../../assets/base.css">
+<style>
+  /* 공용 공간의 강조색 */
+  :root{ --accent:#8A5A24; --accent-soft:#F2E8DA }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){ --accent:#DCA94E; --accent-soft:#33281A }
+  }
+  :root[data-theme="dark"]{ --accent:#DCA94E; --accent-soft:#33281A }
+
+  /* 카드 앞면은 밤에도 흰 종이다 — 진짜 카드처럼 */
+  :root{ --paper:#FFFDF8; --paper-ink:#24221F; --paper-red:#C8424A; }
+
+  .wrap{padding-bottom:32px}
+  .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:12px}
+  .top .spacer{flex:1}
+  .code{font-weight:700;letter-spacing:.08em;font-variant-numeric:tabular-nums}
+
+  /* 첫 화면 */
+  #lobby .panel{margin-top:16px}
+  #lobby label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
+  #lobby .or{color:var(--faint);font-size:12px;text-align:center;margin:4px 0}
+  #lobby .btn{min-height:44px}
+  #joinForm{display:flex;gap:8px}
+  #joinForm .field{text-transform:uppercase;letter-spacing:.1em}
+  #lobbyMsg{color:#B2552B;font-size:12.5px;min-height:1.2em;margin:8px 0 0}
+  .rules{margin:16px 0 0;padding-left:18px;color:var(--muted);font-size:13px}
+  .rules li{margin:3px 0}
+
+  /* 자리 */
+  #seats{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  #seats li{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 7px;
+    font-size:12px;display:flex;flex-direction:column;gap:1px;min-width:0;position:relative}
+  #seats li.me{border-color:var(--accent);background:var(--accent-soft)}
+  #seats li.out{opacity:.45}
+  #seats li.emptyseat{color:var(--faint);border-style:dashed;justify-content:center;align-items:center;min-height:52px}
+  #seats .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #seats .nm em{font-style:normal;color:var(--accent);margin-right:2px}
+  #seats small,#results small{font-size:10px;color:var(--muted);font-weight:500}
+  #seats .sc{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+  .up{color:#3E8A55} .down{color:#B2552B}
+  #seats .pk{position:absolute;right:6px;bottom:6px;font-size:10.5px;color:var(--muted)}
+  #watch{margin-top:6px}
+
+  /* 안내와 시간 */
+  .status{display:flex;align-items:flex-end;gap:10px;margin-top:14px}
+  .status .txt{flex:1;min-width:0}
+  #phase{margin:0;font-size:19px;font-weight:700;line-height:1.3}
+  #hint{margin:2px 0 0;color:var(--muted);font-size:12.5px;min-height:1.3em}
+  #count{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);min-width:1.4em;text-align:right;line-height:1}
+  .track{height:5px;border-radius:5px;background:var(--surface-2);overflow:hidden;margin-top:8px}
+  #bar{height:100%;background:var(--accent);transform-origin:left;transform:scaleX(0)}
+  body[data-phase="pick"] #bar{background:#C8912F}
+
+  /* 4×4 판 — 세로 화면 높이에도 들어가게 폭을 높이로 묶는다 */
+  #grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:12px auto 0;
+    width:min(100%, 430px, calc((100dvh - 330px) * 0.72))}
+  .cell{all:unset;box-sizing:border-box;aspect-ratio:3/4;border-radius:9px;position:relative;
+    display:flex;align-items:center;justify-content:center;cursor:default;
+    -webkit-tap-highlight-color:transparent;transition:transform .12s}
+  .cell.up{background:var(--paper);box-shadow:0 1px 0 rgba(0,0,0,.06),0 2px 8px rgba(40,30,20,.12);border:1px solid rgba(0,0,0,.06)}
+  .cell.back{background:var(--accent);color:var(--accent-ink);
+    background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.09) 0 6px,transparent 6px 12px)}
+  .cell.back:not(:disabled){cursor:pointer}
+  .cell.back:not(:disabled):active{transform:scale(.95)}
+  .cell.sel{outline:3px solid #E7B54A;outline-offset:2px;transform:translateY(-3px);
+    box-shadow:0 6px 14px rgba(0,0,0,.2)}
+  .cell.chosen{outline:3px solid #E7B54A;outline-offset:2px}
+  .cell:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .ltr{font-size:clamp(18px,6vw,26px);font-weight:700;opacity:.95}
+  .cell .tag{position:absolute;right:5px;bottom:3px;font-size:10px;font-weight:600;color:#9A9488}
+
+  .face{display:flex;flex-direction:column;align-items:center;line-height:1;color:var(--paper-ink)}
+  .face.red{color:var(--paper-red)}
+  .face b{font-size:clamp(17px,5.4vw,24px);font-weight:700}
+  .face i{font-style:normal;font-size:clamp(17px,5.6vw,26px);margin-top:2px}
+
+  /* 가운데 세 장 */
+  .commrow{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px}
+  .commrow .lbl{font-size:11.5px;color:var(--muted);margin-right:2px}
+  .mini{width:42px;aspect-ratio:3/4;border-radius:7px;display:inline-flex;align-items:center;justify-content:center}
+  .mini.up{background:var(--paper);border:1px solid rgba(0,0,0,.08);box-shadow:0 1px 4px rgba(40,30,20,.12)}
+  .mini.back{background:var(--surface-2);border:1px dashed var(--line)}
+  .mini .face b{font-size:15px} .mini .face i{font-size:15px;margin-top:1px}
+  .mini.own{outline:2px solid #E7B54A;outline-offset:1px}
+
+  .actions{display:flex;justify-content:center;margin-top:14px}
+  #start{min-height:46px;min-width:160px;font-size:15px}
+
+  /* 결과 */
+  #results{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+  #results li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+    display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center}
+  #results li.win{border-color:#E7B54A;box-shadow:0 0 0 1px #E7B54A inset}
+  #results .who{font-weight:600;display:flex;align-items:center;gap:6px}
+  #results .pt{font-weight:700;font-variant-numeric:tabular-nums;margin-left:auto}
+  #results .hand{grid-column:1/-1;display:flex;gap:8px;align-items:baseline;font-size:13px}
+  #results .cells{color:var(--muted);font-size:12px}
+  #results .row5{grid-column:1/-1;display:flex;gap:5px}
+  #results .mini{width:36px}
+
+  /* 결과를 보는 동안에는 판을 작게 — 목록이 한눈에 들어오게 */
+  body[data-phase="result"] #grid{width:min(100%, 300px)}
+  body[data-phase="result"] .cell .face b,body[data-phase="result"] .cell .face i{font-size:15px}
+
+  #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+    background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;z-index:5}
+  .ver{margin-top:18px;text-align:center;color:var(--faint);font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section id="lobby">
+    <header>
+      <a class="back" href="../">← 게임</a>
+      <p class="eyebrow">공용 · 게임</p>
+      <h1>기억 포커</h1>
+      <p class="sub">16장을 외우고, 두 칸을 골라 포커 족보로 겨뤄요. 1~4명.</p>
+    </header>
+
+    <div class="panel stack">
+      <div>
+        <label for="name">내 이름</label>
+        <input class="field" id="name" maxlength="12" autocomplete="nickname" placeholder="친구들에게 보일 이름">
+      </div>
+      <button class="btn primary" id="make" type="button">새 방 만들기</button>
+      <p class="or">또는 받은 방 코드로</p>
+      <form id="joinForm">
+        <input class="field" id="code" maxlength="8" autocomplete="off" autocapitalize="characters" placeholder="ABC-123" aria-label="방 코드">
+        <button class="btn" type="submit">들어가기</button>
+      </form>
+      <p id="lobbyMsg" role="alert"></p>
+    </div>
+
+    <ol class="rules">
+      <li>4×4 로 깔린 16장을 <b>20초</b> 동안 외워요.</li>
+      <li>카드가 뒤집히고 가운데에 3장이 놓여요.</li>
+      <li><b>10초</b> 안에 A~P 칸 중 두 칸을 골라요. 자리는 그대로예요.</li>
+      <li>고른 2장 + 가운데 3장으로 포커 족보를 내요.</li>
+      <li>이긴 한 명 <b>+1</b>, 나머지 <b>−1</b>. 동점이면 공동 1등끼리 다시 해요.</li>
+    </ol>
+  </section>
+
+  <section id="room" hidden>
+    <div class="top">
+      <a class="back" href="./" style="margin:0">← 나가기</a>
+      <span class="spacer"></span>
+      <span class="pill"><span class="dot off" id="netDot"></span><span id="netText">연결하는 중…</span></span>
+    </div>
+    <div class="top">
+      <span class="pill">방 <span class="code" id="roomCode"></span></span>
+      <button class="btn sm" id="copy" type="button">친구 부르기</button>
+      <span class="pill" id="watch" hidden></span>
+    </div>
+
+    <ul id="seats"></ul>
+
+    <div class="status">
+      <div class="txt">
+        <p id="phase">기다리는 중</p>
+        <p id="hint"></p>
+      </div>
+      <span id="count" aria-live="polite"></span>
+    </div>
+    <div class="track"><div id="bar"></div></div>
+
+    <div id="grid"></div>
+
+    <div class="commrow"><span class="lbl">가운데</span><span id="comm" style="display:flex;gap:8px"></span></div>
+
+    <div class="actions"><button class="btn primary" id="start" type="button" hidden>시작</button></div>
+
+    <ul id="results" hidden></ul>
+  </section>
+
+  <p class="ver">판 1</p>
+</div>
+<div id="toast" hidden></div>
+<script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>
