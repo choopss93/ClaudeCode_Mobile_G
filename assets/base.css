@@ -146,7 +146,9 @@ code{
   background:var(--accent);color:var(--accent-ink);
   border-color:var(--accent);font-weight:600;
 }
-.btn.primary:hover:not(:disabled){filter:brightness(1.07)}
+/* .btn:hover 가 더 구체적이라 그대로 두면 기본 버튼의 색이 벗겨진다.
+   폰은 톡한 뒤에도 hover 가 남아 있어서 글자가 안 보이는 단추가 됐다. */
+.btn.primary:hover:not(:disabled){background:var(--accent);filter:brightness(1.07)}
 .btn.ghost{background:none;border-color:transparent;color:var(--muted)}
 .btn.ghost:hover:not(:disabled){background:var(--surface-2);color:var(--ink)}
 .btn:disabled{opacity:.4;cursor:default}

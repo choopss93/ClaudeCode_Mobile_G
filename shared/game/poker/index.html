@@ -2,11 +2,15 @@
 <html lang="ko" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- 확대를 막는다. 사파리는 user-scalable 을 무시하므로 아래 CSS(touch-action)와
+     main.js 의 gesturestart 막기로 한 번 더 붙든다. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>기억 포커</title>
 <meta name="description" content="16장을 20초 동안 외우고, 두 칸을 골라 포커 족보로 겨루는 1~4인 온라인 게임.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta property="og:title" content="기억 포커">
 <meta property="og:description" content="16장을 외우고 두 칸을 골라 겨뤄요. 1~4명.">
 <meta property="og:type" content="website">
@@ -30,103 +34,167 @@
   .up{color:#6CCB8A!important} .down{color:#F08A6A!important}
 
   /* 카드 앞면은 밤에도 흰 종이다 — 진짜 카드처럼 */
-  :root{ --paper:#FFFDF8; --paper-ink:#24221F; --paper-red:#C8424A; }
+  :root{ --paper:#FFFDF8; --paper-ink:#24221F; --paper-red:#C8424A; --pick:#FFFFFF; --gap:7px; }
 
-  .wrap{padding-bottom:32px}
-  .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:12px}
-  .top .spacer{flex:1}
-  .code{font-weight:700;letter-spacing:.08em;font-variant-numeric:tabular-nums}
+  /* ─── 한 화면에 고정: 확대도 스크롤도 없다 ───
+     몸통을 화면에 못 박고(fixed) 넘치는 것은 자른다. 대신 모든 것이
+     화면 크기에 맞춰 줄어들게 짠다 — 아래 판은 남은 자리만큼만 커진다. */
+  html{height:100%;overflow:hidden;touch-action:manipulation;
+    -webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  input{-webkit-user-select:text;user-select:text}
+  /* 사파리는 16px 보다 작은 칸에 들어가면 저절로 확대한다 */
+  .field{font-size:16px}
 
-  /* 첫 화면 */
-  #lobby .panel{margin-top:16px}
-  #lobby label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
-  #lobby .or{color:var(--faint);font-size:12px;text-align:center;margin:4px 0}
-  #lobby .btn{min-height:44px}
+  .wrap{height:100%;max-width:560px;display:flex;flex-direction:column;
+    padding:0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    padding-bottom:max(10px, env(safe-area-inset-bottom))}
+  section{flex:1;min-height:0;display:flex;flex-direction:column}
+  .ver{flex:none;margin:4px 0 0;text-align:center;color:var(--faint);font-size:10.5px}
+
+  /* ─── 첫 화면 ─── */
+  #lobby header{padding-block:14px 12px}
+  #lobby .back{margin-bottom:8px}
+  #lobby .panel{margin-top:14px;padding:16px 14px;gap:9px}
+  #lobby label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+  #lobby .or{color:var(--faint);font-size:12px;text-align:center;margin:0}
+  #lobby .btn{min-height:46px;font-size:15px}
   #joinForm{display:flex;gap:8px}
-  #joinForm .btn{white-space:nowrap;flex:none}
-  #joinForm .field{text-transform:uppercase;letter-spacing:.1em}
-  #lobbyMsg{color:#F08A6A;font-size:12.5px;min-height:1.2em;margin:8px 0 0}
-  .rules{margin:16px 0 0;padding-left:18px;color:var(--muted);font-size:13px}
-  .rules li{margin:3px 0}
+  #joinForm .field{text-transform:uppercase;letter-spacing:.1em;min-width:0}
+  #joinForm .btn{white-space:nowrap;flex:none;padding-inline:18px}
+  #lobbyMsg{color:#F08A6A;font-size:12.5px;min-height:1.2em;margin:0}
+  .rules{margin:12px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.5}
+  .rules li{margin:2px 0}
+  @media (max-height:640px){
+    #lobby .sub{display:none}
+    #lobby .panel{margin-top:10px}
+    .rules{font-size:11.5px;margin-top:8px}
+  }
+  /* 가로로 눕힌 폰: 제목은 왼쪽, 입력은 오른쪽 */
+  @media (orientation:landscape) and (max-height:520px){
+    #lobby{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);grid-template-rows:auto 1fr;column-gap:18px;
+      padding-top:env(safe-area-inset-top)}
+    #lobby header{grid-column:1;border:0;padding-bottom:0}
+    #lobby .rules{grid-column:1;grid-row:2;display:block;margin-top:4px}
+    #lobby .panel{grid-column:2;grid-row:1 / -1;align-self:center;margin:0;padding:12px 14px;gap:7px}
+    #lobby .sub{display:block}
+    #lobby .btn{min-height:44px}
+    #lobby .field{min-height:42px;padding-block:7px}
+    #lobbyMsg{min-height:0}
+  }
 
-  /* 자리 */
-  #seats{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-  #seats li{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 7px;
-    font-size:12px;display:flex;flex-direction:column;gap:1px;min-width:0;position:relative}
+  /* ─── 방 화면: 위에서부터 차곡차곡, 판은 남은 자리 전부 ─── */
+  #room{padding-top:max(8px, env(safe-area-inset-top));gap:8px}
+  .top{display:flex;align-items:center;gap:6px;flex:none;min-width:0}
+  .top .back{margin:0;min-height:36px;flex:none}
+  .top .spacer{flex:1}
+  .top .pill{white-space:nowrap;min-width:0}
+  .code{font-weight:700;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+  #copy{min-height:36px;flex:none}
+  #netText{overflow:hidden;text-overflow:ellipsis;max-width:22vw}
+  .meta{display:flex;gap:6px;align-items:center;flex:none;min-width:0}
+
+  #seats{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;flex:none}
+  #seats li{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:5px 7px;
+    font-size:12px;display:flex;flex-direction:column;min-width:0;position:relative;min-height:46px}
   #seats li.me{border-color:var(--accent);background:var(--accent-soft)}
   #seats li.out{opacity:.45}
-  #seats li.emptyseat{color:var(--faint);border-style:dashed;justify-content:center;align-items:center;min-height:52px}
-  #seats .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #seats li.emptyseat{color:var(--faint);border-style:dashed;justify-content:center;align-items:center}
+  #seats .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}
   #seats .nm em{font-style:normal;color:var(--accent);margin-right:2px}
   #seats small,#results small{font-size:10px;color:var(--muted);font-weight:500}
-  #seats .sc{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
-  #seats .pk{position:absolute;right:6px;bottom:6px;font-size:10.5px;color:var(--muted)}
-  #watch{margin-top:6px}
+  #seats .sc{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+  #seats .pk{position:absolute;right:6px;bottom:5px;font-size:10.5px;color:var(--muted)}
 
-  /* 안내와 시간 */
-  .status{display:flex;align-items:flex-end;gap:10px;margin-top:14px}
+  .status{display:flex;align-items:flex-end;gap:10px;flex:none;min-width:0}
   .status .txt{flex:1;min-width:0}
-  #phase{margin:0;font-size:19px;font-weight:700;line-height:1.3}
-  #hint{margin:2px 0 0;color:var(--muted);font-size:12.5px;min-height:1.3em}
-  #count{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);min-width:1.4em;text-align:right;line-height:1}
-  .track{height:5px;border-radius:5px;background:var(--surface-2);overflow:hidden;margin-top:8px}
+  #phase,#hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #phase{margin:0;font-size:18px;font-weight:700;line-height:1.3}
+  #hint{margin:1px 0 0;color:var(--muted);font-size:12.5px;min-height:1.3em;line-height:1.3}
+  #count{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);min-width:1.4em;text-align:right;line-height:1}
+  .track{height:4px;border-radius:4px;background:var(--surface-2);overflow:hidden;flex:none}
   #bar{height:100%;background:var(--accent);transform-origin:left;transform:scaleX(0)}
-  body[data-phase="pick"] #bar{background:#C8912F}
+  body[data-phase="pick"] #bar{background:#F2F2F2}
 
-  /* 4×4 판 — 세로 화면 높이에도 들어가게 폭을 높이로 묶는다 */
-  #grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:12px auto 0;
-    width:min(100%, 430px, calc((100dvh - 330px) * 0.72))}
+  /* 판 — 남은 자리(.board)의 폭과 높이 중 작은 쪽에 맞춘다.
+     카드 비율이 3:4 이므로 높이 H 에 들어가는 폭은 (H − 간격3) × 3/4 + 간격3 */
+  .board{flex:1;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
+  #grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--gap);
+    width:min(100cqw, calc((100cqh - 3 * var(--gap)) * 0.75 + 3 * var(--gap)))}
   .cell{all:unset;box-sizing:border-box;aspect-ratio:3/4;border-radius:9px;position:relative;
-    display:flex;align-items:center;justify-content:center;cursor:default;
+    display:flex;align-items:center;justify-content:center;cursor:default;container-type:inline-size;
     -webkit-tap-highlight-color:transparent;transition:transform .12s}
   .cell.up{background:var(--paper);box-shadow:0 2px 10px rgba(0,0,0,.6)}
   .cell.back{background:var(--accent);color:var(--accent-ink);
     background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.09) 0 6px,transparent 6px 12px)}
   .cell.back:not(:disabled){cursor:pointer}
   .cell.back:not(:disabled):active{transform:scale(.95)}
-  .cell.sel{outline:3px solid #FFFFFF;outline-offset:2px;transform:translateY(-3px);
-    box-shadow:0 6px 14px rgba(0,0,0,.2)}
-  .cell.chosen{outline:3px solid #E7B54A;outline-offset:2px}
+  .cell.sel{outline:3px solid var(--pick);outline-offset:2px;transform:translateY(-2px)}
+  .cell.chosen{outline:3px solid var(--pick);outline-offset:2px}
   .cell:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-  .ltr{font-size:clamp(18px,6vw,26px);font-weight:700;opacity:.95}
-  .cell .tag{position:absolute;right:5px;bottom:3px;font-size:10px;font-weight:600;color:#9A9488}
+  /* 글자도 카드 폭에 견주어 — 판이 작아지면 같이 작아진다 */
+  .ltr{font-size:36cqw;font-weight:700}
+  .cell .tag{position:absolute;right:7cqw;bottom:4cqw;font-size:14cqw;font-weight:600;color:#9A9488}
+  .cell .face b{font-size:30cqw}
+  .cell .face i{font-size:30cqw;margin-top:3cqw}
 
   .face{display:flex;flex-direction:column;align-items:center;line-height:1;color:var(--paper-ink)}
   .face.red{color:var(--paper-red)}
-  .face b{font-size:clamp(17px,5.4vw,24px);font-weight:700}
-  .face i{font-style:normal;font-size:clamp(17px,5.6vw,26px);margin-top:2px}
+  .face b{font-weight:700}
+  .face i{font-style:normal}
 
-  /* 가운데 세 장 */
-  .commrow{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px}
-  .commrow .lbl{font-size:11.5px;color:var(--muted);margin-right:2px}
-  .mini{width:42px;aspect-ratio:3/4;border-radius:7px;display:inline-flex;align-items:center;justify-content:center}
-  .mini.up{background:var(--paper);border:1px solid rgba(0,0,0,.08);box-shadow:0 1px 4px rgba(40,30,20,.12)}
+  /* 아래: 가운데 세 장 · 단추 · 결과 */
+  .foot{flex:0 1 auto;display:flex;flex-direction:column;gap:8px;min-height:0}
+  /* 판에 남은 자리가 너무 작으면(결과를 보는 동안 작은 폰) 판을 접는다.
+     결과 줄마다 그 사람의 카드가 다 보이므로 잃는 것이 없다. */
+  @container (max-height:150px){ #grid{display:none} }
+  .commrow{display:flex;align-items:center;justify-content:center;gap:8px}
+  .commrow .lbl{font-size:11.5px;color:var(--muted)}
+  #comm{display:flex;gap:8px}
+  .mini{width:clamp(30px, 10vw, 44px);aspect-ratio:3/4;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;container-type:inline-size;flex:none}
+  .mini.up{background:var(--paper)}
   .mini.back{background:var(--surface-2);border:1px dashed var(--line)}
-  .mini .face b{font-size:15px} .mini .face i{font-size:15px;margin-top:1px}
-  .mini.own{outline:2px solid #E7B54A;outline-offset:1px}
+  .mini .face b,.mini .face i{font-size:36cqw}
+  .mini.own{outline:2px solid var(--pick);outline-offset:1px}
+  #start{min-height:46px;width:100%;font-size:15px}
 
-  .actions{display:flex;justify-content:center;margin-top:14px}
-  #start{min-height:46px;min-width:160px;font-size:15px}
+  /* 결과 — 한 사람 한 줄. 넷이 다 들어가게 촘촘히 */
+  /* 넷이 다 들어가지 않을 만큼 낮은 화면이면 목록 안에서만 넘긴다 (페이지는 그대로) */
+  #results{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;
+    min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+  #results li{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:5px 8px;
+    display:flex;align-items:center;gap:8px;min-width:0}
+  #results li.win{border-color:var(--accent)}
+  #results .who{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+  #results .who b,#results .who span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #results .who b{font-size:13px}
+  #results .who span{font-size:11px;color:var(--muted)}
+  #results .row5{display:flex;gap:3px;flex:none}
+  #results .mini{width:clamp(22px, 7vw, 30px);border-radius:4px}
+  #results .pt{font-weight:700;font-variant-numeric:tabular-nums;width:2.1em;text-align:right;flex:none;font-size:14px}
+  body[data-phase="result"] .commrow{display:none}
 
-  /* 결과 */
-  #results{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
-  #results li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;
-    display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center}
-  #results li.win{border-color:#E7B54A;box-shadow:0 0 0 1px #E7B54A inset}
-  #results .who{font-weight:600;display:flex;align-items:center;gap:6px}
-  #results .pt{font-weight:700;font-variant-numeric:tabular-nums;margin-left:auto}
-  #results .hand{grid-column:1/-1;display:flex;gap:8px;align-items:baseline;font-size:13px}
-  #results .cells{color:var(--muted);font-size:12px}
-  #results .row5{grid-column:1/-1;display:flex;gap:5px}
-  #results .mini{width:36px}
-
-  /* 결과를 보는 동안에는 판을 작게 — 목록이 한눈에 들어오게 */
-  body[data-phase="result"] #grid{width:min(100%, 300px)}
-  body[data-phase="result"] .cell .face b,body[data-phase="result"] .cell .face i{font-size:15px}
+  /* 낮은 화면(가로로 눕힌 폰): 판을 왼쪽에, 나머지를 오른쪽에 */
+  @media (orientation:landscape) and (max-height:520px){
+    .wrap{max-width:none}
+    #room{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto auto auto 1fr;
+      column-gap:14px;row-gap:6px}
+    #room > .board{grid-column:1;grid-row:1 / -1;width:calc((100dvh - 30px) * 0.75);height:100%}
+    #room > :not(.board){grid-column:2}
+    #room > .foot{min-height:0}
+    #hint{display:none}
+    .ver{display:none}
+    /* 결과는 두 줄씩 나란히 — 낮은 화면에 넷이 다 들어가게 */
+    #results{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+    #results .who span{display:none}
+    #results li{padding:4px 6px;gap:6px}
+    #results .mini{width:clamp(18px, 3.2vw, 26px)}
+    #start{min-height:40px}
+  }
 
   #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
-    background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;z-index:5}
-  .ver{margin-top:18px;text-align:center;color:var(--faint);font-size:11px}
+    background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;z-index:5;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -134,7 +202,6 @@
   <section id="lobby">
     <header>
       <a class="back" href="../">← 게임</a>
-      <p class="eyebrow">공용 · 게임</p>
       <h1>기억 포커</h1>
       <p class="sub">16장을 외우고, 두 칸을 골라 포커 족보로 겨뤄요. 1~4명.</p>
     </header>
@@ -156,19 +223,19 @@
     <ol class="rules">
       <li>4×4 로 깔린 16장을 <b>20초</b> 동안 외워요.</li>
       <li>카드가 뒤집히고 가운데에 3장이 놓여요.</li>
-      <li><b>10초</b> 안에 A~P 칸 중 두 칸을 골라요. 자리는 그대로예요.</li>
+      <li><b>10초</b> 안에 A~P 칸 중 두 칸을 골라요.</li>
       <li>고른 2장 + 가운데 3장으로 포커 족보를 내요.</li>
-      <li>이긴 한 명 <b>+1</b>, 나머지 <b>−1</b>. 동점이면 공동 1등끼리 다시 해요.</li>
+      <li>이긴 한 명 <b>+1</b>, 나머지 <b>−1</b>. 동점이면 1등끼리 결승.</li>
     </ol>
   </section>
 
   <section id="room" hidden>
     <div class="top">
-      <a class="back" href="./" style="margin:0">← 나가기</a>
+      <a class="back" href="./">← 나가기</a>
       <span class="spacer"></span>
-      <span class="pill"><span class="dot off" id="netDot"></span><span id="netText">연결하는 중…</span></span>
+      <span class="pill"><span class="dot off" id="netDot"></span><span id="netText">연결 중</span></span>
     </div>
-    <div class="top">
+    <div class="top meta">
       <span class="pill">방 <span class="code" id="roomCode"></span></span>
       <button class="btn sm" id="copy" type="button">친구 부르기</button>
       <span class="pill" id="watch" hidden></span>
@@ -185,18 +252,18 @@
     </div>
     <div class="track"><div id="bar"></div></div>
 
-    <div id="grid"></div>
+    <div class="board"><div id="grid"></div></div>
 
-    <div class="commrow"><span class="lbl">가운데</span><span id="comm" style="display:flex;gap:8px"></span></div>
-
-    <div class="actions"><button class="btn primary" id="start" type="button" hidden>시작</button></div>
-
-    <ul id="results" hidden></ul>
+    <div class="foot">
+      <div class="commrow"><span class="lbl">가운데</span><span id="comm"></span></div>
+      <ul id="results" hidden></ul>
+      <button class="btn primary" id="start" type="button" hidden>시작</button>
+    </div>
   </section>
 
-  <p class="ver">판 2</p>
+  <p class="ver">판 4</p>
 </div>
 <div id="toast" hidden></div>
-<script type="module" src="js/main.js?v=2"></script>
+<script type="module" src="js/main.js?v=4"></script>
 </body>
 </html>

@@ -28,6 +28,13 @@ let store = {};
 try { store = JSON.parse(localStorage.getItem('memPoker') || '{}') || {}; } catch (_){}
 const save = () => { try { localStorage.setItem('memPoker', JSON.stringify(store)); } catch (_){} };
 
+/* 확대 막기 — 사파리는 viewport 의 user-scalable 을 듣지 않는다.
+   두 손가락 오므리기(gesturestart · 두 손가락 touchmove)를 막는다. */
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+/* 두 번 톡 확대는 CSS 의 touch-action:manipulation 이 막는다. touchend 를 막는
+   식으로 하면 두 칸을 빨리 고를 때 두 번째 톡이 먹힌다. */
+
 /* ─────────── 상태 ─────────── */
 const me = { id: makeId(), name: '', at: 0 };
 let net = null, roomId = null;
@@ -312,12 +319,12 @@ function render(){
     box.hidden = false;
     box.innerHTML = [...result.rows].sort((a, b) => compare(b.key, a.key)).map(r => {
       const cards = [...r.p.map(i => round.grid[i]), ...round.comm];
+      const pt = r.pt > 0 ? '+1' : r.pt < 0 ? '−1' : r.win && result.tie ? '결승' : '·';
       return `<li class="${r.win ? 'win' : ''}">
-        <div class="who">${esc(nameOf(r.id))}${r.id === me.id ? ' <small>나</small>' : ''}
-          <span class="pt ${r.pt > 0 ? 'up' : r.pt < 0 ? 'down' : ''}">${r.pt > 0 ? '+1' : r.pt < 0 ? '−1' : r.win && result.tie ? '결승' : '·'}</span></div>
-        <div class="hand"><b>${esc(r.hand)}</b>
-          <span class="cells">${r.p.length ? r.p.map(cellName).join(' · ') : '못 골랐어요'}</span></div>
+        <div class="who"><b>${esc(nameOf(r.id))}${r.id === me.id ? ' <small>나</small>' : ''}</b>
+          <span>${esc(r.hand)} · ${r.p.length ? r.p.map(cellName).join(' ') : '못 골랐어요'}</span></div>
         <div class="row5">${cards.map((c, k) => `<span class="mini up ${k < r.p.length ? 'own' : ''}">${face(c)}</span>`).join('')}</div>
+        <span class="pt ${r.pt > 0 ? 'up' : r.pt < 0 ? 'down' : ''}">${pt}</span>
       </li>`;
     }).join('');
   } else box.hidden = true;
