@@ -1,4 +1,4 @@
-import { shuffled, evaluate, compare, label, isRed, SUITS, suitOf, cellName } from './cards.js?v=1';
+import { shuffled, evaluate, compare, label, isRed, SUITS, suitOf, cellName } from './cards.js?v=5';
 import { joinRoom, makeId, MAX_SEATS } from './room.js?v=1';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 
@@ -6,14 +6,15 @@ import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToH
  * 기억 포커.
  *
  *   1. 4×4 로 깔린 16장을 20초 동안 외운다.
- *   2. 카드가 뒤집히고 가운데에 3장이 놓인다.
+ *   2. 카드가 뒤집히고 가운데에 2장이 놓인다.
  *   3. 10초 안에 A~P 칸 중 두 칸을 고른다 (자리는 그대로다).
- *   4. 고른 두 장 + 가운데 세 장으로 족보를 낸다.
+ *   4. 고른 두 장 + 가운데 두 장, 네 장으로 족보를 낸다.
  *      이긴 한 명 +1, 나머지 −1. 동점이면 공동 1등끼리 다시 한다.
  *
  * 16장은 모두에게 똑같이 보이고, 같은 칸을 여럿이 골라도 된다.
  */
 
+const COMM = 2;              // 가운데에 놓이는 장수 (사용자 요청으로 3 → 2)
 const SHOW = 20000;          // 외우는 시간
 const PICK = 10000;          // 고르는 시간
 const GRACE = 1500;          // 고른 칸이 방장에게 닿을 여유
@@ -103,7 +104,7 @@ function flash(text){
 function startRound(seats, tie){
   const deck = shuffled();
   const n = Math.max(round ? round.n : 0, result ? result.n : 0) + 1;
-  applyRound({ n, seats, grid: deck.slice(0, 16), comm: deck.slice(16, 19), el: 0, tie, scores, names: namesFor(seats) });
+  applyRound({ n, seats, grid: deck.slice(0, 16), comm: deck.slice(16, 16 + COMM), el: 0, tie, scores, names: namesFor(seats) });
   sendRound();
 }
 
@@ -271,9 +272,9 @@ function render(){
     return `<button class="cell back ${sel ? 'sel' : ''}" data-i="${i}" ${ph === 'pick' && amIn() ? '' : 'disabled'} aria-pressed="${sel}"><span class="ltr">${cellName(i)}</span></button>`;
   }).join('');
 
-  // 가운데 세 장
+  // 가운데 카드
   const commUp = round && (ph === 'pick' || ph === 'wait' || ph === 'result');
-  $('#comm').innerHTML = [0, 1, 2].map(k =>
+  $('#comm').innerHTML = Array.from({ length: COMM }, (_, k) =>
     commUp ? `<span class="mini up">${face(round.comm[k])}</span>` : '<span class="mini back"></span>').join('');
 
   // 안내
@@ -291,7 +292,7 @@ function render(){
   } else if (ph === 'pick'){
     head.textContent = round.tie ? '결승 · 두 칸을 고르세요' : '두 칸을 고르세요';
     sub.textContent = amIn()
-      ? (mine.length ? `고른 칸 ${mine.map(cellName).join(' · ')}` : '가운데 세 장과 함께 족보를 만들 칸 둘')
+      ? (mine.length ? `고른 칸 ${mine.map(cellName).join(' · ')}` : '가운데 두 장과 함께 족보를 만들 칸 둘')
       : '이번 판은 지켜봐요.';
   } else if (ph === 'wait'){
     head.textContent = '결과를 모으는 중…';
