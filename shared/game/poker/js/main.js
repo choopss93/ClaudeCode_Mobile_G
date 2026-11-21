@@ -278,8 +278,49 @@ function resultTitle(){
   return w ? (w.id === me.id ? '이겼어요!' : `${nameOf(w.id)} 님 승리`) : '끝';
 }
 
+/* ─────────── 족보 창 ───────────
+   예시 카드는 숫자로 적는다: 무늬(0 ♠ 1 ♥ 2 ♦ 3 ♣) × 13 + (숫자 − 1).
+   dim 은 족보에 들지 않는 남는 카드(키커) 자리다. */
+const C = (n, s) => s * 13 + n - 1;
+const HAND_GUIDE = [
+  ['로열 스트레이트 플러시', '같은 무늬로 10 · J · Q · K · A', [[1,0],[13,0],[12,0],[11,0],[10,0]], 0, false],
+  ['스트레이트 플러시', '같은 무늬로 숫자 다섯 장이 이어짐', [[9,1],[8,1],[7,1],[6,1],[5,1]], 0, false],
+  ['포카드', '같은 숫자 네 장', [[7,0],[7,1],[7,2],[7,3],[13,0]], 1, true],
+  ['풀하우스', '같은 숫자 세 장 + 같은 숫자 두 장', [[12,0],[12,1],[12,2],[4,3],[4,1]], 0, false],
+  ['플러시', '무늬가 같은 다섯 장 (숫자는 아무거나)', [[13,2],[10,2],[7,2],[4,2],[2,2]], 0, false],
+  ['스트레이트', '숫자 다섯 장이 이어짐 (무늬는 아무거나)', [[8,0],[7,1],[6,3],[5,2],[4,0]], 0, false],
+  ['트리플', '같은 숫자 세 장', [[9,0],[9,2],[9,3],[13,1],[3,0]], 2, true],
+  ['투페어', '같은 숫자 두 장이 두 쌍', [[11,0],[11,1],[5,2],[5,3],[1,0]], 1, true],
+  ['원페어', '같은 숫자 두 장', [[10,1],[10,3],[13,0],[7,2],[3,1]], 3, true],
+  ['하이카드', '아무것도 안 맞으면 가장 높은 카드로', [[1,3],[11,1],[8,0],[4,2],[2,3]], 4, true]
+];
+
+function openHands(){
+  sheetFor = 'hands';
+  $('#sheetTitle').textContent = '포커 족보';
+  $('#sheetSub').textContent = '위에 있을수록 높아요. 이 게임은 4장이라 ‘나와요’ 표시만 나와요.';
+  $('#sheetBody').innerHTML = '<ol id="handList">' + HAND_GUIDE.map(([nm, ds, ex, kick, ok], i) => `
+    <li class="${ok ? '' : 'off'}">
+      <span class="no">${i + 1}</span>
+      <span class="nm">${nm}</span>
+      <span class="ok">${ok ? '나와요' : '5장 필요'}</span>
+      <span class="ds">${ds}</span>
+      <span class="ex">${ex.map(([n, s], k) => `<span class="mini up ${k >= ex.length - kick ? 'dim' : ''}">${face(C(n, s))}</span>`).join('')}</span>
+    </li>`).join('') + `</ol>
+    <div class="tips">
+      <p><b>같은 족보끼리는</b> 숫자가 높은 쪽이 이겨요. 투페어는 높은 쌍부터, 그다음 낮은 쌍, 그다음 남은 카드 순서로 견줘요.</p>
+      <p><b>A</b> 는 가장 높은 카드예요. A-2-3-4-5 스트레이트에서만 가장 낮게 쳐요.</p>
+      <p><b>무늬</b>로는 순서를 가리지 않아요. 끝까지 똑같으면 동점 — 공동 1등끼리 결승을 해요.</p>
+      <p><b>흐린 카드</b>는 족보에 들지 않은 남는 카드예요. 족보가 같을 때 견주는 데 써요.</p>
+    </div>`;
+  $('#sheetBtns').innerHTML = '<button class="btn" data-act="close" type="button">닫기</button>';
+  sheet.hidden = false;
+  $('#sheetBody').scrollTop = 0;
+}
+$('#handsBtn').onclick = openHands;
+
 function drawSheet(){
-  if (!sheetFor || !net) return;
+  if (!sheetFor || sheetFor === 'hands' || !net) return;
   const T = $('#sheetTitle'), S = $('#sheetSub'), B = $('#sheetBody'), F = $('#sheetBtns');
   const host = net.order()[0].id;
 
