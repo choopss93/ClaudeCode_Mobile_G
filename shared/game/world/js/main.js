@@ -11,7 +11,7 @@ import { lookNow, createStars, createSun, applyLook } from '#daylight';
 import { createControls } from '#controls';
 import { createLocalNet } from '#net';
 import { readAccount } from '../../../js/account.js?v=s2';
-import { cleanChar, colorsOf } from '../../../js/character.js?v=c2';
+import { cleanChar, colorsOf } from '../../../js/character.js?v=c3';
 import { createLiveNet } from '#live';
 import { SKY, colorFor, hairFor, wind, toon } from '#look';
 
@@ -950,7 +950,7 @@ function begin(myName, petName, petSpec, friends, myLook){
     id: myId,
     me: { name: myName, look: myLook, dog: myCard.name,
           colors: MY_CHAR ? colorsOf(MY_CHAR) : null,
-          style: MY_CHAR ? [MY_CHAR.gender === 'f' ? 1 : 0, MY_CHAR.face, MY_CHAR.hair, MY_CHAR.top, MY_CHAR.bottom, MY_CHAR.skin] : null,
+          style: MY_CHAR ? [MY_CHAR.gender === 'f' ? 1 : 0, MY_CHAR.face, MY_CHAR.hair, MY_CHAR.top, MY_CHAR.bottom, MY_CHAR.skin, MY_CHAR.expr] : null,
           // '랜덤' 을 그대로 보내면 받는 쪽에서 다른 털빛이 된다.
           // 이미 뽑힌 값을 보내야 같은 아이가 된다.
           pet: { kind: myCard.kind, breed: myCard.breed, coat: myCard.coat,

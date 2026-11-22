@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { toon, makeBlob, makeSpray, sprayCap } from '#look';
 import { PAINTS, fixPaint, fixSprays, sprayRadius } from '#pets';
-import { baseMats, dressBody, dressHead } from './outfit.js?v=o3';
-import { resolveChar } from '../../../js/character.js?v=c2';
+import { baseMats, dressBody, dressHead } from './outfit.js?v=o4';
+import { resolveChar } from '../../../js/character.js?v=c3';
 
 /** 뿌린 자국을 살갗에서 띄우는 거리 (m). 깜빡이지 않을 만큼만. */
 const SPRAY_LIFT = 0.0015;

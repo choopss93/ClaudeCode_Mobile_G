@@ -79,7 +79,7 @@ async function readToken(env, token){
 }
 
 /* 캐릭터 — 번호만 담는다. 번호가 무엇인지는 화면 쪽(shared/js/character.js)이 안다.
-   {nick, gender:'m'|'f', face, hair, top, bottom, skin} — 예전 판(look · cloth)으로
+   {nick, gender:'m'|'f', face, expr, hair, top, bottom, skin} — 예전 판(look · cloth)으로
    온 것도 받아서 새 판으로 고쳐 둔다. */
 function cleanChar(c){
   if (!c || typeof c !== 'object') return null;
@@ -87,7 +87,7 @@ function cleanChar(c){
   if (!nick) return null;
   const n = (v, max) => (Number.isInteger(v) && v >= 0 && v <= max ? v : 0);
   const gender = c.gender === 'f' || c.gender === 'm' ? c.gender : (c.look === 'long' ? 'f' : 'm');
-  return { nick, gender, face: n(c.face, 31), hair: n(c.hair, 31),
+  return { nick, gender, face: n(c.face, 31), expr: n(c.expr, 31), hair: n(c.hair, 31),
            top: n(Number.isInteger(c.top) ? c.top : c.cloth, 31), bottom: n(c.bottom, 31), skin: n(c.skin, 7) };
 }
 const publicUser = u => ({ id: u.id, char: u.char });

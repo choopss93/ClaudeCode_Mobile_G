@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s3';
-import { GENDERS, SKIN, PARTS, hex, cleanChar, randomChar } from './character.js?v=c2';
+import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s5';
+import { GENDERS, SKIN, PARTS, hex, cleanChar, randomChar } from './character.js?v=c3';
 import { readAccount, refresh, checkId, signup, login, logout, saveChar } from './account.js?v=s2';
 
 /*
@@ -208,12 +208,12 @@ function paintMaker(){
   } else {
     const list = PARTS.find(p => p[0] === part)[2][draft.gender];
     html = list.map((o, i) => {
-      const dot = o.color != null && part !== 'face' ? `<i style="background:${hex(o.color)}"></i>` : '';
+      const dot = o.color != null && part !== 'face' && part !== 'expr' ? `<i style="background:${hex(o.color)}"></i>` : '';
       return `<button type="button" class="${draft[part] === i ? 'on' : ''}" data-i="${i}">${dot}<span>${o.name}</span></button>`;
     }).join('');
   }
   $('#opts').innerHTML = html;
-  zoomTo = part === 'face' || part === 'hair' ? 1 : 0;
+  zoomTo = part === 'face' || part === 'expr' || part === 'hair' ? 1 : 0;
   wear(draft);
 }
 

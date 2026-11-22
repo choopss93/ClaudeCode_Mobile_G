@@ -135,7 +135,7 @@ export function dressBody(ctx, r){
 export function dressHead(ctx, r){
   const { head, R } = ctx;
   hair(head, R, r.hair);
-  face(head, R, r.face, r.gender);
+  face(head, R, r.face, r.expr, r.gender);
   put(head, ball, toon(r.skin), 0, -0.04, R * 0.84 * 1.02, 0.034, 0.03, 0.03);   // 코
 }
 
@@ -216,51 +216,65 @@ function hair(head, R, h){
   }
 }
 
-function face(head, R, f, gender){
+function face(head, R, f, x, gender){
   const fz = R * 0.84;
   const dark = toon(DARK), white = toon(WHITE), mouthMat = toon(MOUTH);
   const blush = toon(0xFFB4C0);
   const EX = 0.105, EY = 0.015;
   const surfZ = y => R * 0.92 * Math.sqrt(Math.max(0, 1 - (y / (R * 0.96)) ** 2));   // 그 높이의 얼굴 앞면
 
-  const dot = (x, s = 1, sy = 1.15) => put(head, ball, dark, x, EY, fz, 0.042 * s, 0.042 * s * sy, 0.03);
-  const shine = x => put(head, ball, white, x + 0.016, EY + 0.024, surfZ(EY) + 0.004, 0.013);
-  const arc = x => put(head, arcHalf, dark, x, EY - 0.005, surfZ(EY) - 0.004, 0.034, 0.034, 0.03);   // ∩ — 웃는 눈
+  const dot = (ex, s = 1, sy = 1.15, sx = 1) => put(head, ball, dark, ex, EY, fz, 0.042 * s * sx, 0.042 * s * sy, 0.03);
+  const shine = (ex, k = 1) => put(head, ball, white, ex + 0.016 * k, EY + 0.024 * k, surfZ(EY) + 0.004, 0.013 * k);
+  const arc = ex => put(head, arcHalf, dark, ex, EY - 0.005, surfZ(EY) - 0.004, 0.034, 0.034, 0.03);   // ∩ — 웃는 눈
 
-  const eye = x => {
-    switch (f.eyes){
-      case 'sparkle': dot(x, 1.2, 1.2); shine(x); break;
-      case 'happy': arc(x); break;
-      case 'sleepy': put(head, ball, dark, x, EY - 0.01, fz, 0.046, 0.016, 0.03); break;
-      case 'surprised': dot(x, 1.25, 1); shine(x); break;
-      case 'small': dot(x, 0.75, 1.05); break;
-      default: dot(x);
+  // 눈 — 표정이 눈을 바꾸면 그쪽이 먼저다 (활짝 · 윙크 · 졸림 · 놀람)
+  const shape = x.eyes || f.eyes;
+  const eye = (ex, sh) => {
+    switch (sh){
+      case 'sparkle': dot(ex, 1.2, 1.2); shine(ex); break;
+      case 'big': dot(ex, 1.38, 1.1); shine(ex, 1.25); break;
+      case 'small': dot(ex, 0.72, 1.05); break;
+      case 'tall': dot(ex, 0.85, 1.75); break;
+      case 'calm': put(head, ball, dark, ex, EY - 0.004, fz, 0.05, 0.03, 0.03); break;
+      case 'happy': arc(ex); break;
+      case 'sleepy': put(head, ball, dark, ex, EY - 0.01, fz, 0.046, 0.016, 0.03); break;
+      case 'surprised': dot(ex, 1.3, 1); shine(ex); break;
+      default: dot(ex);
     }
   };
-  if (f.eyes === 'wink'){ dot(-EX); arc(EX); } else { eye(-EX); eye(EX); }
+  if (shape === 'wink'){ eye(-EX, f.eyes); arc(EX); }   // 윙크 — 한쪽은 얼굴 본래의 눈, 한쪽은 감은 눈
+  else { eye(-EX, shape); eye(EX, shape); }
 
-  // 속눈썹 (여자) · 눈썹 (남자)
+  // 속눈썹 (여자) · 눈썹 (남자, 표정에 따라 기운다)
+  const tilt = x.brow || 0;
   for (const s of [-1, 1]){
     if (f.lash) put(head, ball, dark, s * (EX + 0.04), EY + 0.04, surfZ(EY + 0.04) - 0.006, 0.022, 0.007, 0.01, 0, 0, s * 0.6);
-    if (f.brow) put(head, ball, toon(0x6B5A55), s * EX, EY + 0.075, surfZ(EY + 0.075) - 0.004, 0.034, 0.008, 0.01, 0, 0, -s * 0.12);
+    if (f.brow || tilt) put(head, ball, toon(f.brow ? 0x6B5A55 : 0x8A7570), s * EX, EY + 0.075 + (tilt > 0 ? 0.012 : 0), surfZ(EY + 0.075) - 0.004,
+                           0.034, f.brow ? 0.008 : 0.006, 0.01, 0, 0, -s * (0.12 - tilt));
   }
 
   // 입
   const MY = -0.095, mz = surfZ(MY) - 0.004;
-  switch (f.mouth){
+  switch (x.mouth){
     case 'grin': put(head, arcHalf, mouthMat, 0, MY + 0.012, mz, 0.04, 0.04, 0.03, 0, 0, Math.PI); break;
     case 'flat': put(head, ball, mouthMat, 0, MY, mz, 0.024, 0.006, 0.008); break;
     case 'cat': for (const s of [-1, 1]) put(head, arcHalf, mouthMat, s * 0.02, MY + 0.008, mz, 0.02, 0.02, 0.02, 0, 0, Math.PI); break;
     case 'o': put(head, ringThin, mouthMat, 0, MY - 0.004, mz, 0.017, 0.02, 0.02); break;
+    case 'tongue':
+      put(head, arcHalf, mouthMat, 0, MY + 0.01, mz, 0.03, 0.03, 0.03, 0, 0, Math.PI);
+      put(head, ball, toon(0xFF8E9E), 0.006, MY - 0.022, mz + 0.002, 0.016, 0.02, 0.012);
+      break;
+    case 'frown': put(head, arcHalf, mouthMat, 0, MY - 0.018, mz, 0.026, 0.022, 0.03); break;   // ∩ — 시무룩
     default: put(head, arcHalf, mouthMat, 0, MY + 0.01, mz, 0.03, 0.03, 0.03, 0, 0, Math.PI);
   }
 
-  // 볼과 코 — 주근깨 얼굴은 볼 대신 점
-  if (f.eyes === 'small'){
+  // 볼 — 주근깨 · 점이 있는 얼굴도 볼터치는 둔다
+  for (const s of [-1, 1]) put(head, ball, blush, s * 0.175, -0.07, fz * 0.86, 0.055, 0.035, 0.03);
+  if (f.mark === 'freckle'){
     const fr = toon(0xC9906E);
-    for (const s of [-1, 1]) for (const [dx, dy] of [[0, 0], [0.025, 0.012], [0.02, -0.016]])
-      put(head, ball, fr, s * (0.165 + dx), -0.055 + dy, surfZ(-0.055) - 0.006, 0.008);
-  } else {
-    for (const s of [-1, 1]) put(head, ball, blush, s * 0.175, -0.07, fz * 0.86, 0.055, 0.035, 0.03);
+    for (const s of [-1, 1]) for (const [dx, dy] of [[-0.03, 0.02], [-0.008, 0.03], [-0.02, 0.0]])
+      put(head, ball, fr, s * (0.165 + dx), -0.045 + dy, surfZ(-0.045) - 0.004, 0.008);
+  } else if (f.mark === 'mole'){
+    put(head, ball, toon(0x6B4F48), 0.12, -0.105, surfZ(-0.105) - 0.004, 0.009);
   }
 }

@@ -3,7 +3,7 @@
  *
  * 남자 · 여자를 먼저 고르고, 그에 따라 얼굴 · 헤어 · 상의 · 하의를 **8가지씩**
  * 고른다. 피부색은 둘이 같다. 계정에는 **번호만** 담는다:
- *   {nick, gender:'m'|'f', face, hair, top, bottom, skin}
+ *   {nick, gender:'m'|'f', face, expr, hair, top, bottom, skin}
  * 번호가 무엇인지는 여기 한 곳이 안다 (모양은 game/world/js/outfit.js 가 짓는다).
  * 그래서 고를 거리를 더할 때는 **목록 끝에만** 붙인다 — 가운데 끼우면 이미
  * 만든 캐릭터가 다른 옷을 입게 된다. (서버는 번호 31 까지 받는다.)
@@ -14,21 +14,35 @@
 export const GENDERS = [['m', '남자'], ['f', '여자']];
 export const SKIN = [0xFFE9D4, 0xF6D5B8, 0xE8BE98, 0xC99A74, 0x9C6E4E];
 
-/* 얼굴 — eyes: 눈 모양, mouth: 입 모양. 여자 얼굴에는 속눈썹이 붙는다. */
+/* 얼굴 — 생김새. eyes: 눈 모양, mark: 볼의 점 · 주근깨. 여자 얼굴에는 속눈썹이 붙는다. */
 const FACE_SET = [
-  ['동글 눈',  'dot',      'smile'],
-  ['반짝 눈',  'sparkle',  'smile'],
-  ['웃는 눈',  'happy',    'grin'],
-  ['졸린 눈',  'sleepy',   'flat'],
-  ['윙크',     'wink',     'grin'],
-  ['고양이',   'dot',      'cat'],
-  ['놀란 눈',  'surprised','o'],
-  ['주근깨',   'small',    'smile']
+  ['동글 눈', 'dot'],
+  ['반짝 눈', 'sparkle'],
+  ['큰 눈',   'big'],
+  ['작은 눈', 'small'],
+  ['세로 눈', 'tall'],
+  ['반달 눈', 'calm'],
+  ['주근깨',  'dot', 'freckle'],
+  ['점',      'dot', 'mole']
 ];
 export const FACES = {
-  m: FACE_SET.map(([name, eyes, mouth]) => ({ name, eyes, mouth, brow: true })),
-  f: FACE_SET.map(([name, eyes, mouth]) => ({ name, eyes, mouth, lash: true }))
+  m: FACE_SET.map(([name, eyes, mark]) => ({ name, eyes, mark: mark || null, brow: true })),
+  f: FACE_SET.map(([name, eyes, mark]) => ({ name, eyes, mark: mark || null, lash: true }))
 };
+
+/* 표정 — 기분. mouth: 입, eyes: 눈을 바꾸는 표정이면 그 모양(없으면 얼굴의 눈 그대로),
+   brow: 눈썹 기울기(+ 올라감 · − 처짐). 남녀가 같다. */
+const EXPR_SET = [
+  { name: '미소',     mouth: 'smile' },
+  { name: '활짝',     mouth: 'grin',   eyes: 'happy' },
+  { name: '윙크',     mouth: 'grin',   eyes: 'wink' },
+  { name: '졸림',     mouth: 'flat',   eyes: 'sleepy' },
+  { name: '놀람',     mouth: 'o',      eyes: 'surprised', brow: 0.25 },
+  { name: '고양이 입', mouth: 'cat' },
+  { name: '메롱',     mouth: 'tongue', eyes: 'wink' },
+  { name: '시무룩',   mouth: 'frown',  brow: -0.35 }
+];
+export const EXPRS = { m: EXPR_SET, f: EXPR_SET };
 
 /* 헤어 — kind: 모양, color: 머리색 */
 export const HAIRS = {
@@ -103,7 +117,7 @@ export const BOTTOMS = {
   ]
 };
 
-export const PARTS = [['face', '얼굴', FACES], ['hair', '헤어', HAIRS], ['top', '상의', TOPS], ['bottom', '하의', BOTTOMS]];
+export const PARTS = [['face', '얼굴', FACES], ['expr', '표정', EXPRS], ['hair', '헤어', HAIRS], ['top', '상의', TOPS], ['bottom', '하의', BOTTOMS]];
 
 export const hex = n => '#' + n.toString(16).padStart(6, '0');
 
@@ -116,6 +130,7 @@ export function cleanChar(c){
     nick: String(c.nick || '').trim().slice(0, 12),
     gender,
     face: pick(c.face, 8),
+    expr: pick(c.expr, 8),
     hair: pick(c.hair, 8),
     top: pick(Number.isInteger(c.top) ? c.top : c.cloth, 8),
     bottom: pick(c.bottom, 8),
@@ -127,7 +142,7 @@ export function cleanChar(c){
 export function resolveChar(c){
   c = cleanChar(c);
   const g = c.gender;
-  return { gender: g, skin: SKIN[c.skin], face: FACES[g][c.face], hair: HAIRS[g][c.hair],
+  return { gender: g, skin: SKIN[c.skin], face: FACES[g][c.face], expr: EXPRS[g][c.expr], hair: HAIRS[g][c.hair],
            top: TOPS[g][c.top], bottom: BOTTOMS[g][c.bottom] };
 }
 
@@ -140,5 +155,5 @@ export function colorsOf(c){
 /** 처음 만들 때 — 아무거나 하나 골라 준다. */
 export function randomChar(){
   const r = n => Math.floor(Math.random() * n);
-  return { nick: '', gender: Math.random() < 0.5 ? 'm' : 'f', face: r(8), hair: r(8), top: r(8), bottom: r(8), skin: r(SKIN.length) };
+  return { nick: '', gender: Math.random() < 0.5 ? 'm' : 'f', face: r(8), expr: r(8), hair: r(8), top: r(8), bottom: r(8), skin: r(SKIN.length) };
 }

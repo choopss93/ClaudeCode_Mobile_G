@@ -18,7 +18,8 @@ import { connectMqtt } from '#mqtt';
  *
  * 꾸러미 (JSON 배열, 짧게)
  *   ['hi', id, 이름, 머리, 아이이름, [종, 품종, 털빛, 섞을품종, 칠, 자국], [옷색, 머리색, 피부색],
- *          [성별(0남 · 1여), 얼굴, 헤어, 상의, 하의, 피부]]   — Metaversal Studio 캐릭터
+ *          [성별(0남 · 1여), 얼굴, 헤어, 상의, 하의, 피부, 표정]]   — Metaversal Studio 캐릭터
+ *          (표정은 나중에 뒤에 붙었다 — 여섯 자리로 오면 표정 0)
  *          들어왔음 · 4초마다 다시. 없는 것은 null 이다 — 늘릴 때는 늘
  *          **뒤에 붙인다.** 그래야 옛 판이 보내온 짧은 인사도 읽힌다.
  *          칠은 부위마다의 색 번호, 뿌린 자국은 [x, y, z, 색, 크게] 목록이다.
@@ -161,8 +162,8 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
       handlers.onJoin(from, {
         name: typeof m[2] === 'string' ? m[2].slice(0, 12) : '친구',
         colors: Array.isArray(m[6]) && m[6].length === 3 && m[6].every(v => Number.isInteger(v) && v >= 0 && v <= 0xFFFFFF) ? m[6] : null,
-        style: Array.isArray(m[7]) && m[7].length === 6 && m[7].every(v => Number.isInteger(v) && v >= 0 && v < 32)
-          ? { gender: m[7][0] === 1 ? 'f' : 'm', face: m[7][1], hair: m[7][2], top: m[7][3], bottom: m[7][4], skin: m[7][5] } : null,
+        style: Array.isArray(m[7]) && m[7].length >= 6 && m[7].every(v => Number.isInteger(v) && v >= 0 && v < 32)
+          ? { gender: m[7][0] === 1 ? 'f' : 'm', face: m[7][1], hair: m[7][2], top: m[7][3], bottom: m[7][4], skin: m[7][5], expr: m[7][6] || 0 } : null,
         look: m[3] === 'long' ? 'long' : 'short',
         dog: dog,
         pet: spec,
