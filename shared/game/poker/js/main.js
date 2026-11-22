@@ -3,7 +3,7 @@ import { joinRoom, makeId, MAX_SEATS } from './room.js?v=8';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 
 /*
- * 기억 포커.
+ * Memory Poker (기억 포커).
  *
  *   1. 4×4 로 깔린 16장을 20초 동안 외운다.
  *   2. 카드가 뒤집히고 가운데에 2장이 놓인다.
@@ -104,7 +104,7 @@ $('#joinForm').onsubmit = e => {
 $('#roomBtn').onclick = async () => {
   const link = inviteLink(roomId);
   try {
-    if (navigator.share) await navigator.share({ title: '기억 포커', text: '같이 기억 포커 해요', url: link });
+    if (navigator.share) await navigator.share({ title: 'Memory Poker', text: '같이 Memory Poker 해요', url: link });
     else { await navigator.clipboard.writeText(link); flash('링크를 복사했어요'); }
   } catch (_){
     try { await navigator.clipboard.writeText(link); flash('링크를 복사했어요'); } catch (_){ prompt('이 링크를 보내 주세요', link); }
