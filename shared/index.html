@@ -109,8 +109,8 @@
   .menu .t span{display:block;font-size:16px;font-weight:700;margin-top:1px}
   .menu .t small{display:block;font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .menu .go{color:var(--faint);font-size:18px}
-  .links{display:flex;gap:8px;flex:none}
-  .links .btn{flex:1;min-height:44px}
+  .links{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:none}
+  .links .btn{min-height:44px}
 
   /* 가로로 눕힌 낮은 화면 — 두 칸으로 나눈다. 왼쪽은 그림 · 제목, 오른쪽은 칸 · 단추.
      그래도 스크롤은 없다. 오른쪽 것들은 차례대로 줄을 선다 */
@@ -183,7 +183,8 @@
     </div>
     <form class="form" id="authForm" autocomplete="on">
       <label for="idIn">아이디</label>
-      <input class="field" id="idIn" aria-label="아이디" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="16" placeholder="영문 소문자 · 숫자 · _ (3~16자)">
+      <input class="field" id="idIn" aria-label="아이디" autocomplete="username" autocapitalize="characters" spellcheck="false" maxlength="16" placeholder="영문 대문자 · 숫자 · _ (3~16자)">
+      <p class="match" id="idMatch" aria-live="polite"></p>
       <label for="pwIn">비밀번호</label>
       <div class="pwrow">
         <input class="field" id="pwIn" aria-label="비밀번호" type="password" autocomplete="new-password" maxlength="64" placeholder="6자 이상">
@@ -221,7 +222,7 @@
     <div class="hello"><h2>비밀번호 되찾기</h2><p>가입할 때 받은 복구 코드로 새 비밀번호를 정해요.</p></div>
     <form class="form" id="recForm" autocomplete="off">
       <label for="recId">아이디</label>
-      <input class="field" id="recId" aria-label="아이디" autocapitalize="none" spellcheck="false" maxlength="16">
+      <input class="field" id="recId" aria-label="아이디" autocapitalize="characters" spellcheck="false" maxlength="16">
       <label for="recCode">복구 코드</label>
       <input class="field" id="recCode" aria-label="복구 코드" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="XXXX-XXXX-XXXX-XXXX" style="letter-spacing:.08em">
       <label for="recPw">새 비밀번호</label>
@@ -265,12 +266,29 @@
     </nav>
     <div class="links">
       <button class="btn" id="editBtn" type="button">캐릭터 꾸미기</button>
+      <button class="btn" id="idBtn" type="button">아이디 바꾸기</button>
       <button class="btn" id="recNewBtn" type="button">복구 코드</button>
       <button class="btn ghost" id="logoutBtn" type="button">로그아웃</button>
     </div>
   </section>
 
 </div>
-<script type="module" src="js/studio.js?v=s8"></script>
+
+<!-- 아이디 바꾸기 창 — base.css 의 .sheet -->
+<div class="sheet" id="idSheet" hidden role="dialog" aria-modal="true" aria-labelledby="idSheetT">
+  <form class="card2" id="idForm" autocomplete="off">
+    <div class="grip"></div>
+    <header><h2 id="idSheetT">아이디 바꾸기</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+    <p class="sub2">지금 아이디 <b id="curId"></b> · 다른 기기는 다시 로그인하게 돼요. 복구 코드는 그대로예요.</p>
+    <div class="body form">
+      <input class="field" id="newId" aria-label="새 아이디" autocapitalize="characters" spellcheck="false" maxlength="16" placeholder="새 아이디 (영문 대문자 · 숫자 · _)">
+      <p class="match" id="newIdMatch" aria-live="polite"></p>
+      <input class="field" id="idPw" type="password" autocomplete="current-password" maxlength="64" aria-label="지금 비밀번호" placeholder="지금 비밀번호">
+      <p class="msg" id="idMsg" role="alert"></p>
+    </div>
+    <div class="btns"><button class="btn" type="button" data-close>그만두기</button><button class="btn primary" id="idSave" type="submit">바꾸기</button></div>
+  </form>
+</div>
+<script type="module" src="js/studio.js?v=s9"></script>
 </body>
 </html>

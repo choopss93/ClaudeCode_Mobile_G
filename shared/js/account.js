@@ -48,6 +48,13 @@ export async function newRecovery(){
   if (!a) throw new Error('다시 로그인해 주세요');
   return (await call('recovery-new', { token: a.token })).recovery;
 }
+/** 아이디 바꾸기 — 지금 비밀번호를 같이 보낸다. 새 표를 받아 둔다 (다른 기기는 다시 로그인). */
+export async function renameId(id, pw){
+  const a = readAccount();
+  if (!a) throw new Error('다시 로그인해 주세요');
+  const d = await call('rename', { token: a.token, body: { id, pw } });
+  return keep({ token: d.token, user: d.user });
+}
 export async function login(id, pw){ const d = await call('login', { body: { id, pw } }); return keep({ token: d.token, user: d.user }); }
 
 /** 서버에서 내 계정을 다시 받아 사본을 고친다. 표가 낡았으면 로그아웃한다. */

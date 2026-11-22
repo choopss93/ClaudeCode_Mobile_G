@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s5';
 import { GENDERS, SKIN, PARTS, hex, cleanChar, randomChar } from './character.js?v=c3';
-import { readAccount, refresh, signup, login, logout, saveChar, recover, newRecovery } from './account.js?v=s7';
+import { readAccount, refresh, signup, login, logout, saveChar, recover, newRecovery, checkId, renameId } from './account.js?v=s8';
 import { createLogo } from './logo.js?v=l2';
 
 /*
@@ -140,6 +140,8 @@ function paintMode(){
   $('#authBtn').textContent = mode === 'signup' ? '계정 만들기' : '로그인';
   $('#forgotBtn').hidden = mode !== 'login';
   $('#authMsg').textContent = '';
+  $('#idMatch').textContent = '';
+  if (mode === 'signup' && $('#idIn').value) $('#idIn').dispatchEvent(new Event('input'));   // 가입으로 오면 다시 확인
   paintMatch();
 }
 document.querySelector('.tabs').addEventListener('click', e => {
@@ -164,18 +166,45 @@ $('#pwShow').onclick = () => {
   $('#pwShow').setAttribute('aria-pressed', String(show));
 };
 
-const ID_RE = /^[a-z0-9_]{3,16}$/;
-$('#idIn').addEventListener('input', () => {
-  const v = $('#idIn').value.toLowerCase().replace(/[^a-z0-9_]/g, '');
-  if (v !== $('#idIn').value) $('#idIn').value = v;
-});
+/* 아이디는 대문자 (사용자 요청) — 치는 대로 대문자로 바꿔 보여 주고, 그대로 보내고 쓴다 */
+const ID_RE = /^[A-Z0-9_]{3,16}$/;
+const ID_WHY = '아이디는 영문 대문자 · 숫자 · _ 로 3~16자예요';
+function upperIn(el){
+  el.addEventListener('input', () => {
+    const v = el.value.toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 16);
+    if (v !== el.value) el.value = v;
+  });
+}
+/* 중복 확인 — 칠 때마다 잠깐 기다렸다 서버에 묻는다. 가입 · 아이디 바꾸기에서 쓴다.
+   마지막에 물은 것의 답만 받는다 (빨리 치면 앞의 답이 늦게 올 수 있다). */
+function liveCheck(input, out, enabled, mine = () => ''){
+  let timer = 0, seq = 0;
+  const say = (t, cls) => { out.textContent = t; out.className = 'match ' + (cls || ''); };
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const id = input.value, n = ++seq;
+    if (!enabled() || !id){ say(''); return; }
+    if (!ID_RE.test(id)){ say(ID_WHY, 'no'); return; }
+    if (id === mine()){ say('지금 쓰는 아이디예요', 'no'); return; }
+    say('확인하는 중…');
+    timer = setTimeout(async () => {
+      try {
+        const r = await checkId(id);
+        if (n === seq) r.ok ? say('✓ 쓸 수 있는 아이디예요', 'ok') : say(r.why || '쓸 수 없는 아이디예요', 'no');
+      } catch (e){ if (n === seq) say(e.message, 'no'); }
+    }, 350);
+  });
+  return () => say('');
+}
+upperIn($('#idIn'));
+liveCheck($('#idIn'), $('#idMatch'), () => mode === 'signup');
 
 $('#authForm').onsubmit = async e => {
   e.preventDefault();
-  const id = $('#idIn').value.trim().toLowerCase(), pw = $('#pwIn').value;
+  const id = $('#idIn').value.trim().toUpperCase(), pw = $('#pwIn').value;
   const msg = $('#authMsg'), btn = $('#authBtn');
   msg.className = 'msg';
-  if (!ID_RE.test(id)) return void (msg.textContent = '아이디는 영문 소문자 · 숫자 · _ 로 3~16자예요');
+  if (!ID_RE.test(id)) return void (msg.textContent = ID_WHY);
   if (pw.length < 6) return void (msg.textContent = '비밀번호는 6자 이상이에요');
   btn.disabled = true;
   try {
@@ -318,7 +347,7 @@ $('#forgotBtn').onclick = () => {
   $('#recMsg').textContent = ''; $('#recMatch').textContent = '';
   show('recover');
 };
-$('#recId').addEventListener('input', () => { const v = $('#recId').value.toLowerCase().replace(/[^a-z0-9_]/g, ''); if (v !== $('#recId').value) $('#recId').value = v; });
+upperIn($('#recId'));
 for (const id of ['#recPw', '#recPw2']) $(id).addEventListener('input', () => {
   const a = $('#recPw').value, b = $('#recPw2').value, m = $('#recMatch');
   m.textContent = !b ? '' : a === b ? '✓ 비밀번호가 일치해요' : '두 비밀번호가 서로 달라요';
@@ -346,6 +375,36 @@ $('#recNewBtn').onclick = async () => {
   if (!confirm('복구 코드를 새로 만들까요?\n예전 복구 코드는 더 이상 쓸 수 없어요.')) return;
   try { showCode(await newRecovery(), 'new'); }
   catch (err){ alert(err.message); }
+};
+
+/* ─────────── 아이디 바꾸기 ───────────
+   메뉴에서 연다. 새 아이디는 치는 동안 중복을 확인하고, 지금 비밀번호를 한 번 더 받는다. */
+const idSheet = $('#idSheet');
+upperIn($('#newId'));
+liveCheck($('#newId'), $('#newIdMatch'), () => true, () => account && account.user.id);
+function openIdSheet(){
+  $('#curId').textContent = account.user.id;
+  $('#newId').value = ''; $('#idPw').value = ''; $('#newIdMatch').textContent = ''; $('#idMsg').textContent = '';
+  idSheet.hidden = false; $('#newId').focus();
+}
+const closeIdSheet = () => { idSheet.hidden = true; $('#idBtn').focus(); };
+$('#idBtn').onclick = openIdSheet;
+idSheet.addEventListener('click', e => { if (e.target === idSheet || e.target.closest('[data-close]')) closeIdSheet(); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && !idSheet.hidden) closeIdSheet(); });
+$('#idForm').onsubmit = async e => {
+  e.preventDefault();
+  const id = $('#newId').value.trim().toUpperCase(), pw = $('#idPw').value, msg = $('#idMsg'), btn = $('#idSave');
+  msg.className = 'msg';
+  if (!ID_RE.test(id)) return void (msg.textContent = ID_WHY);
+  if (!pw) return void (msg.textContent = '지금 비밀번호를 적어 주세요');
+  btn.disabled = true;
+  try {
+    account = await renameId(id, pw);
+    idSheet.hidden = true;
+    openMenu();
+    $('#helloId').textContent = `@${account.user.id} · 아이디를 바꿨어요`;
+  } catch (err){ msg.textContent = err.message; }
+  finally { btn.disabled = false; }
 };
 
 /* ─────────── 시작 ─────────── */

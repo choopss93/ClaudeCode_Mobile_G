@@ -34,7 +34,12 @@
  * 비밀번호(Basic 인증)가 `Authorization` 을 쓰기 때문이다.
  */
 
-const ID_RE = /^[a-z0-9_]{3,16}$/;
+/* 아이디는 **대문자**로 받고 적고 쓴다 (사용자 요청). 무엇을 쳐 와도 대문자로 펴서 본다.
+   대문자로 바꾸기 전에 만든 계정은 소문자 열쇠(`user:choo`)에 있다 — getUser 가 찾아
+   대문자 자리로 옮겨 준다. 그래서 중복 확인도 두 자리를 다 본다. */
+const ID_RE = /^[A-Z0-9_]{3,16}$/;
+const normId = v => String(v || '').trim().toUpperCase();
+const ID_WHY = '아이디는 영문 대문자 · 숫자 · _ 로 3~16자예요';
 const ITER = 10000;   // 무료 Worker 는 요청마다 CPU 10ms 까지다. 계정마다 횟수를 적어 두어
                       // 나중에 올려도 옛 계정이 그대로 들어온다 (user.iter).
 const TOKEN_DAYS = 30;
@@ -77,6 +82,35 @@ const cleanRecovery = c => String(c || '').toUpperCase().replace(/[^0-9A-Z]/g, '
 async function recHash(id, code){
   return b64u(await crypto.subtle.digest('SHA-256', enc.encode(`rec:${id}:${cleanRecovery(code)}`)));
 }
+/* 복구 코드는 만들 때의 아이디로 해시해 둔다 (user.recId). 아이디를 바꾸거나 대문자로
+   옮겨도 이미 받아 둔 코드가 그대로 맞는다. */
+async function setRecovery(user){
+  const recovery = newRecovery();
+  user.recId = user.id;
+  user.rec = await recHash(user.id, recovery);
+  return recovery;
+}
+async function recOk(user, code){
+  return !!user.rec && sameBytes(fromB64u(user.rec), fromB64u(await recHash(user.recId || user.id, code)));
+}
+
+/** 계정 읽기 — 대문자 자리에 없으면 옛 소문자 자리를 찾아 대문자로 옮긴다. */
+async function getUser(env, id){
+  if (!ID_RE.test(id)) return null;
+  const raw = await env.ACCOUNTS.get('user:' + id);
+  if (raw) return JSON.parse(raw);
+  const low = id.toLowerCase();
+  if (low === id) return null;
+  const old = await env.ACCOUNTS.get('user:' + low);
+  if (!old) return null;
+  const user = JSON.parse(old);
+  user.recId = user.recId || user.id;          // 옛 복구 코드는 소문자 아이디로 해시돼 있다
+  user.id = id;
+  await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
+  await env.ACCOUNTS.delete('user:' + low);
+  return user;
+}
+const saveUser = (env, user) => env.ACCOUNTS.put('user:' + user.id, JSON.stringify(user));
 
 async function hashPw(pw, salt, iterations = ITER){
   const key = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
@@ -106,9 +140,8 @@ async function readToken(env, token){
   if (parts.length !== 4) return null;
   const [id, exp, nonce, sig] = parts;
   if (!ID_RE.test(id) || !/^\d+$/.test(exp) || +exp < Date.now() / 1000 || nonce.length < 20) return null;
-  const raw = await env.ACCOUNTS.get('user:' + id);
-  const user = raw ? JSON.parse(raw) : null;
-  if (!user || !user.key) return null;
+  const user = await getUser(env, id);
+  if (!user || !user.key || user.id !== id) return null;
   let given;
   try { given = fromB64u(sig); } catch (_){ return null; }
   return sameBytes(given, await hmac(env.SESSION_SECRET, `${id}.${exp}.${nonce}.${user.key}`)) ? user : null;
@@ -139,27 +172,28 @@ export async function handleApi(request, env){
   const ip = request.headers.get('CF-Connecting-IP') || 'local';
 
   if (path === '/api/check' && method === 'POST'){
-    const id = String((await body(request)).id || '').toLowerCase();
-    if (!ID_RE.test(id)) return json({ ok: false, why: '영문 소문자 · 숫자 · _ 로 3~16자예요' });
-    const taken = !!(await env.ACCOUNTS.get('user:' + id));
-    return json(taken ? { ok: false, why: '이미 있는 아이디예요' } : { ok: true });
+    if (tooMany(ip, 120)) return fail('잠시 뒤에 다시 해 주세요', 429);
+    const id = normId((await body(request)).id);
+    if (!ID_RE.test(id)) return json({ ok: false, id, why: ID_WHY });
+    const taken = !!(await getUser(env, id));
+    return json(taken ? { ok: false, id, why: '이미 있는 아이디예요' } : { ok: true, id });
   }
 
   if (path === '/api/signup' && method === 'POST'){
     if (tooMany(ip)) return fail('잠시 뒤에 다시 해 주세요', 429);
     const b = await body(request);
-    const id = String(b.id || '').toLowerCase();
+    const id = normId(b.id);
     const pw = String(b.pw || '');
     const char = cleanChar(b.char);
-    if (!ID_RE.test(id)) return fail('아이디는 영문 소문자 · 숫자 · _ 로 3~16자예요');
+    if (!ID_RE.test(id)) return fail(ID_WHY);
     if (pw.length < 6 || pw.length > 64) return fail('비밀번호는 6~64자예요');
     // 캐릭터는 가입 때 만들지 않는다 — 무지개 정원에 처음 들어가기 직전에 만든다 (char: null)
-    if (await env.ACCOUNTS.get('user:' + id)) return fail('이미 있는 아이디예요', 409);
+    if (await getUser(env, id)) return fail('이미 있는 아이디예요', 409);
     const salt = crypto.getRandomValues(new Uint8Array(16));
-    const recovery = newRecovery();
     const user = { id, salt: b64u(salt), hash: b64u(await hashPw(pw, salt)), iter: ITER,
-                   key: newKey(), rec: await recHash(id, recovery), char, created: Date.now() };
-    await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
+                   key: newKey(), char, created: Date.now() };
+    const recovery = await setRecovery(user);
+    await saveUser(env, user);
     // 복구 코드는 이때 한 번만 내보낸다 — 서버에는 해시만 남는다
     return json({ token: await makeToken(env, user), user: publicUser(user), recovery }, 201);
   }
@@ -167,17 +201,16 @@ export async function handleApi(request, env){
   if (path === '/api/login' && method === 'POST'){
     if (tooMany(ip)) return fail('잠시 뒤에 다시 해 주세요', 429);
     const b = await body(request);
-    const id = String(b.id || '').toLowerCase();
+    const id = normId(b.id);
     // 한 아이디에 비밀번호를 마구 넣어 보는 것도 막는다 (어디서 오든)
     if (tooMany('id:' + id, 10)) return fail('잠시 뒤에 다시 해 주세요', 429);
-    const raw = ID_RE.test(id) && await env.ACCOUNTS.get('user:' + id);
-    const user = raw ? JSON.parse(raw) : null;
+    const user = await getUser(env, id);
     // 아이디가 없을 때도 같은 말을 한다 — 어느 아이디가 있는지 알려 주지 않는다
     if (!user || !sameBytes(fromB64u(user.hash), await hashPw(String(b.pw || ''), fromB64u(user.salt), user.iter || ITER)))
       return fail('아이디나 비밀번호가 맞지 않아요', 401);
     if (!user.key){                       // 계정열쇠가 생기기 전에 만든 계정 — 지금 만들어 준다
       user.key = newKey();
-      await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
+      await saveUser(env, user);
     }
     return json({ token: await makeToken(env, user), user: publicUser(user) });
   }
@@ -185,43 +218,61 @@ export async function handleApi(request, env){
   if (path === '/api/recover' && method === 'POST'){
     if (tooMany(ip)) return fail('잠시 뒤에 다시 해 주세요', 429);
     const b = await body(request);
-    const id = String(b.id || '').toLowerCase();
+    const id = normId(b.id);
     if (tooMany('rec:' + id, 5)) return fail('잠시 뒤에 다시 해 주세요', 429);
     const pw = String(b.pw || '');
     if (pw.length < 6 || pw.length > 64) return fail('새 비밀번호는 6~64자예요');
-    const raw = ID_RE.test(id) && await env.ACCOUNTS.get('user:' + id);
-    const user = raw ? JSON.parse(raw) : null;
-    if (!user || !user.rec || !sameBytes(fromB64u(user.rec), fromB64u(await recHash(id, b.code))))
+    const user = await getUser(env, id);
+    if (!user || !(await recOk(user, b.code)))
       return fail('아이디나 복구 코드가 맞지 않아요', 401);
     const salt = crypto.getRandomValues(new Uint8Array(16));
-    const recovery = newRecovery();            // 쓴 코드는 버리고 새 코드를 준다
     Object.assign(user, { salt: b64u(salt), hash: b64u(await hashPw(pw, salt)), iter: ITER,
-                          key: newKey(), rec: await recHash(id, recovery) });   // 열쇠도 바꿔 다른 기기는 끊는다
-    await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
+                          key: newKey() });                     // 열쇠도 바꿔 다른 기기는 끊는다
+    const recovery = await setRecovery(user);  // 쓴 코드는 버리고 새 코드를 준다
+    await saveUser(env, user);
     return json({ token: await makeToken(env, user), user: publicUser(user), recovery });
   }
 
-  if (path === '/api/me' || path === '/api/logout-all' || path === '/api/recovery-new'){
+  if (path === '/api/me' || path === '/api/logout-all' || path === '/api/recovery-new' || path === '/api/rename'){
     const user = await readToken(env, request.headers.get('X-Session'));
     if (!user) return fail('다시 로그인해 주세요', 401);
-    const id = user.id;
     if (path === '/api/logout-all' && method === 'POST'){
       user.key = newKey();                 // 열쇠를 바꾸면 그 계정의 모든 표가 무효
-      await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
+      await saveUser(env, user);
       return json({ ok: true });
     }
     if (path === '/api/recovery-new' && method === 'POST'){
-      const recovery = newRecovery();
-      user.rec = await recHash(id, recovery);
-      await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
+      const recovery = await setRecovery(user);
+      await saveUser(env, user);
       return json({ recovery });
     }
+    /* 아이디 바꾸기 — 지금 비밀번호를 한 번 더 받는다. 새 아이디가 비어 있어야 하고,
+       옮긴 뒤 옛 자리는 지운다. 표에 아이디가 들어 있으므로 새 표를 주고, 다른 기기의
+       옛 표는 더는 맞지 않아 다시 로그인하게 된다. 복구 코드는 그대로 쓴다 (recId). */
+    if (path === '/api/rename' && method === 'POST'){
+      if (tooMany(ip) || tooMany('rn:' + user.id, 10)) return fail('잠시 뒤에 다시 해 주세요', 429);
+      const b = await body(request);
+      const id = normId(b.id);
+      if (!ID_RE.test(id)) return fail(ID_WHY);
+      if (!sameBytes(fromB64u(user.hash), await hashPw(String(b.pw || ''), fromB64u(user.salt), user.iter || ITER)))
+        return fail('비밀번호가 맞지 않아요', 401);
+      if (id === user.id) return fail('지금 쓰는 아이디예요');
+      if (await getUser(env, id)) return fail('이미 있는 아이디예요', 409);
+      const oldId = user.id;
+      user.recId = user.recId || oldId;
+      user.id = id;
+      user.key = newKey();
+      await saveUser(env, user);
+      await env.ACCOUNTS.delete('user:' + oldId);
+      return json({ token: await makeToken(env, user), user: publicUser(user) });
+    }
+    const id = user.id;
     if (method === 'GET') return json({ user: publicUser(user) });
     if (method === 'PUT'){
       const char = cleanChar((await body(request)).char);
       if (!char) return fail('캐릭터 이름을 적어 주세요');
       user.char = char;
-      await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
+      await saveUser(env, user);
       return json({ user: publicUser(user) });
     }
   }
