@@ -10,12 +10,20 @@
  *   POST /api/login   {id, pw}        들어가기 → {token, user}
  *   GET  /api/me                       내 계정 (X-Session 머리글에 token)
  *   PUT  /api/me      {char}          캐릭터 고치기
+ *   POST /api/logout-all               계정열쇠를 바꿔 모든 기기의 로그인을 끊는다
  *
  * 비밀번호는 소금을 친 PBKDF2-SHA256 해시로만 둔다. 원래 글자는 어디에도
  * 남지 않는다 — 잊으면 되찾을 수 없다.
  *
- * 로그인 표(token)는 KV 에 적지 않고 서명으로 만든다 (`SESSION_SECRET`).
- * 무료 KV 는 하루 쓰기가 1000번이라, 들어올 때마다 적으면 금방 찬다.
+ * 로그인 표(token)는 KV 에 적지 않고 서명으로 만든다. 무료 KV 는 하루 쓰기가
+ * 1000번이라, 들어올 때마다 적으면 금방 찬다.
+ *   표 = `아이디.만료.일련번호.서명`
+ *   서명 = HMAC-SHA256(SESSION_SECRET, `아이디.만료.일련번호.계정열쇠`)
+ * - **계정열쇠(user.key)** 는 가입할 때 만드는 그 계정만의 256비트 무작위 값이다.
+ *   서버(KV)에만 있고 밖으로 내보내지 않는다. 표가 이 열쇠와 맞아야만 통과하므로,
+ *   열쇠를 바꾸면(`POST /api/logout-all`) 그 계정의 모든 표가 한꺼번에 무효가 된다.
+ *   사이트 공용 비밀(SESSION_SECRET)이 새어도 계정열쇠 없이는 표를 지을 수 없다.
+ * - 일련번호는 표마다 새로 뽑는 128비트 무작위 값이다.
  *
  * 머리글은 `Authorization` 이 아니라 `X-Session` 을 쓴다. 잠긴 페이지의
  * 비밀번호(Basic 인증)가 `Authorization` 을 쓰기 때문이다.
@@ -24,7 +32,7 @@
 const ID_RE = /^[a-z0-9_]{3,16}$/;
 const ITER = 10000;   // 무료 Worker 는 요청마다 CPU 10ms 까지다. 계정마다 횟수를 적어 두어
                       // 나중에 올려도 옛 계정이 그대로 들어온다 (user.iter).
-const TOKEN_DAYS = 60;
+const TOKEN_DAYS = 30;
 const enc = new TextEncoder();
 
 const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -33,7 +41,8 @@ const fromB64u = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/
 function json(data, status = 200){
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
+               'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' }
   });
 }
 const fail = (msg, status = 400) => json({ error: msg }, status);
@@ -41,14 +50,15 @@ const fail = (msg, status = 400) => json({ error: msg }, status);
 /* 같은 곳에서 아이디 · 비밀번호를 마구 넣어 보는 것을 늦춘다. 워커 하나의 기억에만
    두는 가벼운 막이다 — KV 에 적으면 하루 쓰기 한도를 금방 쓴다. */
 const tries = new Map();
-function tooMany(ip){
-  const now = Date.now(), t = tries.get(ip) || { n: 0, at: now };
+function tooMany(key, limit = 30){
+  const now = Date.now(), t = tries.get(key) || { n: 0, at: now };
   if (now - t.at > 10 * 60 * 1000){ t.n = 0; t.at = now; }
   t.n++;
-  tries.set(ip, t);
+  tries.set(key, t);
   if (tries.size > 5000) tries.clear();
-  return t.n > 30;
+  return t.n > limit;
 }
+const newKey = () => b64u(crypto.getRandomValues(new Uint8Array(32)));   // 계정열쇠 256비트
 
 async function hashPw(pw, salt, iterations = ITER){
   const key = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
@@ -66,16 +76,24 @@ async function hmac(secret, text){
   const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   return new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(text)));
 }
-async function makeToken(env, id){
+async function makeToken(env, user){
   const exp = Math.floor(Date.now() / 1000) + TOKEN_DAYS * 86400;
-  return `${id}.${exp}.${b64u(await hmac(env.SESSION_SECRET, `${id}.${exp}`))}`;
+  const nonce = b64u(crypto.getRandomValues(new Uint8Array(16)));
+  const body = `${user.id}.${exp}.${nonce}`;
+  return `${body}.${b64u(await hmac(env.SESSION_SECRET, `${body}.${user.key}`))}`;
 }
+/** 표를 읽어 그 계정을 돌려준다. 만료 · 서명 · 계정열쇠가 하나라도 안 맞으면 null. */
 async function readToken(env, token){
-  const [id, exp, sig] = String(token || '').split('.');
-  if (!id || !exp || !sig || !ID_RE.test(id) || +exp < Date.now() / 1000) return null;
+  const parts = String(token || '').split('.');
+  if (parts.length !== 4) return null;
+  const [id, exp, nonce, sig] = parts;
+  if (!ID_RE.test(id) || !/^\d+$/.test(exp) || +exp < Date.now() / 1000 || nonce.length < 20) return null;
+  const raw = await env.ACCOUNTS.get('user:' + id);
+  const user = raw ? JSON.parse(raw) : null;
+  if (!user || !user.key) return null;
   let given;
   try { given = fromB64u(sig); } catch (_){ return null; }
-  return sameBytes(given, await hmac(env.SESSION_SECRET, `${id}.${exp}`)) ? id : null;
+  return sameBytes(given, await hmac(env.SESSION_SECRET, `${id}.${exp}.${nonce}.${user.key}`)) ? user : null;
 }
 
 /* 캐릭터 — 번호만 담는다. 번호가 무엇인지는 화면 쪽(shared/js/character.js)이 안다.
@@ -90,7 +108,7 @@ function cleanChar(c){
   return { nick, gender, face: n(c.face, 31), expr: n(c.expr, 31), hair: n(c.hair, 31),
            top: n(Number.isInteger(c.top) ? c.top : c.cloth, 31), bottom: n(c.bottom, 31), skin: n(c.skin, 7) };
 }
-const publicUser = u => ({ id: u.id, char: u.char });
+const publicUser = u => ({ id: u.id, char: u.char || null });   // 열쇠 · 해시는 절대 내보내지 않는다
 
 async function body(request){
   try { return await request.json(); } catch (_){ return {}; }
@@ -120,29 +138,39 @@ export async function handleApi(request, env){
     // 캐릭터는 가입 때 만들지 않는다 — 무지개 정원에 처음 들어가기 직전에 만든다 (char: null)
     if (await env.ACCOUNTS.get('user:' + id)) return fail('이미 있는 아이디예요', 409);
     const salt = crypto.getRandomValues(new Uint8Array(16));
-    const user = { id, salt: b64u(salt), hash: b64u(await hashPw(pw, salt)), iter: ITER, char, created: Date.now() };
+    const user = { id, salt: b64u(salt), hash: b64u(await hashPw(pw, salt)), iter: ITER,
+                   key: newKey(), char, created: Date.now() };
     await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
-    return json({ token: await makeToken(env, id), user: publicUser(user) }, 201);
+    return json({ token: await makeToken(env, user), user: publicUser(user) }, 201);
   }
 
   if (path === '/api/login' && method === 'POST'){
     if (tooMany(ip)) return fail('잠시 뒤에 다시 해 주세요', 429);
     const b = await body(request);
     const id = String(b.id || '').toLowerCase();
+    // 한 아이디에 비밀번호를 마구 넣어 보는 것도 막는다 (어디서 오든)
+    if (tooMany('id:' + id, 10)) return fail('잠시 뒤에 다시 해 주세요', 429);
     const raw = ID_RE.test(id) && await env.ACCOUNTS.get('user:' + id);
     const user = raw ? JSON.parse(raw) : null;
     // 아이디가 없을 때도 같은 말을 한다 — 어느 아이디가 있는지 알려 주지 않는다
     if (!user || !sameBytes(fromB64u(user.hash), await hashPw(String(b.pw || ''), fromB64u(user.salt), user.iter || ITER)))
       return fail('아이디나 비밀번호가 맞지 않아요', 401);
-    return json({ token: await makeToken(env, id), user: publicUser(user) });
+    if (!user.key){                       // 계정열쇠가 생기기 전에 만든 계정 — 지금 만들어 준다
+      user.key = newKey();
+      await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
+    }
+    return json({ token: await makeToken(env, user), user: publicUser(user) });
   }
 
-  if (path === '/api/me'){
-    const id = await readToken(env, request.headers.get('X-Session'));
-    if (!id) return fail('다시 로그인해 주세요', 401);
-    const raw = await env.ACCOUNTS.get('user:' + id);
-    if (!raw) return fail('계정을 찾을 수 없어요', 404);
-    const user = JSON.parse(raw);
+  if (path === '/api/me' || path === '/api/logout-all'){
+    const user = await readToken(env, request.headers.get('X-Session'));
+    if (!user) return fail('다시 로그인해 주세요', 401);
+    const id = user.id;
+    if (path === '/api/logout-all' && method === 'POST'){
+      user.key = newKey();                 // 열쇠를 바꾸면 그 계정의 모든 표가 무효
+      await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
+      return json({ ok: true });
+    }
     if (method === 'GET') return json({ user: publicUser(user) });
     if (method === 'PUT'){
       const char = cleanChar((await body(request)).char);
