@@ -38,7 +38,16 @@ async function call(path, { method = 'POST', body, token } = {}){
 }
 
 export const checkId = id => call('check', { body: { id } });
-export async function signup(id, pw){ const d = await call('signup', { body: { id, pw } }); return keep({ token: d.token, user: d.user }); }
+/** 가입 — 계정과 함께 복구 코드를 한 번 돌려준다 (이때만 볼 수 있다). */
+export async function signup(id, pw){ const d = await call('signup', { body: { id, pw } }); return { account: keep({ token: d.token, user: d.user }), recovery: d.recovery }; }
+/** 복구 코드로 비밀번호 새로 정하기 — 새 복구 코드를 돌려준다. */
+export async function recover(id, code, pw){ const d = await call('recover', { body: { id, code, pw } }); return { account: keep({ token: d.token, user: d.user }), recovery: d.recovery }; }
+/** 복구 코드 새로 만들기 — 예전 코드는 더는 못 쓴다. */
+export async function newRecovery(){
+  const a = readAccount();
+  if (!a) throw new Error('다시 로그인해 주세요');
+  return (await call('recovery-new', { token: a.token })).recovery;
+}
 export async function login(id, pw){ const d = await call('login', { body: { id, pw } }); return keep({ token: d.token, user: d.user }); }
 
 /** 서버에서 내 계정을 다시 받아 사본을 고친다. 표가 낡았으면 로그아웃한다. */

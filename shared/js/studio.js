@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s5';
 import { GENDERS, SKIN, PARTS, hex, cleanChar, randomChar } from './character.js?v=c3';
-import { readAccount, refresh, checkId, signup, login, logout, saveChar } from './account.js?v=s6';
+import { readAccount, refresh, signup, login, logout, saveChar, recover, newRecovery } from './account.js?v=s7';
+import { createLogo } from './logo.js?v=l1';
 
 /*
  * Metaversal Studio — 시작 → 가입·로그인 → 캐릭터 꾸미기 → 메뉴.
@@ -13,7 +14,7 @@ import { readAccount, refresh, checkId, signup, login, logout, saveChar } from '
  */
 
 const $ = s => document.querySelector(s);
-const screens = ['intro', 'auth', 'maker', 'menu'];
+const screens = ['intro', 'auth', 'recover', 'codeScreen', 'maker', 'menu'];
 
 /* 확대 막기 — 두 손가락 오므리기 (사파리는 viewport 를 듣지 않는다) */
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
@@ -37,6 +38,10 @@ let farZ = 2.4;
 camera.position.set(0, LOOK_Y + 0.15, farZ);
 camera.lookAt(0, LOOK_Y, 0);
 
+/* 첫 화면에는 캐릭터 대신 3D 로고를 띄운다 (사용자 요청). 같은 캔버스에 장면만 바꿔 그린다. */
+const logo = createLogo();
+let showLogo = true;
+
 let actor = null, spin = 0.5, drag = null;
 function wear(char){
   if (actor) scene.remove(actor.group);
@@ -55,6 +60,7 @@ function fit(){
   const need = (HEAD_TOP + 0.25) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
   farZ = Math.max(1.6, need * Math.max(1, 0.9 / camera.aspect)) * 1.05;
   camera.updateProjectionMatrix();
+  logo.fit(w / h);
 }
 new ResizeObserver(fit).observe(canvas);
 
@@ -67,7 +73,14 @@ let last = performance.now();
 function frame(t){
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (t - last) / 1000); last = t;
-  if (!actor || !canvas.isConnected) return;
+  if (!canvas.isConnected) return;
+  if (showLogo){
+    if (!drag) spin += dt * 0.45;
+    logo.update(dt, spin);
+    renderer.render(logo.scene, logo.camera);
+    return;
+  }
+  if (!actor) return;
   if (!drag){
     if (zoomTo > 0){
       // 얼굴 · 헤어를 고를 때는 앞을 보고 멈춘다 — 돌아가 있으면 뒤통수만 보인다
@@ -88,6 +101,8 @@ requestAnimationFrame(frame);
 /* ─────────── 화면 바꾸기 ─────────── */
 function show(name){
   for (const s of screens) $('#' + s).hidden = s !== name;
+  // 첫 화면 · 캐릭터 없는 메뉴에는 로고, 그 밖에는 캐릭터
+  showLogo = name === 'intro' || (name === 'menu' && !charOf(account));
   const slot = $('#' + name + ' [data-stage]');
   if (slot){ slot.appendChild(canvas); requestAnimationFrame(fit); }
 }
@@ -109,7 +124,6 @@ function paintIntro(){
   zoomTo = 0;
   $('#startBtn').textContent = account ? '들어가기' : '시작하기';
   $('#who').textContent = account ? `${nameOf(account)} 님으로 들어가요 · @${account.user.id}` : '';
-  wear(charOf(account) || draft);
 }
 $('#startBtn').onclick = () => (account ? openMenu() : show('auth'));
 
@@ -120,6 +134,7 @@ function paintMode(){
   $('#pw2Box').hidden = mode !== 'signup';
   $('#pwIn').autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
   $('#authBtn').textContent = mode === 'signup' ? '계정 만들기' : '로그인';
+  $('#forgotBtn').hidden = mode !== 'login';
   $('#authMsg').textContent = '';
   paintMatch();
 }
@@ -168,10 +183,11 @@ $('#authForm').onsubmit = async e => {
     } else {
       if (!$('#pw2In').value) throw new Error('비밀번호 확인 칸에 한 번 더 적어 주세요');
       if (pw !== $('#pw2In').value) throw new Error('비밀번호 두 칸이 서로 달라요');
-      account = await signup(id, pw);         // 아이디 · 비밀번호만 — 캐릭터는 정원 앞에서
+      const got = await signup(id, pw);       // 아이디 · 비밀번호만 — 캐릭터는 정원 앞에서
+      account = got.account;
       $('#pwIn').value = ''; $('#pw2In').value = ''; paintMatch();
       draft = randomChar();
-      openMenu();
+      showCode(got.recovery, 'signup');
     }
   } catch (err){
     msg.textContent = err.message;
@@ -249,7 +265,7 @@ function openMenu(){
   $('#helloName').textContent = `안녕하세요, ${nameOf(account)} 님`;
   $('#helloId').textContent = c ? `@${account.user.id} · 어디로 갈까요?` : `@${account.user.id} · 캐릭터는 무지개 정원에 들어갈 때 만들어요`;
   $('#editBtn').hidden = !c;               // 만들기 전에는 고칠 것이 없다
-  wear(c || draft);
+  if (c) wear(c);
   show('menu');
 }
 $('#editBtn').onclick = () => { draft = charOf(account) || randomChar(); makerFrom = 'menu'; openMaker(); };
@@ -265,6 +281,67 @@ $('#logoutBtn').onclick = () => {
   logout(); account = null; draft = randomChar();
   $('#idIn').value = ''; mode = 'login'; paintMode();
   paintIntro(); show('intro');
+};
+
+/* ─────────── 복구 코드 ───────────
+   가입할 때, 비밀번호를 되찾았을 때, 새로 만들었을 때 — 한 번만 보여 준다.
+   '적어 두었어요' 를 체크해야 넘어간다. 다시는 볼 수 없기 때문이다. */
+function showCode(code, why){
+  $('#codeTitle').textContent = why === 'signup' ? '계정이 만들어졌어요 · 복구 코드' : '새 복구 코드';
+  $('#codeLead').innerHTML = (why === 'signup'
+    ? '비밀번호를 잊었을 때 이 코드로 되찾아요.<br>'
+    : '예전 복구 코드는 이제 쓸 수 없어요.<br>')
+    + '<b>지금 한 번만 보여 드려요.</b> 꼭 적어 두거나 복사해 두세요.';
+  $('#codeText').textContent = code;
+  $('#codeCopy').textContent = '복사하기';
+  $('#codeSaved').checked = false;
+  $('#codeNext').disabled = true;
+  show('codeScreen');
+}
+async function copyCode(){
+  const code = $('#codeText').textContent;
+  try { await navigator.clipboard.writeText(code); $('#codeCopy').textContent = '복사했어요 ✓'; }
+  catch (_){ getSelection().selectAllChildren($('#codeText')); $('#codeCopy').textContent = '꾹 눌러 복사하세요'; }
+}
+$('#codeText').onclick = copyCode;
+$('#codeCopy').onclick = copyCode;
+$('#codeSaved').onchange = () => { $('#codeNext').disabled = !$('#codeSaved').checked; };
+$('#codeNext').onclick = () => { $('#codeText').textContent = ''; openMenu(); };
+
+$('#forgotBtn').onclick = () => {
+  $('#recId').value = $('#idIn').value;
+  for (const id of ['#recCode', '#recPw', '#recPw2']) $(id).value = '';
+  $('#recMsg').textContent = ''; $('#recMatch').textContent = '';
+  show('recover');
+};
+$('#recId').addEventListener('input', () => { const v = $('#recId').value.toLowerCase().replace(/[^a-z0-9_]/g, ''); if (v !== $('#recId').value) $('#recId').value = v; });
+for (const id of ['#recPw', '#recPw2']) $(id).addEventListener('input', () => {
+  const a = $('#recPw').value, b = $('#recPw2').value, m = $('#recMatch');
+  m.textContent = !b ? '' : a === b ? '✓ 비밀번호가 일치해요' : '두 비밀번호가 서로 달라요';
+  m.className = 'match ' + (!b ? '' : a === b ? 'ok' : 'no');
+  $('#recMsg').textContent = '';
+});
+$('#recForm').onsubmit = async e => {
+  e.preventDefault();
+  const id = $('#recId').value.trim(), code = $('#recCode').value, pw = $('#recPw').value, msg = $('#recMsg'), btn = $('#recBtn');
+  if (!ID_RE.test(id)) return void (msg.textContent = '아이디를 확인해 주세요');
+  if (code.replace(/[^0-9a-z]/gi, '').length !== 16) return void (msg.textContent = '복구 코드는 16자리예요');
+  if (pw.length < 6) return void (msg.textContent = '새 비밀번호는 6자 이상이에요');
+  if (pw !== $('#recPw2').value) return void (msg.textContent = '새 비밀번호 두 칸이 서로 달라요');
+  btn.disabled = true;
+  try {
+    const got = await recover(id, code, pw);
+    account = got.account;
+    draft = charOf(account) || randomChar();
+    showCode(got.recovery, 'recover');
+  } catch (err){ msg.textContent = err.message; }
+  finally { btn.disabled = false; }
+};
+
+$('#recNewBtn').onclick = async () => {
+  if (!confirm('복구 코드를 새로 만들까요?\n예전 복구 코드는 더 이상 쓸 수 없어요.')) return;
+  try { showCode(await newRecovery(), 'new'); }
+  catch (err){ alert(err.message); }
 };
 
 /* ─────────── 시작 ─────────── */

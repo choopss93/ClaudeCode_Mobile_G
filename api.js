@@ -11,6 +11,11 @@
  *   GET  /api/me                       내 계정 (X-Session 머리글에 token)
  *   PUT  /api/me      {char}          캐릭터 고치기
  *   POST /api/logout-all               계정열쇠를 바꿔 모든 기기의 로그인을 끊는다
+ *   POST /api/recover {id, code, pw}  복구 코드로 비밀번호 새로 정하기 → {token, user, recovery}
+ *   POST /api/recovery-new              복구 코드 새로 만들기 (예전 코드는 못 쓴다) → {recovery}
+ *
+ * 복구 코드 — 이메일 없이 비밀번호를 되찾는 길. 가입할 때 한 번만 보여 주는
+ * 16자리(약 78비트)이고, 서버에는 해시로만 둔다. 한 번 쓰면 새 코드로 바뀐다.
  *
  * 비밀번호는 소금을 친 PBKDF2-SHA256 해시로만 둔다. 원래 글자는 어디에도
  * 남지 않는다 — 잊으면 되찾을 수 없다.
@@ -59,6 +64,19 @@ function tooMany(key, limit = 30){
   return t.n > limit;
 }
 const newKey = () => b64u(crypto.getRandomValues(new Uint8Array(32)));   // 계정열쇠 256비트
+
+/* 복구 코드 — 사람이 받아 적으므로 헷갈리는 글자(0 · 1 · I · L · O · U)를 뺀다 */
+const REC_CHARS = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
+function newRecovery(){
+  const r = crypto.getRandomValues(new Uint8Array(16));
+  let out = '';
+  for (let i = 0; i < 16; i++){ out += REC_CHARS[r[i] % REC_CHARS.length]; if (i % 4 === 3 && i < 15) out += '-'; }
+  return out;
+}
+const cleanRecovery = c => String(c || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+async function recHash(id, code){
+  return b64u(await crypto.subtle.digest('SHA-256', enc.encode(`rec:${id}:${cleanRecovery(code)}`)));
+}
 
 async function hashPw(pw, salt, iterations = ITER){
   const key = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
@@ -138,10 +156,12 @@ export async function handleApi(request, env){
     // 캐릭터는 가입 때 만들지 않는다 — 무지개 정원에 처음 들어가기 직전에 만든다 (char: null)
     if (await env.ACCOUNTS.get('user:' + id)) return fail('이미 있는 아이디예요', 409);
     const salt = crypto.getRandomValues(new Uint8Array(16));
+    const recovery = newRecovery();
     const user = { id, salt: b64u(salt), hash: b64u(await hashPw(pw, salt)), iter: ITER,
-                   key: newKey(), char, created: Date.now() };
+                   key: newKey(), rec: await recHash(id, recovery), char, created: Date.now() };
     await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
-    return json({ token: await makeToken(env, user), user: publicUser(user) }, 201);
+    // 복구 코드는 이때 한 번만 내보낸다 — 서버에는 해시만 남는다
+    return json({ token: await makeToken(env, user), user: publicUser(user), recovery }, 201);
   }
 
   if (path === '/api/login' && method === 'POST'){
@@ -162,7 +182,26 @@ export async function handleApi(request, env){
     return json({ token: await makeToken(env, user), user: publicUser(user) });
   }
 
-  if (path === '/api/me' || path === '/api/logout-all'){
+  if (path === '/api/recover' && method === 'POST'){
+    if (tooMany(ip)) return fail('잠시 뒤에 다시 해 주세요', 429);
+    const b = await body(request);
+    const id = String(b.id || '').toLowerCase();
+    if (tooMany('rec:' + id, 5)) return fail('잠시 뒤에 다시 해 주세요', 429);
+    const pw = String(b.pw || '');
+    if (pw.length < 6 || pw.length > 64) return fail('새 비밀번호는 6~64자예요');
+    const raw = ID_RE.test(id) && await env.ACCOUNTS.get('user:' + id);
+    const user = raw ? JSON.parse(raw) : null;
+    if (!user || !user.rec || !sameBytes(fromB64u(user.rec), fromB64u(await recHash(id, b.code))))
+      return fail('아이디나 복구 코드가 맞지 않아요', 401);
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const recovery = newRecovery();            // 쓴 코드는 버리고 새 코드를 준다
+    Object.assign(user, { salt: b64u(salt), hash: b64u(await hashPw(pw, salt)), iter: ITER,
+                          key: newKey(), rec: await recHash(id, recovery) });   // 열쇠도 바꿔 다른 기기는 끊는다
+    await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
+    return json({ token: await makeToken(env, user), user: publicUser(user), recovery });
+  }
+
+  if (path === '/api/me' || path === '/api/logout-all' || path === '/api/recovery-new'){
     const user = await readToken(env, request.headers.get('X-Session'));
     if (!user) return fail('다시 로그인해 주세요', 401);
     const id = user.id;
@@ -170,6 +209,12 @@ export async function handleApi(request, env){
       user.key = newKey();                 // 열쇠를 바꾸면 그 계정의 모든 표가 무효
       await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
       return json({ ok: true });
+    }
+    if (path === '/api/recovery-new' && method === 'POST'){
+      const recovery = newRecovery();
+      user.rec = await recHash(id, recovery);
+      await env.ACCOUNTS.put('user:' + id, JSON.stringify(user));
+      return json({ recovery });
     }
     if (method === 'GET') return json({ user: publicUser(user) });
     if (method === 'PUT'){

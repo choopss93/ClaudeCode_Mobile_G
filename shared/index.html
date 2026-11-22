@@ -63,6 +63,17 @@
   .pwrow .field{flex:1;min-width:0}
   .pwrow .btn{flex:none;min-height:40px;min-width:58px;border-radius:9px}
   .match{margin:4px 0 0;font-size:12px;min-height:16px;color:var(--faint)}
+  #forgotBtn{min-height:40px;align-self:center}
+  /* 복구 코드 */
+  .codebox{display:flex;flex-direction:column;gap:12px;flex:none;margin-top:8px}
+  .codebox h2{margin:0;font-size:20px}
+  .codebox .note b{color:var(--ink)}
+  .codebox .code{all:unset;cursor:pointer;text-align:center;font:700 clamp(19px,6vw,24px)/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
+    letter-spacing:.08em;color:#FFE9B8;background:var(--surface);border:1px dashed var(--accent);border-radius:14px;padding:18px 8px;
+    -webkit-user-select:all;user-select:all}
+  .check{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;color:var(--ink);cursor:pointer}
+  .check input{width:22px;height:22px;accent-color:var(--accent);flex:none}
+  .links .btn{font-size:12.5px;padding:0 8px}
   .match.ok{color:#6CCB8A} .match.no{color:#F08A6A}
   .grow{flex:1;min-height:0}
 
@@ -152,9 +163,41 @@
       </div>
       <p class="msg" id="authMsg" role="alert"></p>
       <button class="btn primary big" id="authBtn" type="submit">계정 만들기</button>
+      <button class="btn ghost" id="forgotBtn" type="button" hidden>비밀번호를 잊었어요</button>
     </form>
     <div class="grow"></div>
     <p class="note" id="authNote">개인정보는 받지 않아요. 아이디와 비밀번호만 있으면 돼요.<br>비밀번호는 되찾을 수 없으니 꼭 기억해 두세요.</p>
+  </section>
+
+  <!-- 복구 코드 — 가입 · 복구 · 새로 만들기 뒤에 한 번 보여 준다 -->
+  <section class="screen" id="codeScreen" hidden>
+    <div class="top"></div>
+    <div class="codebox">
+      <h2 id="codeTitle">복구 코드</h2>
+      <p class="note" id="codeLead">비밀번호를 잊었을 때 이 코드로 되찾아요.<br><b>지금 한 번만 보여 드려요.</b> 꼭 적어 두거나 복사해 두세요.</p>
+      <button class="code" id="codeText" type="button" aria-label="복구 코드 — 누르면 복사돼요"></button>
+      <button class="btn" id="codeCopy" type="button">복사하기</button>
+      <label class="check"><input type="checkbox" id="codeSaved"><span>안전한 곳에 적어 두었어요</span></label>
+    </div>
+    <div class="grow"></div>
+    <button class="btn primary big" id="codeNext" type="button" disabled>계속</button>
+  </section>
+
+  <section class="screen" id="recover" hidden>
+    <div class="top"><button class="back" data-go="auth" type="button">← 로그인으로</button></div>
+    <div class="hello"><h2>비밀번호 되찾기</h2><p>가입할 때 받은 복구 코드로 새 비밀번호를 정해요.</p></div>
+    <form class="form" id="recForm" autocomplete="off">
+      <label for="recId">아이디</label>
+      <input class="field" id="recId" autocapitalize="none" spellcheck="false" maxlength="16">
+      <label for="recCode">복구 코드</label>
+      <input class="field" id="recCode" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="XXXX-XXXX-XXXX-XXXX" style="letter-spacing:.08em">
+      <label for="recPw">새 비밀번호</label>
+      <input class="field" id="recPw" type="password" autocomplete="new-password" maxlength="64" placeholder="6자 이상">
+      <input class="field" id="recPw2" type="password" autocomplete="new-password" maxlength="64" placeholder="새 비밀번호 확인" aria-label="새 비밀번호 확인">
+      <p class="match" id="recMatch" aria-live="polite"></p>
+      <p class="msg" id="recMsg" role="alert"></p>
+      <button class="btn primary big" id="recBtn" type="submit">새 비밀번호로 바꾸기</button>
+    </form>
   </section>
 
   <!-- 3. 캐릭터 꾸미기 -->
@@ -189,11 +232,12 @@
     </nav>
     <div class="links">
       <button class="btn" id="editBtn" type="button">캐릭터 꾸미기</button>
+      <button class="btn" id="recNewBtn" type="button">복구 코드</button>
       <button class="btn ghost" id="logoutBtn" type="button">로그아웃</button>
     </div>
   </section>
 
 </div>
-<script type="module" src="js/studio.js?v=s6"></script>
+<script type="module" src="js/studio.js?v=s7"></script>
 </body>
 </html>
