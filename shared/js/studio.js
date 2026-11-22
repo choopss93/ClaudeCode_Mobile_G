@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s1';
-import { HAIR, CLOTH, SKIN, LOOKS, hex, cleanChar, colorsOf, randomChar } from './character.js?v=s1';
-import { readAccount, refresh, checkId, signup, login, logout, saveChar } from './account.js?v=s1';
+import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s3';
+import { GENDERS, SKIN, PARTS, hex, cleanChar, randomChar } from './character.js?v=c2';
+import { readAccount, refresh, checkId, signup, login, logout, saveChar } from './account.js?v=s2';
 
 /*
  * Metaversal Studio — 시작 → 가입·로그인 → 캐릭터 꾸미기 → 메뉴.
@@ -31,13 +31,16 @@ sun.position.set(2, 4, 3);
 scene.add(sun);
 const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 50);
 const LOOK_Y = HEAD_TOP * 0.55;
-camera.position.set(0, LOOK_Y + 0.15, 2.4);
+const HEAD_C = HEAD_TOP - 0.36;           // 머리 가운데보다 조금 아래 — 묶은 머리 끝까지 들어오게
+let zoom = 0, zoomTo = 0;                 // 0 온몸 · 1 머리
+let farZ = 2.4;
+camera.position.set(0, LOOK_Y + 0.15, farZ);
 camera.lookAt(0, LOOK_Y, 0);
 
 let actor = null, spin = 0.5, drag = null;
 function wear(char){
   if (actor) scene.remove(actor.group);
-  actor = createActor(colorsOf(char));
+  actor = createActor({ style: cleanChar(char) });
   actor.setHand(false);
   actor.group.rotation.y = spin;
   scene.add(actor.group);
@@ -50,7 +53,7 @@ function fit(){
   camera.aspect = w / h;
   // 낮고 넓은 자리에서도 머리부터 발끝까지 들어가게 거리를 맞춘다
   const need = (HEAD_TOP + 0.25) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
-  camera.position.z = Math.max(1.6, need * Math.max(1, 0.9 / camera.aspect)) * 1.05;
+  farZ = Math.max(1.6, need * Math.max(1, 0.9 / camera.aspect)) * 1.05;
   camera.updateProjectionMatrix();
 }
 new ResizeObserver(fit).observe(canvas);
@@ -65,9 +68,19 @@ function frame(t){
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (t - last) / 1000); last = t;
   if (!actor || !canvas.isConnected) return;
-  if (!drag) spin += dt * 0.35;          // 가만두면 천천히 돈다
+  if (!drag){
+    if (zoomTo > 0){
+      // 얼굴 · 헤어를 고를 때는 앞을 보고 멈춘다 — 돌아가 있으면 뒤통수만 보인다
+      const front = Math.round(spin / (Math.PI * 2)) * Math.PI * 2 + 0.25;
+      spin += (front - spin) * Math.min(1, dt * 4);
+    } else spin += dt * 0.35;            // 가만두면 천천히 돈다
+  }
   actor.group.rotation.y = spin;
   actor.update(dt, 0);
+  zoom += (zoomTo - zoom) * Math.min(1, dt * 6);
+  const y = LOOK_Y + (HEAD_C - LOOK_Y) * zoom;
+  camera.position.set(0, y + 0.15 * (1 - zoom) + 0.05 * zoom, farZ + (farZ * 0.8 - farZ) * zoom);
+  camera.lookAt(0, y, 0);
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
@@ -90,6 +103,7 @@ let pending = null;      // 가입 중인 {id, pw} — 캐릭터를 다 꾸민 �
 let makerFrom = 'auth';  // 꾸미기를 마치면 어디로 — 새 계정이면 가입, 아니면 저장
 
 function paintIntro(){
+  zoomTo = 0;
   $('#startBtn').textContent = account ? '들어가기' : '시작하기';
   $('#who').textContent = account ? `${account.user.char.nick} 님으로 들어가요 · @${account.user.id}` : '';
   wear(account ? account.user.char : draft);
@@ -104,12 +118,29 @@ function paintMode(){
   $('#pwIn').autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
   $('#authBtn').textContent = mode === 'signup' ? '다음 · 캐릭터 만들기' : '로그인';
   $('#authMsg').textContent = '';
+  paintMatch();
 }
 document.querySelector('.tabs').addEventListener('click', e => {
   const b = e.target.closest('[data-mode]');
   if (b){ mode = b.dataset.mode; paintMode(); }
 });
 paintMode();
+
+/* 비밀번호 확인 — 두 칸이 같은지 칠 때마다 바로 알려 주고, '보기' 로 눈으로도 확인한다 */
+function paintMatch(){
+  const a = $('#pwIn').value, b = $('#pw2In').value, m = $('#pwMatch');
+  if (!b){ m.textContent = ''; m.className = 'match'; return; }
+  const ok = a === b;
+  m.textContent = ok ? '✓ 비밀번호가 일치해요' : '두 비밀번호가 서로 달라요';
+  m.className = 'match ' + (ok ? 'ok' : 'no');
+}
+for (const id of ['#idIn', '#pwIn', '#pw2In']) $(id).addEventListener('input', () => { paintMatch(); $('#authMsg').textContent = ''; });
+$('#pwShow').onclick = () => {
+  const show = $('#pwIn').type === 'password';
+  for (const id of ['#pwIn', '#pw2In']) $(id).type = show ? 'text' : 'password';
+  $('#pwShow').textContent = show ? '숨기기' : '보기';
+  $('#pwShow').setAttribute('aria-pressed', String(show));
+};
 
 const ID_RE = /^[a-z0-9_]{3,16}$/;
 $('#idIn').addEventListener('input', () => {
@@ -132,6 +163,7 @@ $('#authForm').onsubmit = async e => {
       $('#pwIn').value = '';
       openMenu();
     } else {
+      if (!$('#pw2In').value) throw new Error('비밀번호 확인 칸에 한 번 더 적어 주세요');
       if (pw !== $('#pw2In').value) throw new Error('비밀번호 두 칸이 서로 달라요');
       const c = await checkId(id);
       if (!c.ok) throw new Error(c.why || '쓸 수 없는 아이디예요');
@@ -144,30 +176,44 @@ $('#authForm').onsubmit = async e => {
   } finally { btn.disabled = false; }
 };
 
-/* ─────────── 캐릭터 꾸미기 ─────────── */
-let part = 'hair';
-const PALETTE = { hair: HAIR, cloth: CLOTH, skin: SKIN };
+/* ─────────── 캐릭터 꾸미기 ───────────
+   남자 · 여자를 고르면 얼굴 · 헤어 · 상의 · 하의가 그에 맞는 8가지로 바뀐다.
+   번호는 그대로 두므로, 성별을 바꿔도 "세 번째 헤어" 는 세 번째 헤어다. */
+let part = 'face';
+const TABS = [...PARTS.map(([k, t]) => [k, t]), ['skin', '피부']];
 
-$('#lookSeg').innerHTML = LOOKS.map(([k, t]) => `<button type="button" data-look="${k}">${t}</button>`).join('');
-$('#lookSeg').addEventListener('click', e => {
-  const b = e.target.closest('[data-look]');
-  if (b){ draft.look = b.dataset.look; paintMaker(); }
+$('#genderSeg').innerHTML = GENDERS.map(([k, t]) => `<button type="button" data-g="${k}">${t}</button>`).join('');
+$('#partSeg').innerHTML = TABS.map(([k, t]) => `<button type="button" data-part="${k}">${t}</button>`).join('');
+$('#genderSeg').addEventListener('click', e => {
+  const b = e.target.closest('[data-g]');
+  if (b){ draft.gender = b.dataset.g; paintMaker(); }
 });
 $('#partSeg').addEventListener('click', e => {
   const b = e.target.closest('[data-part]');
   if (b){ part = b.dataset.part; paintMaker(); }
 });
-$('#swatches').addEventListener('click', e => {
+$('#opts').addEventListener('click', e => {
   const b = e.target.closest('[data-i]');
   if (b){ draft[part] = +b.dataset.i; paintMaker(); }
 });
 $('#nickIn').addEventListener('input', () => { draft.nick = $('#nickIn').value; $('#makerMsg').textContent = ''; });
 
 function paintMaker(){
-  for (const b of $('#lookSeg').children) b.classList.toggle('on', b.dataset.look === draft.look);
+  draft = { ...cleanChar(draft), nick: draft.nick || '' };
+  for (const b of $('#genderSeg').children) b.classList.toggle('on', b.dataset.g === draft.gender);
   for (const b of $('#partSeg').children) b.classList.toggle('on', b.dataset.part === part);
-  $('#swatches').innerHTML = PALETTE[part].map((c, i) =>
-    `<button type="button" data-i="${i}" class="${draft[part] === i ? 'on' : ''}" style="background:${hex(c)}" aria-label="${part} ${i + 1}"></button>`).join('');
+  let html;
+  if (part === 'skin'){
+    html = SKIN.map((c, i) => `<button type="button" class="skin ${draft.skin === i ? 'on' : ''}" data-i="${i}" aria-label="피부 ${i + 1}"><i style="background:${hex(c)}"></i></button>`).join('');
+  } else {
+    const list = PARTS.find(p => p[0] === part)[2][draft.gender];
+    html = list.map((o, i) => {
+      const dot = o.color != null && part !== 'face' ? `<i style="background:${hex(o.color)}"></i>` : '';
+      return `<button type="button" class="${draft[part] === i ? 'on' : ''}" data-i="${i}">${dot}<span>${o.name}</span></button>`;
+    }).join('');
+  }
+  $('#opts').innerHTML = html;
+  zoomTo = part === 'face' || part === 'hair' ? 1 : 0;
   wear(draft);
 }
 
@@ -189,7 +235,7 @@ $('#makerBtn').onclick = async () => {
     if (makerFrom === 'auth'){
       account = await signup(pending.id, pending.pw, cleanChar(draft));
       pending = null;
-      $('#pwIn').value = ''; $('#pw2In').value = '';
+      $('#pwIn').value = ''; $('#pw2In').value = ''; paintMatch();
     } else {
       account = await saveChar(cleanChar(draft));
     }
@@ -202,6 +248,7 @@ $('#makerBtn').onclick = async () => {
 
 /* ─────────── 메뉴 ─────────── */
 function openMenu(){
+  zoomTo = 0;
   const c = account.user.char;
   $('#helloName').textContent = `안녕하세요, ${c.nick} 님`;
   $('#helloId').textContent = `@${account.user.id} · 어디로 갈까요?`;

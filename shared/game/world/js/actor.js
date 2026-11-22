@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { toon, makeBlob, makeSpray, sprayCap } from '#look';
 import { PAINTS, fixPaint, fixSprays, sprayRadius } from '#pets';
+import { baseMats, dressBody, dressHead } from './outfit.js?v=o3';
+import { resolveChar } from '../../../js/character.js?v=c2';
 
 /** 뿌린 자국을 살갗에서 띄우는 거리 (m). 깜빡이지 않을 만큼만. */
 const SPRAY_LIFT = 0.0015;
@@ -43,9 +45,11 @@ const BODY_Y = LEG_H + BODY_H / 2;
 const HEAD_Y = BODY_Y + BODY_H / 2 + HEAD_R * 0.72;
 export const HEAD_TOP = HEAD_Y + HEAD_R;
 
-const ball = new THREE.SphereGeometry(1, 16, 12);
-const eyeGeo = new THREE.SphereGeometry(0.042, 10, 8);
-const rod = new THREE.CylinderGeometry(1, 1, 1, 6);
+/* 둥근 조각은 잘게 쪼갠다 — 성기면 테두리가 각져 보인다 (사용자가 '더 부드럽고 섬세한 선'을
+   바랐다). 서른 명이 모여도 버티는 선에서 잡았다. */
+const ball = new THREE.SphereGeometry(1, 28, 20);
+const eyeGeo = new THREE.SphereGeometry(0.042, 16, 12);
+const rod = new THREE.CylinderGeometry(1, 1, 1, 10);
 
 function piece(group, geo, mat, x, y, z, sx, sy, sz){
   const m = new THREE.Mesh(geo, mat);
@@ -55,11 +59,18 @@ function piece(group, geo, mat, x, y, z, sx, sy, sz){
   return m;
 }
 
+/**
+ * style — Metaversal Studio 에서 꾸민 캐릭터({gender, face, hair, top, bottom, skin}).
+ *         있으면 그대로 입히고(outfit.js), 없으면 예전처럼 color · hair · long 으로 짓는다.
+ */
 export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
-                              lamp = false, skin: skinColor = 0xFFE9D4 } = {}){
+                              lamp = false, skin: skinColor = 0xFFE9D4, style = null } = {}){
   const group = new THREE.Group();
-  const skin = toon(skinColor);     // Metaversal Studio 에서 고른 피부색 (없으면 예전 그대로)
+  const S = style ? resolveChar(style) : null;
+  const M = S ? baseMats(S) : null;
+  const skin = M ? M.skin : toon(skinColor);
   const cloth = toon(color);
+  const legMat = M ? M.leg : cloth, bodyMat = M ? M.body : cloth, armMat = M ? M.arm : cloth;
   const hairMat = toon(hair);
   const dark = toon(0x5C5560);
   const blush = toon(0xFFB4C0);
@@ -67,11 +78,11 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
   group.add(makeBlob(0.3));
 
   // 다리 — 짧고 동글한 발
-  const legL = piece(group, ball, cloth, -0.085, LEG_H / 2, 0, 0.082, LEG_H / 2, 0.095);
-  const legR = piece(group, ball, cloth,  0.085, LEG_H / 2, 0, 0.082, LEG_H / 2, 0.095);
+  const legL = piece(group, ball, legMat, -0.085, LEG_H / 2, 0, 0.082, LEG_H / 2, 0.095);
+  const legR = piece(group, ball, legMat,  0.085, LEG_H / 2, 0, 0.082, LEG_H / 2, 0.095);
 
   // 몸 — 작고 동그랗게
-  piece(group, ball, cloth, 0, BODY_Y, 0, 0.19, BODY_H / 2, 0.165);
+  piece(group, ball, bodyMat, 0, BODY_Y, 0, 0.19, BODY_H / 2, 0.165);
 
   // 팔 — 어깨에서 돌아가는 무리로 둔다. 방울 하나만 두면 돌려도 표가 안 나고,
   // 손에 든 것도 같이 흔들리지 않는다.
@@ -79,12 +90,13 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
     const a = new THREE.Group();
     a.position.set(side * 0.185, BODY_Y + 0.115, 0);
     group.add(a);
-    piece(a, ball, cloth, 0, -0.085, 0, 0.062, 0.085, 0.062);
+    piece(a, ball, armMat, 0, -0.085, 0, 0.062, 0.085, 0.062);
     return a;
   }
   const armL = makeArm(-1);
   const armR = makeArm(1);
   armR.rotation.z = -0.34;        // 든 팔은 바깥으로 벌린다
+  if (S) dressBody({ group, armL, armR, BODY_Y, BODY_H }, S);   // 하의 · 상의 장식
 
   /* 오른손 — 밝을 땐 바람개비, 어두울 땐 등불.
      머리가 몸보다 크고 넓어, 몸 옆에 그냥 두면 통째로 가려진다. 아이가
@@ -154,28 +166,32 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
   group.add(head);
 
   piece(head, ball, skin, 0, 0, 0, HEAD_R, HEAD_R * 0.96, HEAD_R * 0.92);
-  // 머리칼 — 머리보다 조금 크게 덮어야 모자처럼 보인다. 작게 하면
-  // 머리 안으로 파묻혀 깎인 자국처럼 보인다. 얼굴은 드러나게 뒤로 민다.
-  piece(head, ball, hairMat, 0, HEAD_R * 0.22, -HEAD_R * 0.16,
-        HEAD_R * 1.04, HEAD_R * 0.88, HEAD_R * 0.92);
+  if (S){
+    dressHead({ head, R: HEAD_R }, S);    // 헤어와 얼굴
+  } else {
+    // 머리칼 — 머리보다 조금 크게 덮어야 모자처럼 보인다. 작게 하면
+    // 머리 안으로 파묻혀 깎인 자국처럼 보인다. 얼굴은 드러나게 뒤로 민다.
+    piece(head, ball, hairMat, 0, HEAD_R * 0.22, -HEAD_R * 0.16,
+          HEAD_R * 1.04, HEAD_R * 0.88, HEAD_R * 0.92);
 
-  // 긴 머리 — 게임에서는 뒷모습을 주로 보므로, 뒤에서도 구분되게 옆과 뒤로
-  // 흘러내리게 한다. 옷 색은 이름에서 나오므로 머리 모양만 다르다.
-  if (long){
-    for (const side of [-1, 1]){
-      piece(head, ball, hairMat, side * HEAD_R * 0.84, -HEAD_R * 0.42, -HEAD_R * 0.04,
-            HEAD_R * 0.3, HEAD_R * 0.62, HEAD_R * 0.34);
+    // 긴 머리 — 게임에서는 뒷모습을 주로 보므로, 뒤에서도 구분되게 옆과 뒤로
+    // 흘러내리게 한다. 옷 색은 이름에서 나오므로 머리 모양만 다르다.
+    if (long){
+      for (const side of [-1, 1]){
+        piece(head, ball, hairMat, side * HEAD_R * 0.84, -HEAD_R * 0.42, -HEAD_R * 0.04,
+              HEAD_R * 0.3, HEAD_R * 0.62, HEAD_R * 0.34);
+      }
+      piece(head, ball, hairMat, 0, -HEAD_R * 0.46, -HEAD_R * 0.6,
+            HEAD_R * 0.74, HEAD_R * 0.58, HEAD_R * 0.44);
     }
-    piece(head, ball, hairMat, 0, -HEAD_R * 0.46, -HEAD_R * 0.6,
-          HEAD_R * 0.74, HEAD_R * 0.58, HEAD_R * 0.44);
-  }
 
-  const fz = HEAD_R * 0.84;   // 얼굴이 향하는 면 (+Z)
-  piece(head, eyeGeo, dark, -0.105, 0.015, fz, 1, 1.15, 0.7);
-  piece(head, eyeGeo, dark,  0.105, 0.015, fz, 1, 1.15, 0.7);
-  piece(head, ball, blush, -0.175, -0.07, fz * 0.86, 0.055, 0.035, 0.03);
-  piece(head, ball, blush,  0.175, -0.07, fz * 0.86, 0.055, 0.035, 0.03);
-  piece(head, ball, skin, 0, -0.04, fz * 1.02, 0.034, 0.03, 0.03);   // 코
+    const fz = HEAD_R * 0.84;   // 얼굴이 향하는 면 (+Z)
+    piece(head, eyeGeo, dark, -0.105, 0.015, fz, 1, 1.15, 0.7);
+    piece(head, eyeGeo, dark,  0.105, 0.015, fz, 1, 1.15, 0.7);
+    piece(head, ball, blush, -0.175, -0.07, fz * 0.86, 0.055, 0.035, 0.03);
+    piece(head, ball, blush,  0.175, -0.07, fz * 0.86, 0.055, 0.035, 0.03);
+    piece(head, ball, skin, 0, -0.04, fz * 1.02, 0.034, 0.03, 0.03);   // 코
+  }
 
   const LEG_Y = LEG_H / 2;
   let phase = 0, idle = Math.random() * 6;
