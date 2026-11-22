@@ -41,6 +41,13 @@
     Cloudflare 가 받아 `npx wrangler deploy` 로 올린다. 그러려면 Worker 의
     Settings → Build 의 **API 토큰이 살아 있어야** 한다 (한동안 끊겨 있었다 —
     'This token may have been deleted…' 가 보이면 사용자가 Create new token).
+  - **올린 뒤에는 Cloudflare 배포 기록으로 확인한다** (GitHub Pages 기록이 아니라).
+    `curl -H 'Authorization: Bearer proxy-injected' https://api.cloudflare.com/client/v4/accounts/c5785881c6d79be37f553bfb854fb824/workers/scripts/claudecode-mobile-g/deployments`
+    — 내가 올린 직후 시각의 배포가 있으면 된 것이다. 내용까지 보려면 공개 주소의
+    포커 판 번호(`.ver`)를 찍는다.
+  - 저장소가 **공개**인 동안은 `choopss93.github.io/ClaudeCode_Mobile_G/` 로
+    허브와 1 · 2 · 4 가 비밀번호 없이 열린다 (GitHub Pages 가 살아 있다).
+    잠금은 Cloudflare 주소에만 걸린다는 것을 잊지 말 것.
   - 이 저장소용 클라우드 환경(`ClaudeCode_Mobile_G`)에는 Cloudflare API 토큰이
     네트워크 비밀로 들어 있다. 그걸로 `CLOUDFLARE_API_TOKEN=proxy-injected
     CLOUDFLARE_ACCOUNT_ID=c5785881c6d79be37f553bfb854fb824 npx wrangler …` 를
