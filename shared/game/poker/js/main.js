@@ -69,9 +69,10 @@ const nameOf = id => (id === me.id ? me.name : (net.peers.get(id)?.name || names
 
 /* ─────────── 첫 화면 ─────────── */
 const nameIn = $('#name'), codeIn = $('#code');
-// Metaversal Studio 에 로그인돼 있으면 캐릭터 이름으로 들어간다 (고쳐 쓸 수는 있다)
+/* 캐릭터는 Metaversal Studio(무지개 정원)에서만 쓴다 — 여기(Meta Project)는 따로다.
+   이름 칸에는 포커에서 쓰던 이름, 처음이면 로그인한 아이디를 넣어 둔다. */
 const ACCOUNT = readAccount();
-nameIn.value = (ACCOUNT && ((ACCOUNT.user.char && ACCOUNT.user.char.nick) || ACCOUNT.user.id)) || store.name || '';
+nameIn.value = store.name || (ACCOUNT && ACCOUNT.user.id) || '';
 const fromLink = channelFromHash();
 if (fromLink && fromLink !== 'OPEN') codeIn.value = showChannel(fromLink);
 
