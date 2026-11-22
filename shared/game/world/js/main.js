@@ -10,7 +10,7 @@ import { CAPACITY, PUBLIC, makeChannel, readChannel, showChannel,
 import { lookNow, createStars, createSun, applyLook } from '#daylight';
 import { createControls } from '#controls';
 import { createLocalNet } from '#net';
-import { readAccount } from '../../../js/account.js?v=s6';
+import { readAccount, refresh } from '../../../js/account.js?v=s6';
 import { cleanChar, colorsOf } from '../../../js/character.js?v=c3';
 import { createLiveNet } from '#live';
 import { SKY, colorFor, hairFor, wind, toon } from '#look';
@@ -686,7 +686,7 @@ function begin(myName, petName, petSpec, friends, myLook){
   me.group.rotation.y = Math.PI;
   scene.add(me.group);
   me.setHand(look.dark > 0.5);
-  const myLabel = makeLabel(myName);
+  let myLabel = makeLabel(myName);
 
   // 이름표는 아래에서 다시 쓴다 — 코드를 넣었으면 그 아이의 이름이라야 한다
 
@@ -878,13 +878,27 @@ function begin(myName, petName, petSpec, friends, myLook){
   /* ── 다른 사람들 ── */
   const peers = new Map();
 
+  /* 모습 바꾸기 — 바깥 그릇(`a.group`)은 그대로 두고 안의 몸만 갈아 끼운다.
+     그릇은 자리 · 방향 · 서로 밀어내기(`bodies`) · 반려동물의 가족 목록이
+     붙잡고 있어서, 통째로 바꾸면 그 줄이 모두 끊긴다. 새 몸은 그릇 안
+     제자리(0,0,0)에 두고, 움직이는 법(update · toss …)도 새 몸의 것으로 바꾼다. */
+  function restyle(a, fresh){
+    a.dispose();
+    for (const c of [...a.group.children]) a.group.remove(c);
+    a.group.add(fresh.group);
+    const { group, ...ways } = fresh;
+    Object.assign(a, ways);
+    a.setHand(look.dark > 0.5);
+  }
+  const peerLook = info => info.style ? { style: info.style }
+    : Array.isArray(info.colors)
+    ? { color: info.colors[0], hair: info.colors[1], skin: info.colors[2], long: info.look === 'long' }
+    : { color: colorFor(info.name), hair: hairFor(info.name), long: info.look === 'long' };
+
   const handlers = {
     onJoin(id, info){
       // Metaversal Studio 캐릭터면 그 사람이 고른 색, 아니면 예전처럼 이름에서 뽑는다
-      const actor = createActor(info.style ? { style: info.style }
-        : Array.isArray(info.colors)
-        ? { color: info.colors[0], hair: info.colors[1], skin: info.colors[2], long: info.look === 'long' }
-        : { color: colorFor(info.name), hair: hairFor(info.name), long: info.look === 'long' });
+      const actor = createActor(peerLook(info));
       scene.add(actor.group);
       actor.setHand(look.dark > 0.5);
       /* 그 사람이 데려온 아이도 함께 보인다 (`peerPet`). 다만
@@ -960,6 +974,14 @@ function begin(myName, petName, petSpec, friends, myLook){
       const p = peers.get(id);
       if (p) p.label.say(text);
     },
+    /* 그 사람이 이름이나 캐릭터를 바꿨다 — 바로 새 모습으로 (다시 들어올 때까지 기다리지 않는다) */
+    onLook(id, info){
+      const p = peers.get(id);
+      if (!p) return;
+      restyle(p.actor, createActor(peerLook(info)));
+      p.label.remove();
+      p.label = makeLabel(info.name);
+    },
     onLeave(id){
       const p = peers.get(id);
       if (!p) return;
@@ -991,16 +1013,9 @@ function begin(myName, petName, petSpec, friends, myLook){
   let netSaid = '잇는 중';
 
   // 거니는 손님들. 열린 정원에만 있고 내가 판 채널은 조용하다.
-  const strollers = createLocalNet({
-    world, handlers, channel,
-    // 손님도 사람과 아이를 통과하지 않는다. 자기 자신은 빼고 따진다.
-    place(id, x, z){
-      const p = peers.get(id);
-      const a = resolve(world, x, z);
-      const b = keepApart(p ? p.actor.group : null, a.x, a.z, PERSON_R);
-      return resolve(world, b.x, b.z);
-    }
-  });
+  // 손님은 서버 시각으로만 자리가 정해져 모두의 화면에서 같은 자리에 있다 (net.js).
+  // 그래서 손님은 밀리지 않고, 내가 비켜선다.
+  const strollers = createLocalNet({ world, handlers, channel });
 
   // 같은 채널에 들어온 실제 사람들. 못 붙어도 정원은 그대로 거닐 수 있다.
   const net = createLiveNet({
@@ -1017,6 +1032,25 @@ function begin(myName, petName, petSpec, friends, myLook){
     onStatus(s){ netSaid = s; paintCount(); }
   });
   updateCount();
+
+  /* 내 캐릭터가 Studio 에서 바뀌었으면 (다른 기기 · 다른 탭에서 고쳤을 수 있다)
+     내 화면도 바로 바꾸고 남들에게도 알린다. 30초마다, 그리고 화면으로 돌아올 때 본다. */
+  if (MY_CHAR){
+    const styleArr = c => [c.gender === 'f' ? 1 : 0, c.face, c.hair, c.top, c.bottom, c.skin, c.expr];
+    let mySig = JSON.stringify(MY_CHAR);
+    const checkMine = async () => {
+      const a = await refresh();
+      const c = a && a.user.char ? cleanChar(a.user.char) : null;
+      if (!c || JSON.stringify(c) === mySig) return;
+      mySig = JSON.stringify(c);
+      restyle(me, createActor({ lamp: true, style: c }));
+      myLabel.remove();
+      myLabel = makeLabel(c.nick);
+      net.setMe({ name: c.nick, look: c.gender === 'f' ? 'long' : 'short', colors: colorsOf(c), style: styleArr(c) });
+    };
+    setInterval(checkMine, 30000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkMine(); });
+  }
 
   /* ── 조작 ── */
   const controls = createControls(canvas, { stick: $('stick'), knob: $('knob') });
@@ -1836,8 +1870,8 @@ function begin(myName, petName, petSpec, friends, myLook){
       g.position.z += (p.s.z - g.position.z) * k;
       g.position.y = p.s.y;
 
-      /* 여기서는 밀어내지 않는다. 거니는 손님은 `place` 가 이미 밀어낸
-         자리를 보내 주고, 접속한 사람은 저쪽 기기가 자리를 정한다.
+      /* 여기서는 밀어내지 않는다. 거니는 손님은 서버 시각이 자리를 정하고
+         (모두의 화면에서 같은 자리), 접속한 사람은 저쪽 기기가 자리를 정한다.
          양쪽에서 밀면 서로 밀치며 떨린다. */
 
       let d = p.s.ry - g.rotation.y;

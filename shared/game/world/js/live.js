@@ -143,9 +143,23 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
               : null } : null;
       const dog = typeof m[4] === 'string' ? m[4].slice(0, 12) : '친구';
       const sig = JSON.stringify([dog, spec]);
+      const who = {
+        name: typeof m[2] === 'string' ? m[2].slice(0, 12) : '친구',
+        colors: Array.isArray(m[6]) && m[6].length === 3 && m[6].every(v => Number.isInteger(v) && v >= 0 && v <= 0xFFFFFF) ? m[6] : null,
+        style: Array.isArray(m[7]) && m[7].length >= 6 && m[7].every(v => Number.isInteger(v) && v >= 0 && v < 32)
+          ? { gender: m[7][0] === 1 ? 'f' : 'm', face: m[7][1], hair: m[7][2], top: m[7][3], bottom: m[7][4], skin: m[7][5], expr: m[7][6] || 0 } : null,
+        look: m[3] === 'long' ? 'long' : 'short'
+      };
+      const whoSig = JSON.stringify(who);
       const known = peers.get(from);
       if (known){                                          // 이미 아는 사람
         known.last = now();
+        /* 이름 · 캐릭터 모습도 중간에 바뀔 수 있다 (Metaversal Studio 에서 고쳤다).
+           바뀌었으면 바로 알려 준다 — 다시 들어오기 전까지 옛 모습으로 남지 않게. */
+        if (known.who !== whoSig){
+          known.who = whoSig;
+          handlers.onLook && handlers.onLook(from, who);
+        }
         /* 아이는 중간에 바뀔 수 있다 — 그 사람이 코드를 넣으면 다른
            아이가 된다. 인사가 달라졌으면 알려 준다. 그냥 흘려보내면
            그 사람의 옛 아이가 내 화면에 그대로 남고, 내 코드를 넣은
@@ -158,13 +172,9 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
       }
       // 자리가 찼으면 더 받지 않는다. 서른 명까지다.
       if (peers.size + 1 >= CAPACITY) return;
-      peers.set(from, { last: now(), sig });
+      peers.set(from, { last: now(), sig, who: whoSig });
       handlers.onJoin(from, {
-        name: typeof m[2] === 'string' ? m[2].slice(0, 12) : '친구',
-        colors: Array.isArray(m[6]) && m[6].length === 3 && m[6].every(v => Number.isInteger(v) && v >= 0 && v <= 0xFFFFFF) ? m[6] : null,
-        style: Array.isArray(m[7]) && m[7].length >= 6 && m[7].every(v => Number.isInteger(v) && v >= 0 && v < 32)
-          ? { gender: m[7][0] === 1 ? 'f' : 'm', face: m[7][1], hair: m[7][2], top: m[7][3], bottom: m[7][4], skin: m[7][5], expr: m[7][6] || 0 } : null,
-        look: m[3] === 'long' ? 'long' : 'short',
+        ...who,
         dog: dog,
         pet: spec,
         remote: true                 // 이 아이는 주인이 보내 주는 자리에 놓는다
@@ -274,6 +284,16 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
       mine[5] = pet ? [pet.kind, pet.breed, pet.coat,
                        Number.isInteger(pet.mix) ? pet.mix : null,
                        pet.paint || null, dots(pet.sprays)] : null;
+      if (link) link.publish(topic, JSON.stringify(mine));
+    },
+
+    /* 내 이름 · 모습이 바뀌었다 (Studio 에서 캐릭터를 고쳤다). 인사를 고쳐 두고
+       한 번은 바로 보낸다 — 받는 쪽은 달라진 인사를 보고 모습을 바꾼다. */
+    setMe({ name, look, colors, style }){
+      if (name) mine[2] = name;
+      if (look) mine[3] = look;
+      mine[6] = Array.isArray(colors) ? colors : null;
+      mine[7] = Array.isArray(style) ? style : null;
       if (link) link.publish(topic, JSON.stringify(mine));
     },
 
