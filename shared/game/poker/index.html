@@ -6,13 +6,13 @@
      main.js 의 gesturestart 막기로 한 번 더 붙든다. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Memory Poker</title>
-<meta name="description" content="16장을 20초 동안 외우고, 두 칸을 골라 포커 족보로 겨루는 1~4인 온라인 게임.">
+<meta name="description" content="16장을 20초 동안 외우고, 두 칸을 골라 포커 족보로 겨루는 1~8인 온라인 게임.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta property="og:title" content="Memory Poker">
-<meta property="og:description" content="16장을 외우고 두 칸을 골라 겨뤄요. 1~4명.">
+<meta property="og:description" content="16장을 외우고 두 칸을 골라 겨뤄요. 1~8명.">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
@@ -136,21 +136,21 @@
   #roomBtn .inv{color:var(--accent);font-weight:600}
   #netText{overflow:hidden;text-overflow:ellipsis;max-width:18vw}
 
-  /* 자리 — 이름과 점수만. 누르면 그 사람 창이 뜬다 */
-  #seats{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;flex:none}
-  #seats button{all:unset;box-sizing:border-box;width:100%;height:44px;cursor:pointer;
-    background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px 7px;
+  /* 자리 — 이름과 점수만. 누르면 그 사람 창이 뜬다. 8자리 = 4칸 두 줄, 늘 깔아 둔다 */
+  #seats{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;flex:none}
+  #seats button{all:unset;box-sizing:border-box;width:100%;height:36px;cursor:pointer;
+    background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:2px 6px;
     display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:1fr 1fr;column-gap:4px;align-items:center;
-    font-size:12px;-webkit-tap-highlight-color:transparent}
+    font-size:11.5px;-webkit-tap-highlight-color:transparent}
   #seats button:active{background:var(--surface-2)}
   #seats button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
   #seats .me button{border-color:var(--accent);background:var(--accent-soft)}
   #seats .out button{opacity:.45}
-  #seats .emptyseat{height:44px;border:1px dashed var(--line);border-radius:10px;color:var(--faint);
+  #seats .emptyseat{height:36px;border:1px dashed var(--line);border-radius:10px;color:var(--faint);
     display:flex;align-items:center;justify-content:center;font-size:11.5px}
   #seats .nm{grid-column:1 / -1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
   #seats .nm em{font-style:normal;color:var(--accent);margin-right:2px}
-  #seats .sc{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+  #seats .sc{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
   #seats .pk{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.1}
 
   .status{display:flex;align-items:center;gap:10px;flex:none;min-width:0;height:44px}
@@ -219,7 +219,7 @@
     border-radius:50%;color:var(--muted);font-size:20px;flex:none}
   .sheet .x:active{background:var(--surface-2)}
   .sheet .sub2{margin:2px 0 10px;color:var(--muted);font-size:12.5px;flex:none}
-  /* 넷이면 다 들어간다. 그래도 넘치면 창 안에서만 넘긴다 */
+  /* 여덟이면 넘칠 수 있다 — 창 안에서만 넘긴다 */
   .sheet .body{min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
   .sheet .btns{display:flex;gap:8px;margin-top:12px;flex:none}
   .sheet .btns .btn{flex:1;min-height:46px;font-size:15px}
@@ -308,7 +308,7 @@
     <header>
       <a class="back" href="../../">← Metaversal Studio</a>
       <h1>Memory Poker</h1>
-      <p class="sub">16장을 외우고, 두 칸을 골라 포커 족보로 겨뤄요. 1~4명.</p>
+      <p class="sub">16장을 외우고, 두 칸을 골라 포커 족보로 겨뤄요. 1~8명.</p>
     </header>
 
     <div class="panel stack">
@@ -368,7 +368,7 @@
     </div>
   </section>
 
-  <p class="ver">판 13</p>
+  <p class="ver">판 14</p>
 </div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="card2">
@@ -380,6 +380,6 @@
   </div>
 </div>
 <div id="toast" hidden></div>
-<script type="module" src="js/main.js?v=13"></script>
+<script type="module" src="js/main.js?v=14"></script>
 </body>
 </html>

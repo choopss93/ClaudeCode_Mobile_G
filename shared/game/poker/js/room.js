@@ -1,7 +1,7 @@
 import { connectMqtt } from '../../world/js/mqtt.js';
 
 /*
- * 방 — 한 판을 함께 하는 사람들 (최대 4명).
+ * 방 — 한 판을 함께 하는 사람들 (최대 8명).
  *
  * 무지개 정원과 같은 공개 MQTT 브로커로 말을 주고받는다. 서버가 없으므로
  * **방장**이 판을 돌린다 — 카드를 섞고, 시간을 재고, 점수를 낸다. 방장은
@@ -23,7 +23,7 @@ import { connectMqtt } from '../../world/js/mqtt.js';
  * QoS 0 이라 꾸러미가 빠질 수 있다. 그래서 중요한 것은 되풀이해 보낸다.
  */
 
-export const MAX_SEATS = 4;
+export const MAX_SEATS = 8;
 const HI_EVERY = 3000;
 const GONE_AFTER = 8000;
 const TOPIC = 'mempoker/';
@@ -119,7 +119,7 @@ export function joinRoom({ room, me, onMessage, onPeers, onStatus }){
     peers,
     send,
     leave,
-    /** 들어온 순서대로 줄 세운 사람들. 앞의 넷이 자리에 앉고 맨 앞이 방장이다. */
+    /** 들어온 순서대로 줄 세운 사람들. 앞의 여덟이 자리에 앉고 맨 앞이 방장이다. */
     order(){
       const all = [{ id: me.id, name: me.name, at: me.at }, ...[...peers].map(([id, p]) => ({ id, name: p.name, at: p.at }))];
       return all.sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1));

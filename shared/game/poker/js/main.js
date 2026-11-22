@@ -1,5 +1,5 @@
 import { shuffled, evaluate, compare, label, isRed, SUITS, suitOf, cellName } from './cards.js?v=8';
-import { joinRoom, makeId, MAX_SEATS } from './room.js?v=8';
+import { joinRoom, makeId, MAX_SEATS } from './room.js?v=9';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
 
