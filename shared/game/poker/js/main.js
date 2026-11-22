@@ -1,5 +1,5 @@
 import { shuffled, evaluate, compare, label, isRed, SUITS, suitOf, cellName } from './cards.js?v=8';
-import { joinRoom, makeId, MAX_SEATS } from './room.js?v=9';
+import { joinRoom, makeId, MAX_SEATS } from './room.js?v=10';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
 
@@ -43,7 +43,7 @@ document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preven
    식으로 하면 두 칸을 빨리 고를 때 두 번째 톡이 먹힌다. */
 
 /* ─────────── 상태 ─────────── */
-const me = { id: makeId(), name: '', at: 0 };
+const me = { id: makeId(), name: '', at: 0, ready: -1 };
 let net = null, roomId = null;
 let round = null;      // { n, seats, grid, comm, start, tie }
 let picks = new Map(); // id → [칸, 칸]  (지금 판)
@@ -65,6 +65,38 @@ function commNow(){
 }
 const isHost = () => net && net.order()[0].id === me.id;
 const seatsNow = () => net.order().slice(0, MAX_SEATS);
+
+/* 준비 — 판을 시작하기 전에 자리에 앉은 사람이 모두 '게임 준비' 를 누르고,
+   다 되면 방장이 '게임 시작' 을 누른다. 방장은 시작 단추가 곧 준비다.
+   준비는 '몇 번째 판 다음' 을 위한 것인지 숫자로 적는다 (readyBase).
+   그래야 판이 시작되면 저절로 풀리고, 늦게 닿은 옛 인사가 다음 판의
+   준비로 잘못 읽히지 않는다. 결승은 이어서 저절로 시작한다. */
+const readyBase = () => Math.max(round ? round.n : 0, result ? result.n : 0);
+function isReady(id){
+  if (id === net.order()[0].id) return true;
+  const r = id === me.id ? me.ready : net.peers.get(id)?.ready;
+  return r === readyBase();
+}
+const readyCount = () => seatsNow().filter(s => isReady(s.id)).length;
+const allReady = () => seatsNow().every(s => isReady(s.id));
+function toggleReady(){
+  if (isHost() || !seatsNow().some(s => s.id === me.id)) return;
+  me.ready = me.ready === readyBase() ? -1 : readyBase();
+  if (navigator.vibrate) navigator.vibrate(8);
+  net.hi(); render();
+}
+/* 단추 한 칸 — 판 아래 줄과 결과 창이 같이 쓴다 */
+function readyButton(){
+  const seated = seatsNow(), n = seated.length;
+  if (isHost()){
+    const ok = allReady();
+    return `<button class="btn primary" data-act="start" type="button" ${ok ? '' : 'disabled'}>${ok ? '게임 시작' : `준비 기다리는 중 ${readyCount()}/${n}`}</button>`;
+  }
+  if (!seated.some(s => s.id === me.id)) return '<span class="wait">관전 중 · 자리가 나면 앉아요</span>';
+  return me.ready === readyBase()
+    ? '<button class="btn on" data-act="ready" type="button">✓ 준비 완료 <small>· 취소</small></button>'
+    : '<button class="btn primary" data-act="ready" type="button">게임 준비</button>';
+}
 const nameOf = id => (id === me.id ? me.name : (net.peers.get(id)?.name || names[id] || '나간 사람'));
 
 /* ─────────── 첫 화면 ─────────── */
@@ -258,19 +290,21 @@ $('#grid').addEventListener('click', e => {
   const b = e.target.closest('[data-i]');
   if (b) tap(+b.dataset.i);
 });
-function startNext(){ if (isHost()) { result = null; closeSheet(); startRound(seatsNow().map(s => s.id), false); } }
+function startNext(){ if (isHost() && allReady()) { result = null; closeSheet(); startRound(seatsNow().map(s => s.id), false); } }
 
 /* ─────────── 올라오는 창 ───────────
    화면에 늘어놓으면 판이 밀리므로, 결과와 사람별 자세한 내용은 여기에 띄운다. */
 const sheet = $('#sheet');
-function openSheet(what){ sheetFor = what; sheet.hidden = false; drawSheet(); }
+/* 넘겨 보는 것은 족보 창뿐이다 (사용자가 허락함). 나머지 창은 안에 맞춰 넣는다. */
+function openSheet(what){ sheetFor = what; $('#sheetBody').classList.remove('scroll'); sheet.hidden = false; drawSheet(); }
 function closeSheet(){ sheetFor = null; sheet.hidden = true; render(); }
 $('#sheetClose').onclick = closeSheet;
 sheet.addEventListener('click', e => {
   if (e.target === sheet) return closeSheet();
   const b = e.target.closest('[data-act]');
   if (!b) return;
-  if (b.dataset.act === 'next') startNext();
+  if (b.dataset.act === 'next' || b.dataset.act === 'start') startNext();
+  else if (b.dataset.act === 'ready') toggleReady();
   else if (b.dataset.act === 'close') closeSheet();
   else if (b.dataset.act === 'result') openSheet('result');
 });
@@ -284,6 +318,7 @@ $('#actions').addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
   if (!b) return;
   if (b.dataset.act === 'start' || b.dataset.act === 'next') startNext();
+  else if (b.dataset.act === 'ready') toggleReady();
   else if (b.dataset.act === 'result') openSheet('result');
 });
 
@@ -335,6 +370,7 @@ function openHands(){
       <p><b>흐린 카드</b>는 족보에 들지 않은 남는 카드예요. 족보가 같을 때 견주는 데 써요.</p>
     </div>`;
   $('#sheetBtns').innerHTML = '<button class="btn" data-act="close" type="button">닫기</button>';
+  $('#sheetBody').classList.add('scroll');   // 이 창만은 넘겨 본다
   sheet.hidden = false;
   $('#sheetBody').scrollTop = 0;
 }
@@ -371,8 +407,8 @@ function drawSheet(){
         <span class="pt ${ptCls(r.pt)}">${ptText(r)}</span>
       </li>`;
     }).join('') + '</ul>';
-    F.innerHTML = `<button class="btn" data-act="close" type="button">판 보기</button>` +
-      (!result.tie && host === me.id ? `<button class="btn primary" data-act="next" type="button">다음 판</button>` : '');
+    F.innerHTML = `<button class="btn" data-act="close" type="button">판 보기</button>` + (result.tie ? '' : readyButton());
+    fitResults();
     return;
   }
 
@@ -411,6 +447,17 @@ function drawSheet(){
   F.innerHTML = `<button class="btn" data-act="close" type="button">닫기</button>`;
 }
 
+/* 결과 창은 넘겨 보지 않는다 — 넘치면 한 단계씩 줄인다: 보통 → 얇게 → 두 칸 */
+function fitResults(){
+  const B = $('#sheetBody'), ul = $('#results');
+  if (!ul) return;
+  for (const cls of ['', 'tight', 'tight g2']){
+    ul.className = cls;
+    if (B.scrollHeight <= B.clientHeight + 1) return;
+  }
+}
+addEventListener('resize', () => { if (sheetFor === 'result') fitResults(); });
+
 /* ─────────── 그리기 ─────────── */
 function face(c, extra = ''){
   return `<span class="face ${isRed(c) ? 'red' : ''} ${extra}"><b>${label(c)}</b><i>${SUITS[suitOf(c)]}</i></span>`;
@@ -430,11 +477,14 @@ function render(){
     const out = round && ph !== 'result' && ph !== 'idle' && !round.seats.includes(s.id);
     const n = (ph === 'pick' || ph === 'wait') && !out ? (picks.get(s.id) || []).length : -1;
     const res = ph === 'result' && result.rows.find(r => r.id === s.id);
-    const right = n >= 0 ? `${n}/2` : res ? ptText(res) : '';
-    return `<li class="${s.id === me.id ? 'me' : ''} ${out ? 'out' : ''}"><button type="button" data-id="${s.id}" aria-label="${esc(s.name)} 자세히">
+    // 판 사이(기다리는 중 · 결과)에는 준비했는지를 보여 준다. 결과의 ±1 은 점수와 결과 창에 있다
+    const between = ph === 'idle' || (ph === 'result' && !result.tie);
+    const rd = between && isReady(s.id);
+    const right = between ? (s.id === host ? '방장' : rd ? '✓ 준비' : '대기') : n >= 0 ? `${n}/2` : res ? ptText(res) : '';
+    return `<li class="${s.id === me.id ? 'me' : ''} ${out ? 'out' : ''} ${rd ? 'rd' : ''}"><button type="button" data-id="${s.id}" aria-label="${esc(s.name)} 자세히">
       <span class="nm">${s.id === host ? '<em>★</em>' : ''}${esc(s.name)}</span>
       <span class="sc ${ptCls(sc)}">${sc > 0 ? '+' : ''}${sc}</span>
-      <span class="pk ${res ? ptCls(res.pt) : ''}">${right}</span>
+      <span class="pk ${between ? (rd ? 'up' : '') : res ? ptCls(res.pt) : ''}">${right}</span>
     </button></li>`;
   }).join('') + Array.from({ length: MAX_SEATS - seated.length }, () => '<li class="emptyseat">빈자리</li>').join('');
 
@@ -457,8 +507,10 @@ function render(){
   // 안내 두 줄 — 줄 수가 늘 같다
   let head = '', sub = '';
   if (ph === 'idle'){
-    head = '기다리는 중';
-    sub = `가운데 ${commNow()}장 · ` + (iHost ? (seated.length > 1 ? `${seated.length}명이 모였어요` : '혼자서도 연습할 수 있어요 · 위의 초대로') : `방장 ${nameOf(host)} 님이 시작하길 기다려요`);
+    head = allReady() ? (iHost ? '모두 준비됐어요' : '모두 준비 · 곧 시작') : `준비 ${readyCount()}/${seated.length}`;
+    sub = `가운데 ${commNow()}장 · ` + (iHost
+      ? (seated.length === 1 ? '혼자서도 연습할 수 있어요 · 위의 초대로' : allReady() ? '게임 시작을 눌러 주세요' : '모두 게임 준비를 누르면 시작할 수 있어요')
+      : seated.some(s => s.id === me.id) ? (me.ready === readyBase() ? `방장 ${nameOf(host)} 님이 시작하길 기다려요` : '게임 준비를 눌러 주세요') : '자리가 차서 지켜봐요');
   } else if (ph === 'show'){
     head = round.tie ? '결승 · 외우세요' : '외우세요';
     sub = '16장의 자리를 기억해 두세요';
@@ -470,20 +522,20 @@ function render(){
   } else if (ph === 'result'){
     head = resultTitle();
     const mineR = result.rows.find(r => r.id === me.id);
-    sub = mineR ? `내 족보 ${mineR.hand}` : '';
+    sub = (mineR ? `내 족보 ${mineR.hand}` : '') + (result.tie ? '' : `${mineR ? ' · ' : ''}다음 판 준비 ${readyCount()}/${seated.length}`);
   }
   $('#phase').textContent = head;
   $('#hint').textContent = sub;
 
   // 단추 한 줄 — 무엇이 오든 같은 자리, 같은 높이
   let act = '';
-  if (ph === 'idle') act = iHost ? '<button class="btn primary" data-act="start" type="button">시작</button>' : '<span class="wait">방장이 시작해요</span>';
+  if (ph === 'idle') act = readyButton();
   else if (ph === 'show' || ph === 'pick') act = `<span class="wait">${ph === 'show' ? '외우는 중' : amIn() ? `${mine.length}/2 골랐어요` : '지켜보는 중'}</span>`;
   else if (ph === 'wait') act = '<span class="wait">잠깐만요…</span>';
   else if (ph === 'result'){
     act = '<button class="btn" data-act="result" type="button">결과 보기</button>';
     if (result.tie) act += '<span class="wait">곧 결승</span>';
-    else if (iHost) act += '<button class="btn primary" data-act="next" type="button">다음 판</button>';
+    else act += readyButton();
   }
   const A = $('#actions');
   if (A.dataset.html !== act){ A.innerHTML = act; A.dataset.html = act; }

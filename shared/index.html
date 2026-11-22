@@ -112,6 +112,39 @@
   .links{display:flex;gap:8px;flex:none}
   .links .btn{flex:1;min-height:44px}
 
+  /* 가로로 눕힌 낮은 화면 — 두 칸으로 나눈다. 왼쪽은 그림 · 제목, 오른쪽은 칸 · 단추.
+     그래도 스크롤은 없다. 오른쪽 것들은 차례대로 줄을 선다 */
+  @media (orientation:landscape) and (max-height:520px){
+    .app{max-width:880px}
+    .screen:not(#intro){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);column-gap:18px;row-gap:8px;align-content:center}
+    .screen:where(:not(#intro)) > *{grid-column:2;min-width:0}   /* :where — 아래 자리 정하기가 이기게 */
+    .grow{display:none}
+    .form{gap:6px}
+    .form label{display:none}   /* 칸마다 자리표시 글과 aria-label 이 있다 */
+    #auth{grid-template-rows:auto auto 1fr}
+    #auth > .top{grid-column:1;grid-row:1}
+    #auth > .tabs{grid-column:1;grid-row:2}
+    #authNote{grid-column:1;grid-row:3;align-self:end}
+    #authForm{grid-row:1 / -1;align-self:center}
+    #recover{grid-template-rows:auto 1fr}
+    #recover > .top{grid-column:1;grid-row:1}
+    #recover > .hello{grid-column:1;grid-row:2;align-self:start}
+    #recForm{grid-row:1 / -1;align-self:center}
+    #codeScreen > .top{display:none}
+    #codeScreen .codebox{display:contents}
+    #codeTitle,#codeLead{grid-column:1}
+    #codeTitle{grid-row:1;align-self:end} #codeLead{grid-row:2 / span 3;align-self:start}
+    #maker{grid-template-rows:auto repeat(4,auto);align-content:stretch}
+    #maker > .top{grid-column:1;grid-row:1}
+    #maker > .stage{grid-column:1;grid-row:2 / span 5}
+    #menu{grid-template-rows:auto 1fr auto;align-content:stretch}
+    #menu > .hello{grid-column:1;grid-row:1}
+    #menu > .stage{grid-column:1;grid-row:2 / span 2}
+    #menu > .menu{grid-row:1 / span 2;align-self:center}
+    #menu > .links{grid-row:3}
+    .menu a{min-height:64px;padding:10px 14px}
+  }
+
   @media (max-height:600px){
     .brand h1{font-size:28px} .brand p{font-size:12.5px}
     .menu a{min-height:64px;padding:10px 14px} .menu .ic{width:40px;height:40px}
@@ -150,15 +183,15 @@
     </div>
     <form class="form" id="authForm" autocomplete="on">
       <label for="idIn">아이디</label>
-      <input class="field" id="idIn" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="16" placeholder="영문 소문자 · 숫자 · _ (3~16자)">
+      <input class="field" id="idIn" aria-label="아이디" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="16" placeholder="영문 소문자 · 숫자 · _ (3~16자)">
       <label for="pwIn">비밀번호</label>
       <div class="pwrow">
-        <input class="field" id="pwIn" type="password" autocomplete="new-password" maxlength="64" placeholder="6자 이상">
+        <input class="field" id="pwIn" aria-label="비밀번호" type="password" autocomplete="new-password" maxlength="64" placeholder="6자 이상">
         <button class="btn" id="pwShow" type="button" aria-pressed="false">보기</button>
       </div>
       <div id="pw2Box">
         <label for="pw2In">비밀번호 확인</label>
-        <input class="field" id="pw2In" type="password" autocomplete="new-password" maxlength="64" placeholder="한 번 더 똑같이" style="margin-top:6px">
+        <input class="field" id="pw2In" aria-label="비밀번호 확인" type="password" autocomplete="new-password" maxlength="64" placeholder="한 번 더 똑같이" style="margin-top:6px">
         <p class="match" id="pwMatch" aria-live="polite"></p>
       </div>
       <p class="msg" id="authMsg" role="alert"></p>
@@ -188,11 +221,11 @@
     <div class="hello"><h2>비밀번호 되찾기</h2><p>가입할 때 받은 복구 코드로 새 비밀번호를 정해요.</p></div>
     <form class="form" id="recForm" autocomplete="off">
       <label for="recId">아이디</label>
-      <input class="field" id="recId" autocapitalize="none" spellcheck="false" maxlength="16">
+      <input class="field" id="recId" aria-label="아이디" autocapitalize="none" spellcheck="false" maxlength="16">
       <label for="recCode">복구 코드</label>
-      <input class="field" id="recCode" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="XXXX-XXXX-XXXX-XXXX" style="letter-spacing:.08em">
+      <input class="field" id="recCode" aria-label="복구 코드" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="XXXX-XXXX-XXXX-XXXX" style="letter-spacing:.08em">
       <label for="recPw">새 비밀번호</label>
-      <input class="field" id="recPw" type="password" autocomplete="new-password" maxlength="64" placeholder="6자 이상">
+      <input class="field" id="recPw" aria-label="새 비밀번호" type="password" autocomplete="new-password" maxlength="64" placeholder="6자 이상">
       <input class="field" id="recPw2" type="password" autocomplete="new-password" maxlength="64" placeholder="새 비밀번호 확인" aria-label="새 비밀번호 확인">
       <p class="match" id="recMatch" aria-live="polite"></p>
       <p class="msg" id="recMsg" role="alert"></p>

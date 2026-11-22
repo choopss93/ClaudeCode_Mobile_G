@@ -12,55 +12,58 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="../assets/base.css">
 <style>
-  /* 이 페이지(갤러리)에서만 쓰는 표시용 스타일 */
-  .bar{display:flex;align-items:center;gap:8px;margin-top:14px}
+  /* 이 페이지(갤러리)에서만 쓰는 표시용 스타일 — 한 화면에 칸을 늘어놓고, 누르면 창으로 연다 */
+  .bar{display:flex;align-items:center;gap:8px;margin-top:10px}
   .bar .spacer{flex:1 1 auto}
+  header .sub{font-size:12.5px}
 
-  section.sec{margin-top:26px}
-  .sec > h2{
-    font-size:12px;letter-spacing:.12em;text-transform:uppercase;
-    color:var(--faint);font-weight:700;margin:0 0 4px;
-  }
-  .sec > .note{margin:0 0 12px;color:var(--muted);font-size:12.5px}
+  /* 칸 — 한 화면에 다 들어가도록 남은 자리를 나눠 갖는다 */
+  .tiles{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-auto-rows:minmax(0,1fr);gap:8px}
+  .tiles li{min-height:0}
+  .tile{all:unset;box-sizing:border-box;width:100%;height:100%;min-height:44px;cursor:pointer;display:flex;flex-direction:column;
+    justify-content:center;gap:2px;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;transition:border-color .15s}
+  .tile:hover{border-color:var(--accent)}
+  .tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .tile .lv{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700}
+  /* 칸이 낮으면 단계 이름(Token · Atom …)은 뺀다 */
+  @media (max-height:700px){ .tile .lv{display:none} }
+  @media (max-height:600px){ header .sub{display:none} }
+  .tile b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tile code{font-size:10.5px;padding:0 4px;align-self:flex-start;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media (min-width:520px){ .tiles{grid-template-columns:repeat(4,minmax(0,1fr))} }
+  .tiles{min-height:0}
 
-  .group{
-    background:var(--surface);border:1px solid var(--line);
-    border-radius:var(--radius);padding:14px;margin-bottom:10px;
-  }
-  .group > h3{
-    font-size:13px;font-weight:600;margin:0 0 10px;
-    display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
-  }
-  .group > h3 code{font-weight:400}
-
-  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:9px}
-  .sw{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--bg)}
+  /* 창 안 */
+  .swatches{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .sw{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:9px;padding:5px;background:var(--bg);min-width:0}
   /* 흰색에 가까운 견본도 보이도록 안쪽에 테두리를 둔다 */
-  .sw .chip{
-    height:44px;border-bottom:1px solid var(--line);
-    box-shadow:inset 0 0 0 1px rgba(128,128,128,.25);
-  }
-  .sw .meta{padding:6px 8px}
-  .sw .nm{font-size:11.5px;font-weight:600;display:block;overflow-wrap:anywhere}
-  .sw .val{
-    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-    font-size:10.5px;color:var(--muted);display:block;margin-top:1px;
-  }
+  .sw .chip{width:30px;height:30px;border-radius:6px;flex:none;box-shadow:inset 0 0 0 1px rgba(128,128,128,.3)}
+  .sw .meta{min-width:0;line-height:1.25}
+  .sw .nm{font-size:11.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sw .val{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:var(--muted);display:block;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
   .specs{display:grid;gap:7px}
-  .spec{
-    display:flex;gap:10px;align-items:center;justify-content:space-between;
-    font-size:12.5px;border-bottom:1px dashed var(--line);padding-bottom:7px;
-  }
+  .spec{display:flex;gap:10px;align-items:center;justify-content:space-between;
+    font-size:12.5px;border-bottom:1px dashed var(--line);padding-bottom:7px}
   .spec:last-child{border-bottom:0;padding-bottom:0}
   .spec .k{color:var(--muted)}
-  .spec .v{
-    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-    font-size:11.5px;text-align:right;overflow-wrap:anywhere;
-  }
-  .boxdemo{height:40px;background:var(--accent-soft);border:1px solid var(--accent);flex:none;width:72px}
-
+  .spec .v{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;text-align:right;overflow-wrap:anywhere}
   .mini .spaces{margin-top:0}
+  /* 가로 화면에서는 창 안을 여러 칸으로 */
+  @media (orientation:landscape) and (max-height:520px){
+    .swatches{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .specs{grid-template-columns:1fr 1fr;column-gap:16px}
+    .spec:nth-last-child(2){border-bottom:0;padding-bottom:0}
+    .demo{display:none}
+  }
+  .demo{position:relative;height:150px;border:1px dashed var(--line);border-radius:10px;overflow:hidden;background:var(--bg)}
+  .demo .dim{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+  .demo .pane{position:absolute;left:10px;right:10px;bottom:0;height:96px;background:var(--surface);border:1px solid var(--line);
+    border-bottom:0;border-radius:14px 14px 0 0;padding:8px 12px;font-size:12px}
+  .demo .pane i{display:block;width:30px;height:3px;border-radius:3px;background:var(--line);margin:0 auto 6px}
 </style>
 </head>
 <body>
@@ -69,7 +72,7 @@
     <a class="back" href="../">← 전체 공간</a>
     <p class="eyebrow">공간 1 · 확인용</p>
     <h1>아토믹 디자인</h1>
-    <p class="sub"><code>assets/base.css</code> 가 제공하는 토큰과 조각 전부입니다. 스타일을 고친 뒤 여기서 확인하세요.</p>
+    <p class="sub"><code>assets/base.css</code> 의 토큰과 조각. 칸을 누르면 창으로 열려요 — 모바일 한 화면 · 스크롤 없음.</p>
     <div class="bar">
       <span class="pill"><span class="dot live"></span><span id="themeLabel">시스템 설정</span></span>
       <span class="spacer"></span>
@@ -77,139 +80,161 @@
     </div>
   </header>
 
-  <!-- ── 토큰 ── -->
-  <section class="sec">
-    <h2>Tokens · 토큰</h2>
-    <p class="note">아래 값은 실제 적용된 CSS 변수를 그대로 읽어 그립니다. base.css를 고치면 여기도 따라 바뀝니다.</p>
-
-    <div class="group">
-      <h3>색 <code>--*</code></h3>
-      <div class="swatches" id="swatches"></div>
-    </div>
-
-    <div class="group">
-      <h3>형태</h3>
-      <div class="specs">
-        <div class="spec"><span class="k">모서리 <code>--radius</code></span><span class="v" id="vRadius">—</span></div>
-        <div class="spec"><span class="k">그림자 <code>--shadow</code></span><span class="v" id="vShadow">—</span></div>
-        <div class="spec"><span class="k">본문 서체</span><span class="v">IBM Plex Sans KR · 14px / 1.6</span></div>
-        <div class="spec"><span class="k">본문 폭</span><span class="v">max 680px · 좌우 여백 16px</span></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── 원자 ── -->
-  <section class="sec">
-    <h2>Atoms · 원자</h2>
-    <p class="note">더 쪼갤 수 없는 조각. 모든 공간이 이것만 조합해 씁니다.</p>
-
-    <div class="group">
-      <h3>타이포</h3>
-      <p class="eyebrow">eyebrow · 작은 머리글</p>
-      <h1 style="font-size:26px">h1 · 페이지 제목</h1>
-      <p class="sub">sub · 제목 아래 설명문. 두 줄 정도까지 자연스럽게 읽히는 길이로 씁니다.</p>
-      <p style="margin:10px 0 0;font-size:14px">본문 단락. 인라인 <code>code</code> 와 <kbd>Enter</kbd> 같은 키 표시도 함께 씁니다.</p>
-    </div>
-
-    <div class="group">
-      <h3>버튼 <code>.btn</code></h3>
-      <div class="row-inline">
-        <button class="btn primary" type="button">기본 동작</button>
-        <button class="btn" type="button">보조 동작</button>
-        <button class="btn ghost" type="button">약한 동작</button>
-        <button class="btn" type="button" disabled>비활성</button>
-        <button class="btn sm" type="button">작은 버튼</button>
-      </div>
-    </div>
-
-    <div class="group">
-      <h3>상태 알약 <code>.pill</code> + <code>.dot</code></h3>
-      <div class="row-inline">
-        <span class="pill"><span class="dot live"></span>진행 중</span>
-        <span class="pill"><span class="dot warn"></span>주의</span>
-        <span class="pill"><span class="dot off"></span>꺼짐</span>
-        <span class="pill">점 없는 알약</span>
-      </div>
-    </div>
-
-    <div class="group">
-      <h3>입력 <code>.field</code></h3>
-      <div class="stack">
-        <input class="field" type="text" placeholder="여기에 입력하세요" aria-label="예시 입력">
-        <input class="field" type="text" value="입력된 값" aria-label="값이 있는 예시 입력">
-      </div>
-    </div>
-  </section>
-
-  <!-- ── 분자 ── -->
-  <section class="sec">
-    <h2>Molecules · 분자</h2>
-    <p class="note">원자를 몇 개 합쳐 하나의 뜻을 갖게 된 조각.</p>
-
-    <div class="group">
-      <h3>카드 <code>.card</code></h3>
-      <div class="mini">
-        <ul class="spaces">
-          <li><a class="card" href="#">
-            <span class="no">1</span>
-            <span class="name">카드 제목</span>
-            <span class="desc">한 줄 설명이 들어갑니다</span>
-          </a></li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="group">
-      <h3>빈 상태 <code>.empty</code></h3>
-      <div class="empty">
-        <b>아직 비어 있어요</b>
-        무엇을 해야 하는지 한 줄로 알려 주는 자리입니다.
-      </div>
-    </div>
-
-    <div class="group">
-      <h3>동작 줄 <code>.row-inline</code></h3>
-      <div class="row-inline">
-        <span class="pill"><span class="dot live"></span>저장됨</span>
-        <span style="flex:1 1 auto"></span>
-        <button class="btn sm" type="button">되돌리기</button>
-        <button class="btn sm primary" type="button">저장</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── 유기체 · 템플릿 ── -->
-  <section class="sec">
-    <h2>Organisms &amp; Template · 유기체 · 템플릿</h2>
-    <p class="note">공간 페이지 하나가 완성되는 뼈대. 네 공간이 모두 이 틀을 씁니다.</p>
-
-    <div class="group">
-      <h3>페이지 틀</h3>
-      <div class="specs">
-        <div class="spec"><span class="k"><code>.wrap</code></span><span class="v">전체를 감싸는 기둥 · 680px</span></div>
-        <div class="spec"><span class="k"><code>header</code></span><span class="v">back · eyebrow · h1 · sub · bar</span></div>
-        <div class="spec"><span class="k"><code>.panel</code> / <code>section</code></span><span class="v">본문이 들어가는 영역</span></div>
-        <div class="spec"><span class="k"><code>footer</code></span><span class="v">보조 설명 · 경로 안내</span></div>
-      </div>
-    </div>
-
-    <div class="group">
-      <h3>패널 <code>.panel</code></h3>
-      <div class="panel" style="margin-top:0">
-        <div class="row-inline">
-          <span class="pill">패널 안에 담긴 내용</span>
-        </div>
-      </div>
-    </div>
-  </section>
+  <ul class="tiles fill">
+    <li><button class="tile" type="button" data-sheet="s-color"><span class="lv">Token</span><b>색</b><code>--*</code></button></li>
+    <li><button class="tile" type="button" data-sheet="s-shape"><span class="lv">Token</span><b>형태 · 서체</b><code>--radius</code></button></li>
+    <li><button class="tile" type="button" data-sheet="s-type"><span class="lv">Atom</span><b>타이포</b><code>h1 .sub</code></button></li>
+    <li><button class="tile" type="button" data-sheet="s-btn"><span class="lv">Atom</span><b>버튼</b><code>.btn</code></button></li>
+    <li><button class="tile" type="button" data-sheet="s-pill"><span class="lv">Atom</span><b>상태 알약</b><code>.pill .dot</code></button></li>
+    <li><button class="tile" type="button" data-sheet="s-field"><span class="lv">Atom</span><b>입력</b><code>.field</code></button></li>
+    <li><button class="tile" type="button" data-sheet="s-card"><span class="lv">Molecule</span><b>카드</b><code>.card</code></button></li>
+    <li><button class="tile" type="button" data-sheet="s-empty"><span class="lv">Molecule</span><b>빈 상태</b><code>.empty</code></button></li>
+    <li><button class="tile" type="button" data-sheet="s-row"><span class="lv">Molecule</span><b>동작 줄</b><code>.row-inline</code></button></li>
+    <li><button class="tile" type="button" data-sheet="s-sheet"><span class="lv">Molecule</span><b>올라오는 창</b><code>.sheet</code></button></li>
+    <li><button class="tile" type="button" data-sheet="s-frame"><span class="lv">Template</span><b>한 화면 틀</b><code>.wrap</code></button></li>
+    <li><button class="tile" type="button" data-sheet="s-panel"><span class="lv">Organism</span><b>패널</b><code>.panel</code></button></li>
+  </ul>
 
   <footer>
-    이 페이지는 <code>design/index.html</code> 입니다.
-    조각을 새로 만들면 <code>assets/base.css</code> 에 넣고 여기에 한 칸 추가해 두세요 —
-    그러면 네 공간이 같은 모양을 쓰게 됩니다.
+    <span class="spacer"></span>
+    <button class="info" type="button" data-sheet="about">ⓘ 이 페이지 안내</button>
   </footer>
 </div>
 
+<!-- ── 창들 ── 하나씩만 연다. 창 안도 넘치지 않게 맞춘다 -->
+<div class="sheet" id="s-color" hidden role="dialog" aria-modal="true" aria-label="색 토큰"><div class="card2"><div class="grip"></div>
+  <header><h2>색 <code>--*</code></h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <p class="sub2">실제 적용된 CSS 변수를 그대로 읽어 그려요. 테마를 바꾸면 따라 바뀌어요.</p>
+  <div class="body"><div class="swatches" id="swatches"></div></div>
+  <div class="btns"><button class="btn" type="button" id="theme2">테마 바꾸기</button><button class="btn primary" type="button" data-close>닫기</button></div>
+</div></div>
+
+<div class="sheet" id="s-shape" hidden role="dialog" aria-modal="true" aria-label="형태와 서체"><div class="card2"><div class="grip"></div>
+  <header><h2>형태 · 서체</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <div class="body"><div class="specs">
+    <div class="spec"><span class="k">모서리 <code>--radius</code></span><span class="v" id="vRadius">—</span></div>
+    <div class="spec"><span class="k">그림자 <code>--shadow</code></span><span class="v" id="vShadow">—</span></div>
+    <div class="spec"><span class="k">본문 서체</span><span class="v">IBM Plex Sans KR · 14px / 1.6</span></div>
+    <div class="spec"><span class="k">본문 폭</span><span class="v">max 680px · 좌우 여백 16px</span></div>
+    <div class="spec"><span class="k">손가락 크기</span><span class="v">누르는 것 44px 이상</span></div>
+  </div></div>
+  <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+</div></div>
+
+<div class="sheet" id="s-type" hidden role="dialog" aria-modal="true" aria-label="타이포"><div class="card2"><div class="grip"></div>
+  <header><h2>타이포</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <div class="body">
+    <p class="eyebrow">eyebrow · 작은 머리글</p>
+    <h1 style="font-size:26px">h1 · 페이지 제목</h1>
+    <p class="sub">sub · 제목 아래 설명문. 두 줄 정도까지 자연스럽게 읽히는 길이로 씁니다.</p>
+    <p style="margin:10px 0 0;font-size:14px">본문 단락. 인라인 <code>code</code> 와 <kbd>Enter</kbd> 같은 키 표시도 함께 씁니다.</p>
+  </div>
+  <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+</div></div>
+
+<div class="sheet" id="s-btn" hidden role="dialog" aria-modal="true" aria-label="버튼"><div class="card2"><div class="grip"></div>
+  <header><h2>버튼 <code>.btn</code></h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <p class="sub2">primary · 기본 · ghost · 비활성 · sm</p>
+  <div class="body"><div class="row-inline">
+    <button class="btn primary" type="button">기본 동작</button>
+    <button class="btn" type="button">보조 동작</button>
+    <button class="btn ghost" type="button">약한 동작</button>
+    <button class="btn" type="button" disabled>비활성</button>
+    <button class="btn sm" type="button">작은 버튼</button>
+  </div></div>
+  <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+</div></div>
+
+<div class="sheet" id="s-pill" hidden role="dialog" aria-modal="true" aria-label="상태 알약"><div class="card2"><div class="grip"></div>
+  <header><h2>상태 알약 <code>.pill</code></h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <div class="body"><div class="row-inline">
+    <span class="pill"><span class="dot live"></span>진행 중</span>
+    <span class="pill"><span class="dot warn"></span>주의</span>
+    <span class="pill"><span class="dot off"></span>꺼짐</span>
+    <span class="pill">점 없는 알약</span>
+  </div></div>
+  <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+</div></div>
+
+<div class="sheet" id="s-field" hidden role="dialog" aria-modal="true" aria-label="입력"><div class="card2"><div class="grip"></div>
+  <header><h2>입력 <code>.field</code></h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <p class="sub2">폰에서는 글자 16px 이상이라야 들어갈 때 화면이 커지지 않아요.</p>
+  <div class="body"><div class="stack">
+    <input class="field" type="text" placeholder="여기에 입력하세요" aria-label="예시 입력">
+    <input class="field" type="text" value="입력된 값" aria-label="값이 있는 예시 입력">
+  </div></div>
+  <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+</div></div>
+
+<div class="sheet" id="s-card" hidden role="dialog" aria-modal="true" aria-label="카드"><div class="card2"><div class="grip"></div>
+  <header><h2>카드 <code>.card</code></h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <div class="body mini"><ul class="spaces">
+    <li><a class="card" href="#" onclick="return false"><span class="no">1</span><span class="name">카드 제목</span><span class="desc">한 줄 설명이 들어갑니다</span></a></li>
+  </ul></div>
+  <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+</div></div>
+
+<div class="sheet" id="s-empty" hidden role="dialog" aria-modal="true" aria-label="빈 상태"><div class="card2"><div class="grip"></div>
+  <header><h2>빈 상태 <code>.empty</code></h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <div class="body"><div class="empty"><b>아직 비어 있어요</b>무엇을 해야 하는지 한 줄로 알려 주는 자리입니다.</div></div>
+  <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+</div></div>
+
+<div class="sheet" id="s-row" hidden role="dialog" aria-modal="true" aria-label="동작 줄"><div class="card2"><div class="grip"></div>
+  <header><h2>동작 줄 <code>.row-inline</code></h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <div class="body"><div class="row-inline">
+    <span class="pill"><span class="dot live"></span>저장됨</span>
+    <span style="flex:1 1 auto"></span>
+    <button class="btn sm" type="button">되돌리기</button>
+    <button class="btn sm primary" type="button">저장</button>
+  </div></div>
+  <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+</div></div>
+
+<div class="sheet" id="s-sheet" hidden role="dialog" aria-modal="true" aria-label="올라오는 창"><div class="card2"><div class="grip"></div>
+  <header><h2>올라오는 창 <code>.sheet</code></h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <p class="sub2">지금 보고 있는 이 창이에요. 넘칠 내용은 화면에 늘어놓지 말고 여기에 띄워요.</p>
+  <div class="body">
+    <div class="demo"><div class="dim"></div><div class="pane"><i></i><b>제목</b> · ✕<br>
+      <span style="color:var(--muted)">내용 · 아래 단추 줄</span></div></div>
+    <div class="specs" style="margin-top:10px">
+      <div class="spec"><span class="k">열기 · 닫기</span><span class="v">data-sheet · data-close · Esc · 바깥 톡</span></div>
+      <div class="spec"><span class="k">넘칠 때</span><span class="v">줄여서 맞춘다 · 허락한 창만 .body.scroll</span></div>
+    </div>
+  </div>
+  <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+</div></div>
+
+<div class="sheet" id="s-frame" hidden role="dialog" aria-modal="true" aria-label="한 화면 틀"><div class="card2"><div class="grip"></div>
+  <header><h2>한 화면 틀 <code>.wrap</code></h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <p class="sub2">모바일 세로 화면이 기준. 페이지는 스크롤하지 않아요.</p>
+  <div class="body"><div class="specs">
+    <div class="spec"><span class="k"><code>body</code></span><span class="v">화면에 고정 · 넘치면 잘림</span></div>
+    <div class="spec"><span class="k"><code>.wrap</code></span><span class="v">세로 줄 · 높이 100% · 680px</span></div>
+    <div class="spec"><span class="k"><code>header</code></span><span class="v">back · eyebrow · h1 · sub · bar</span></div>
+    <div class="spec"><span class="k"><code>main</code> / <code>.fill</code></span><span class="v">남은 자리 전부</span></div>
+    <div class="spec"><span class="k"><code>footer</code></span><span class="v">단추 한 줄 · 안내는 창으로</span></div>
+  </div></div>
+  <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+</div></div>
+
+<div class="sheet" id="s-panel" hidden role="dialog" aria-modal="true" aria-label="패널"><div class="card2"><div class="grip"></div>
+  <header><h2>패널 <code>.panel</code></h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <div class="body"><div class="panel" style="margin-top:0"><div class="row-inline"><span class="pill">패널 안에 담긴 내용</span></div></div></div>
+  <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+</div></div>
+
+<div class="sheet" id="about" hidden role="dialog" aria-modal="true" aria-labelledby="aboutTitle"><div class="card2"><div class="grip"></div>
+  <header><h2 id="aboutTitle">이 페이지 안내</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+  <div class="body"><p style="margin:4px 0 0;color:var(--muted);font-size:13px">
+    이 페이지는 <code>design/index.html</code> 입니다.
+    조각을 새로 만들면 <code>assets/base.css</code> 에 넣고 여기에 칸 하나와 창 하나를 더해 두세요 —
+    그러면 네 공간이 같은 모양을 쓰게 됩니다. 칸이 늘어 화면이 모자라면 칸을 묶어 창 하나에 담아요.
+  </p></div>
+  <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+</div></div>
+
+<script src="../assets/ui.js"></script>
 <script>
 (function(){
   "use strict";
@@ -253,14 +278,16 @@
   var LABEL = { system:"시스템 설정", light:"라이트", dark:"다크" };
   var mode = 0;
 
-  document.getElementById("theme").addEventListener("click", function(){
+  function cycle(){
     mode = (mode + 1) % MODES.length;
     var next = MODES[mode];
     if (next === "system") document.documentElement.removeAttribute("data-theme");
     else document.documentElement.setAttribute("data-theme", next);
     document.getElementById("themeLabel").textContent = LABEL[next];
     paintTokens();
-  });
+  }
+  document.getElementById("theme").addEventListener("click", cycle);
+  document.getElementById("theme2").addEventListener("click", cycle);
 
   // 시스템 테마가 바뀌면 값도 다시 읽어야 한다.
   var mq = window.matchMedia("(prefers-color-scheme: dark)");

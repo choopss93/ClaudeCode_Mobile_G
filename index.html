@@ -45,11 +45,23 @@
   </ul>
 
   <footer>
-    <b>공간 4개</b> · 폴더 이름이 그대로 주소가 됩니다 —
+    <span class="spacer"></span>
+    <button class="info" type="button" data-sheet="about">ⓘ 이 페이지 안내</button>
+  </footer>
+</div>
+<div class="sheet" id="about" hidden role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+  <div class="card2">
+    <div class="grip"></div>
+    <header><h2 id="aboutTitle">이 페이지 안내</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+    <div class="body"><p style="margin:4px 0 0;color:var(--muted);font-size:13px">
+      <b>공간 4개</b> · 폴더 이름이 그대로 주소가 됩니다 —
     <code>design/</code> <code>my/</code> <code>shared/</code> <code>etc/</code>.
     네 공간 모두 <code>assets/base.css</code> 를 함께 쓰므로, 모양을 바꾸려면
     <a href="design/">1번 공간</a>에서 확인하며 고치세요.
-  </footer>
+    </p></div>
+    <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+  </div>
 </div>
+<script src="assets/ui.js"></script>
 </body>
 </html>

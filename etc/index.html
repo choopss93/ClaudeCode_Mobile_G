@@ -37,9 +37,21 @@
   </main>
 
   <footer>
-    이 페이지는 <code>etc/index.html</code> 입니다.
-    임시 공간이라 언제든 비워도 괜찮습니다.
+    <span class="spacer"></span>
+    <button class="info" type="button" data-sheet="about">ⓘ 이 페이지 안내</button>
   </footer>
 </div>
+<div class="sheet" id="about" hidden role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+  <div class="card2">
+    <div class="grip"></div>
+    <header><h2 id="aboutTitle">이 페이지 안내</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+    <div class="body"><p style="margin:4px 0 0;color:var(--muted);font-size:13px">
+      이 페이지는 <code>etc/index.html</code> 입니다.
+    임시 공간이라 언제든 비워도 괜찮습니다.
+    </p></div>
+    <div class="btns"><button class="btn" type="button" data-close>닫기</button></div>
+  </div>
+</div>
+<script src="../assets/ui.js"></script>
 </body>
 </html>

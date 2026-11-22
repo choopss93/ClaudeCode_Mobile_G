@@ -473,7 +473,7 @@ function paintPetMode(){
   if (petMode === 'code') $('codeNote').innerHTML = CODE_NOTE;
   /* 숨긴 칸에 `required` 가 남아 있으면 폼이 아예 제출되지 않는다 —
      브라우저가 보이지 않는 칸으로 커서를 옮기려다 막힌다. */
-  dogIn.required = petMode === 'new';
+  dogIn.required = false;   // 아이 이름 칸은 창 안에 있다 — 들어갈 때 직접 따진다 (startForm)
 }
 
 for (const btn of $('petMode').querySelectorAll('button[data-pm]')){
@@ -501,10 +501,65 @@ if (MY_CHAR){
   nameIn.parentNode.insertBefore(note, nameIn.previousElementSibling);
 }
 
+/* ── 시작 화면의 창 ──
+   시작 화면은 한 화면에 들어가야 한다 (스크롤 없음). 고를 거리가 많은 반려동물과
+   채널은 요약 한 줄만 두고, 누르면 아래에서 창이 올라온다. */
+const KIND_ICON = { dog: '🐶', cat: '🐱' };
+function paintPetSum(){
+  let ico = KIND_ICON[choice.kind] || '🐾', txt;
+  if (petMode === 'code'){
+    const c = readCodes($('friendCodes').value)[0];
+    ico = c ? (KIND_ICON[c.kind] || '🐾') : '🔑';
+    txt = c ? `${c.name} · ${resolvePet(c).breedName} · 코드로` : '코드로 부르기 · 코드를 넣어 주세요';
+  } else if (petMode === 'load' && myPets[pickedPet]){
+    const c = myPets[pickedPet];
+    ico = KIND_ICON[c.kind] || '🐾';
+    txt = `${c.name} · ${resolvePet(c).breedName}`;
+  } else {
+    const breed = KINDS[choice.kind].breeds[choice.breed];
+    const mix = choice.mix != null && KINDS[choice.kind].breeds[choice.mix];
+    txt = `${dogIn.value.trim() || '이름을 지어 주세요'} · ${breed ? breed.name : ''}${mix ? ' × ' + mix.name : ''} · ${coatNameEl.textContent}`;
+  }
+  $('petIco').textContent = ico;
+  $('petSum').textContent = txt;
+  $('chSum').textContent = chMode === 'open' ? '열린 정원' : chMode === 'mine' ? `내 채널 · ${showChannel(channel)}` : `코드로 · ${chCodeEl.value.trim() || '코드를 적어 주세요'}`;
+}
+let popFrom = null;
+function openPop(id, focus){
+  popFrom = document.activeElement;
+  $(id).hidden = false;
+  if (focus) focus.focus(); else $(id).querySelector('[data-close]').focus();
+}
+function closePop(pop){
+  if (pop.hidden) return;
+  pop.hidden = true;
+  paintPetSum();
+  if (popFrom && popFrom.focus) popFrom.focus();
+}
+for (const pop of document.querySelectorAll('.pop')){
+  pop.addEventListener('click', e => {
+    if (e.target === pop || e.target.closest('[data-close]')) closePop(pop);
+  });
+}
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || $('paintPanel') && !$('paintPanel').hidden) return;
+  for (const pop of document.querySelectorAll('.pop:not([hidden])')) closePop(pop);
+});
+$('petBtn').addEventListener('click', () => openPop('petPop'));
+$('chBtn').addEventListener('click', () => openPop('chPop'));
+/* 품종 · 섞기 · 털빛 — 한 번에 하나만 보여 줘야 창 안에 들어간다 */
+for (const t of $('petTab').querySelectorAll('button[data-tab]')){
+  t.addEventListener('click', () => {
+    for (const b of $('petTab').querySelectorAll('button[data-tab]')) b.classList.toggle('on', b === t);
+    for (const p of $('petNew').querySelectorAll('[data-pane]')) p.hidden = p.dataset.pane !== t.dataset.tab;
+  });
+}
+paintPetSum();
+
 startForm.addEventListener('submit', e => {
   e.preventDefault();
   const name = nameIn.value.trim().slice(0, 12);
-  if (!name) return;
+  if (!name){ nameIn.focus(); return; }
 
   /* 어느 길로 왔든 카드 하나로 모은다. 그 뒤는 세 길이 똑같다. */
   let card = null;
@@ -512,18 +567,19 @@ startForm.addEventListener('submit', e => {
     card = readCodes($('friendCodes').value)[0] || null;
     if (!card){
       $('codeNote').textContent = '코드를 읽지 못했어요. 다시 확인해 주세요.';
-      $('friendCodes').focus();
+      openPop('petPop', $('friendCodes'));
       return;
     }
   } else if (petMode === 'load'){
     card = myPets[pickedPet] || null;
     if (!card){
       savedHintEl.textContent = '기억해 둔 아이가 없어요. 새로 만들어 주세요.';
+      openPop('petPop');
       return;
     }
   } else {
     const dog = dogIn.value.trim().slice(0, 12);
-    if (!dog) return;
+    if (!dog){ openPop('petPop', dogIn); return; }
     /* 털빛이 '랜덤' 이면 여기서 **한 번만** 뽑아 카드에 박는다. 카드에
        '랜덤' 을 그대로 두면 코드를 받은 사람 화면에서 다른 털빛이 된다. */
     card = { kind: choice.kind, breed: choice.breed, mix: choice.mix,
@@ -544,7 +600,7 @@ startForm.addEventListener('submit', e => {
     const got = readChannel(chCodeEl.value);
     if (!got){
       chHintEl.textContent = '채널 코드를 읽지 못했어요. 다시 확인해 주세요.';
-      chCodeEl.focus();
+      openPop('chPop', chCodeEl);
       return;
     }
     channel = got;

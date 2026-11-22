@@ -12,7 +12,8 @@ import { connectMqtt } from '../../world/js/mqtt.js';
  * 판의 카드와 사람들이 고른 칸을 알고 있다.
  *
  * 꾸러미 (JSON)
- *   {t:'hi', id, name, at, comm}               들어왔음 · 3초마다 다시 (comm = 그 사람이 방장일 때 쓸 가운데 장수)
+ *   {t:'hi', id, name, at, comm, ready}        들어왔음 · 3초마다 다시 (comm = 그 사람이 방장일 때 쓸 가운데 장수,
+ *                                               ready = 몇 번째 판 다음을 위해 '준비' 를 눌렀나 · 안 눌렀으면 -1)
  *   {t:'rd', n, seats, grid, comm, el, tie, scores, names}
  *                                               판 시작 · 판이 도는 동안 2초마다 다시
  *                                               (el = 시작한 뒤 지난 밀리초)
@@ -56,7 +57,7 @@ export function joinRoom({ room, me, onMessage, onPeers, onStatus }){
   const list = brokersToTry();
 
   function send(obj){ client && client.ready && client.publish(topic, JSON.stringify(obj)); }
-  const hi = () => { lastHi = performance.now(); send({ t: 'hi', id: me.id, name: me.name, at: me.at, comm: me.comm }); };
+  const hi = () => { lastHi = performance.now(); send({ t: 'hi', id: me.id, name: me.name, at: me.at, comm: me.comm, ready: me.ready }); };
 
   function open(){
     const url = list[tries % list.length];
@@ -75,9 +76,11 @@ export function joinRoom({ room, me, onMessage, onPeers, onStatus }){
         try { m = JSON.parse(text); } catch (_){ return; }
         if (!m || typeof m !== 'object' || m.id === me.id && m.t !== 'rd' && m.t !== 'rs') return;
         if (m.t === 'hi'){
-          const known = peers.has(m.id);
-          peers.set(m.id, { name: String(m.name || '').slice(0, 12) || '손님', at: +m.at || 0, comm: +m.comm || 0, seen: performance.now() });
-          if (!known){ hi(); onPeers(); }      // 새로 온 사람이 나를 바로 알게
+          const old = peers.get(m.id);
+          const ready = Number.isInteger(m.ready) ? m.ready : -1;
+          peers.set(m.id, { name: String(m.name || '').slice(0, 12) || '손님', at: +m.at || 0, comm: +m.comm || 0, ready, seen: performance.now() });
+          if (!old){ hi(); onPeers(); }        // 새로 온 사람이 나를 바로 알게
+          else if (old.ready !== ready) onPeers();   // 준비를 누르거나 거뒀다
           return;
         }
         if (m.t === 'bye'){
@@ -119,6 +122,8 @@ export function joinRoom({ room, me, onMessage, onPeers, onStatus }){
     peers,
     send,
     leave,
+    /** 내 인사를 지금 다시 보낸다 — 준비를 누르면 바로 알리려고 */
+    hi,
     /** 들어온 순서대로 줄 세운 사람들. 앞의 여덟이 자리에 앉고 맨 앞이 방장이다. */
     order(){
       const all = [{ id: me.id, name: me.name, at: me.at }, ...[...peers].map(([id, p]) => ({ id, name: p.name, at: p.at }))];

@@ -192,6 +192,10 @@
   @media (hover:none) and (pointer:coarse){
     #acts button{min-width:68px;min-height:52px}
   }
+  /* 낮은 가로 화면 — 넷을 세로로 세우면 위의 단추줄(#hud)까지 올라가 덮는다. 둘씩 두 줄로 */
+  @media (orientation:landscape) and (max-height:520px){
+    #acts{display:grid;grid-template-columns:auto auto;bottom:calc(84px + env(safe-area-inset-bottom, 0px))}
+  }
 
   /* ── 대화 입력 ── */
   #chat{
@@ -262,6 +266,96 @@
   #start button[type="submit"]:hover{background:#86DEB5}
   #start label .sel{font-weight:500;color:#9A94AC}
 
+  /* 시작 화면은 한 화면에 — 스크롤하지 않는다. 고를 거리는 창(.pop)으로 */
+  #start{overflow:hidden}
+  .sumrow{font:inherit;width:100%;display:flex;align-items:center;gap:10px;text-align:left;
+    background:#fff;border:1.5px solid #DCE6EE;border-radius:14px;min-height:50px;padding:6px 12px 6px 10px;
+    margin-bottom:13px;cursor:pointer;color:#4F4A52}
+  .sumrow:active{background:#F6FAFC}
+  .sumrow .ico{font-size:20px;flex:none;width:28px;text-align:center}
+  .sumrow .txt{flex:1;min-width:0;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sumrow .go{flex:none;font-size:12px;color:#4BBF90;font-weight:600}
+  .pop{position:fixed;inset:0;z-index:22;display:flex;align-items:flex-end;justify-content:center;
+    background:rgba(60,70,90,.34);padding-bottom:var(--kb)}
+  .popcard{width:min(420px,100%);max-height:calc(100dvh - 16px - var(--kb));display:flex;flex-direction:column;
+    background:#fff;border-radius:24px 24px 0 0;padding:10px 18px max(14px, env(safe-area-inset-bottom));
+    box-shadow:0 -10px 40px rgba(60,70,90,.2);overflow:hidden}
+  .popcard header{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex:none}
+  .popcard h2{flex:1;margin:0;font-size:17px;color:#4A4458}
+  .popcard h2 .sel{font-size:12.5px;font-weight:500;color:#9A94AC;margin-left:4px}
+  .popcard .x{font:inherit;width:44px;height:44px;border:0;background:none;border-radius:50%;font-size:19px;color:#9A94AC;cursor:pointer;flex:none}
+  .popcard .ok{font:inherit;font-size:15px;font-weight:600;width:100%;flex:none;color:#215C45;background:#9BE6C4;
+    border:0;border-radius:999px;min-height:48px;cursor:pointer;margin-top:4px}
+  .popcard input{font:inherit;font-size:16px;width:100%;color:#4F4A52;background:#fff;
+    border:1.5px solid #DCE6EE;border-radius:14px;padding:10px 14px;min-height:46px;margin-bottom:12px}
+  .popcard input:focus{outline:0;border-color:#7DDDF4}
+  .popcard .pair{display:flex;gap:8px}
+  .popcard .pair .seg{flex:1 1 0;min-width:0}
+  .popcard .pair input{flex:1.1 1 0;min-width:0}
+  .popcard .seg.tabs button{min-height:40px;font-size:13px}
+  .popcard .selline{margin:0 0 8px 4px;font-size:12px;font-weight:600;color:#6E6480}
+  .popcard .sel{color:#9A94AC;font-weight:500}
+  .popcard p.sel{text-align:left}
+  .popcard label{display:block;text-align:left;font-size:12px;font-weight:600;color:#6E6480;margin:0 0 5px 4px}
+  /* 두 묶음(제목 쪽 · 칸 쪽) — 세로 화면에서는 한 줄로 이어 놓고, 가로 화면에서는 나란히 */
+  #start .card{display:flex;flex-direction:column}
+  #start .side,#start .fields{display:contents}
+  #start .foot{order:9}
+  @media (orientation:landscape) and (max-height:520px){
+    #start{padding:10px 16px calc(10px + var(--kb))}
+    #start .card{width:min(720px,100%);display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);
+      column-gap:20px;align-items:center;padding:14px 18px;border-radius:22px}
+    #start .side,#start .fields{display:block;min-width:0}
+    #start .side{grid-column:1;grid-row:1}
+    #start .foot{grid-column:1;grid-row:2;align-self:end}
+    #start .fields{grid-column:2;grid-row:1 / span 2}
+    #start h1{font-size:30px}
+    #start p.lead{margin:4px 0 0}
+    #start .fields .seg,#start .fields input,#start .sumrow{margin-bottom:8px}
+    /* 가로에서는 칸 머리글을 뺀다 — 칸마다 자리표시 글과 그림이 있다 */
+    #start .fields > label{display:none}
+    #start .seg button,#start input{min-height:42px}
+    #start .sumrow{min-height:44px}
+    #start button[type="submit"]{margin-top:4px;min-height:44px}
+    .popcard{width:min(720px,100%);max-height:calc(100dvh - 8px - var(--kb));padding:6px 16px max(10px, env(safe-area-inset-bottom))}
+    .popcard header{margin-bottom:4px}
+    .popcard .x{width:38px;height:38px}
+    .popcard .seg{margin-bottom:8px}
+    .popcard .seg button{min-height:40px}
+    #petNew{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);column-gap:14px;align-items:start}
+    #petNew .pair,#petNew .tabs{grid-column:1}
+    #petNew .pair{flex-direction:column;gap:0}
+    #petNew [data-pane]{grid-column:2;grid-row:1 / span 2}
+    .popcard .picks button{min-height:38px;padding:0 11px;font-size:12.5px}
+    .popcard .coats button{width:44px;height:44px}
+    .popcard input{margin-bottom:8px;min-height:42px}
+    .popcard .ok{min-height:42px}
+  }
+  /* 키가 낮은 폰 — 제목과 안내를 줄인다 */
+  @media (max-height:700px){
+    #start button[type="submit"]{margin-top:6px}
+    #start .note{margin-top:6px}
+  }
+  @media (max-height:620px){ #start .side .lead{display:none} }
+  @media (max-height:700px){
+    #start .card{padding:22px 20px 18px}
+    #start p.lead{margin:4px 0 14px}
+    #start .arc{margin-bottom:10px}
+  }
+  @media (max-height:640px){
+    #start .card{padding:18px 18px 16px}
+    #start h1{font-size:32px}
+    #start .arc{margin-bottom:8px}
+    #start p.lead{margin:4px 0 12px;font-size:12.5px}
+    #start .note{margin-top:8px}
+  }
+  @media (max-height:560px){
+    #start p.lead br, #start .note .txt{display:none}
+    .sumrow{min-height:46px;margin-bottom:10px}
+    #start input{margin-bottom:10px}
+    #start .seg{margin-bottom:10px}
+  }
+
   /* 강아지 / 고양이 */
   .seg{display:flex;gap:6px;margin-bottom:13px}
   .seg button{
@@ -311,23 +405,27 @@
   body.kb #stick, body.kb #help, body.kb #acts{opacity:0;pointer-events:none}
 
   /* ── 코드 창 ── */
+  /* 아래에서 올라오는 창. 넘겨 보지 않는다 — 창 안에 맞춰 넣는다 */
   .panel{
     position:fixed;inset:0;z-index:12;
-    display:flex;align-items:center;justify-content:center;
-    padding:20px 20px calc(20px + var(--kb));
+    display:flex;align-items:flex-end;justify-content:center;
+    padding:0 0 var(--kb);
     background:rgba(60,70,90,.34);
-    overflow-y:auto;overscroll-behavior:contain;
+    overflow:hidden;overscroll-behavior:contain;
   }
   .panel .sheet{
-    width:min(360px, 100%);margin:auto;
-    background:rgba(255,255,255,.96);
-    border-radius:24px;padding:22px 20px 18px;
-    box-shadow:0 18px 48px rgba(60,70,90,.26);
+    width:min(420px, 100%);max-height:calc(100dvh - 8px - var(--kb));
+    display:flex;flex-direction:column;overflow:hidden;
+    background:rgba(255,255,255,.97);
+    border-radius:24px 24px 0 0;padding:18px 18px max(12px, env(safe-area-inset-bottom));
+    box-shadow:0 -10px 40px rgba(60,70,90,.22);
   }
+  .panel .sheet > *{flex:none}
+  .panel .h2b{margin-top:12px}
   .panel h2{margin:0 0 6px;font-size:17px;font-weight:700;color:#4A4458}
-  .panel .hint{margin:0 0 14px;font-size:12.5px;line-height:1.6;color:#7A7490}
+  .panel .hint{margin:0 0 10px;font-size:12.5px;line-height:1.6;color:#7A7490}
   .panel .hint b{color:#4A4458}
-  .panel .codeRow{display:flex;gap:7px;align-items:stretch;margin-bottom:18px}
+  .panel .codeRow{display:flex;gap:7px;align-items:stretch;margin-bottom:12px}
   .panel code{
     flex:1 1 auto;min-width:0;
     font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -370,6 +468,16 @@
   /* 시작 화면(z-index 20) 위에 떠야 한다. 코드 창은 게임 안에서만
      열리므로 12 로 충분하지만 이 창은 시작 화면을 덮는다. */
   #paintPanel{z-index:24}
+  /* 칠하는 창은 화면 높이를 다 쓰고, 남는 자리를 아이 그림이 갖는다 */
+  #paintPanel .sheet{height:calc(100dvh - 8px - var(--kb))}
+  #paintPanel .sheet > #paintView{flex:1 1 auto;min-height:120px}
+  #paintPanel h2{margin-bottom:2px}
+  #paintPanel .hint{margin-bottom:8px}
+  #paintPanel .seg{margin-bottom:8px}
+  #paintPanel .said{margin:0 0 6px;min-height:18px}
+  .endRow{display:flex;gap:8px;margin-top:6px}
+  .endRow .close{margin:0;flex:1}
+  .endRow .go{flex:1.4}
   #paintView{
     width:100%;height:244px;display:block;
     border-radius:18px;background:#E9F5E2;margin-bottom:9px;
@@ -377,20 +485,42 @@
     touch-action:none;cursor:grab;
   }
   #paintView:active{cursor:grabbing}
-  .swatches{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+  /* 열여섯 색 — 여덟씩 두 줄로 딱 맞춘다 */
+  .swatches{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px;margin-bottom:8px;justify-items:center}
   .swatches button{
-    width:36px;height:36px;border-radius:50%;
+    width:100%;max-width:40px;aspect-ratio:1;height:auto;border-radius:50%;
     border:2.5px solid rgba(0,0,0,.06);padding:0;cursor:pointer;
     box-shadow:0 1px 3px rgba(90,100,120,.16);
   }
   .swatches button.on{border-color:#4A4458;transform:scale(1.1)}
   @media (hover:none) and (pointer:coarse){
-    .swatches button{width:42px;height:42px}
+    .swatches button{max-width:42px}
   }
   .panel .said.where{color:#7A7490}
+  /* 가로로 눕힌 낮은 화면 — 창을 넓혀 두 칸으로 */
+  @media (orientation:landscape) and (max-height:520px){
+    .panel .sheet{width:min(760px,100%);padding:10px 16px max(8px, env(safe-area-inset-bottom))}
+    #paintPanel .sheet{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);grid-template-rows:auto auto 1fr;column-gap:16px}
+    #paintPanel h2,#paintPanel .hint{grid-column:1}
+    #paintPanel .sheet > #paintView{grid-column:1;grid-row:3;height:100%;min-height:0;margin:0}
+    #paintPanel .tools{grid-column:2;grid-row:1 / span 3;align-self:center;min-width:0}
+    #paintPanel .hint{margin-bottom:6px}
+    .swatches button{max-width:32px}
+    #codePanel .sheet{display:grid;grid-template-columns:1fr 1fr;column-gap:18px}
+    #codePanel .grpA{grid-column:1} #codePanel .grpB{grid-column:2;grid-row:1}
+    #codePanel .h2b{margin-top:0}
+    #codePanel .close{grid-column:1 / -1;margin-top:0}
+    #codePanel h2{font-size:15px;margin-bottom:2px}
+    #codePanel .hint{margin-bottom:6px;line-height:1.45}
+    #codePanel .codeRow{margin-bottom:8px}
+    #codePanel input{margin-bottom:6px;min-height:42px}
+    #codePanel .go{min-height:42px}
+    #codePanel .said{margin-top:4px;min-height:0}
+    #codePanel .close{min-height:38px}
+  }
 
   /* 자국 크기 — 미는 단추. 손가락이 닿는 자리라 넉넉히 둔다 */
-  .sizeRow{display:flex;align-items:center;gap:11px;margin-bottom:13px}
+  .sizeRow{display:flex;align-items:center;gap:11px;margin-bottom:6px}
   .sizeRow label{margin:0;flex:0 0 auto;font-size:13px;font-weight:600;color:#6E6880}
   .sizeRow input[type="range"]{
     flex:1 1 auto;min-width:0;height:44px;margin:0;padding:0;
@@ -449,18 +579,18 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-22e",
-    "#world": "./js/world.js?v=2026-11-22e",
-    "#actor": "./js/actor.js?v=2026-11-22e",
-    "#controls": "./js/controls.js?v=2026-11-22e",
-    "#net": "./js/net.js?v=2026-11-22e",
-    "#pets": "./js/pets.js?v=2026-11-22e",
-    "#petcode": "./js/petcode.js?v=2026-11-22e",
-    "#channel": "./js/channel.js?v=2026-11-22e",
-    "#daylight": "./js/daylight.js?v=2026-11-22e",
-    "#mqtt": "./js/mqtt.js?v=2026-11-22e",
-    "#live": "./js/live.js?v=2026-11-22e",
-    "#paint": "./js/paint.js?v=2026-11-22e"
+    "#look": "./js/look.js?v=2026-11-22g",
+    "#world": "./js/world.js?v=2026-11-22g",
+    "#actor": "./js/actor.js?v=2026-11-22g",
+    "#controls": "./js/controls.js?v=2026-11-22g",
+    "#net": "./js/net.js?v=2026-11-22g",
+    "#pets": "./js/pets.js?v=2026-11-22g",
+    "#petcode": "./js/petcode.js?v=2026-11-22g",
+    "#channel": "./js/channel.js?v=2026-11-22g",
+    "#daylight": "./js/daylight.js?v=2026-11-22g",
+    "#mqtt": "./js/mqtt.js?v=2026-11-22g",
+    "#live": "./js/live.js?v=2026-11-22g",
+    "#paint": "./js/paint.js?v=2026-11-22g"
   }
 }
 </script>
@@ -507,16 +637,15 @@
 <div id="paintPanel" class="panel" hidden>
   <div class="sheet">
     <h2>직접 칠하기</h2>
-    <p class="hint"><b>끌면 돌아가고, 떼었다가 콕 찍으면 칠해져요.</b>
-      스프레이는 둥글게 뿌려지고 가장자리가 뿌옇습니다.</p>
+    <p class="hint"><b>끌면 돌아가고, 콕 찍으면 칠해져요.</b></p>
+    <canvas id="paintView"></canvas>
+    <div class="tools">
     <div class="seg" id="paintMode">
       <button type="button" data-paint="spray" class="on">스프레이</button>
       <button type="button" data-paint="part">부위 칠하기</button>
     </div>
-    <canvas id="paintView"></canvas>
     <p class="said where" id="paintSaid">색을 고르고 아이를 콕 찍어 보세요.</p>
-    <label>색</label>
-    <div class="swatches" id="paintColors"></div>
+    <div class="swatches" id="paintColors" role="group" aria-label="색"></div>
     <div class="sizeRow" id="sprayRow">
       <label for="sizeInput">크기</label>
       <input id="sizeInput" type="range" min="0" max="31" value="15"
@@ -526,13 +655,17 @@
     <div class="seg" id="sprayTools">
       <button type="button" id="paintUndo">방금 것 지우기</button>
     </div>
-    <button type="button" class="go" id="paintDone">다 칠했어요</button>
-    <button type="button" class="close" id="paintCancel">그만두기</button>
+    <div class="endRow">
+      <button type="button" class="close" id="paintCancel">그만두기</button>
+      <button type="button" class="go" id="paintDone">다 칠했어요</button>
+    </div>
+    </div>
   </div>
 </div>
 
 <div id="codePanel" class="panel" hidden>
   <div class="sheet">
+    <div class="grpA">
     <h2>반려동물 코드</h2>
     <p class="hint">이 코드를 보내면, 받은 사람도 정원에서 <b id="myPetName">—</b> 를 만날 수 있어요.</p>
     <div class="codeRow">
@@ -540,7 +673,9 @@
       <button type="button" id="copyCode">복사</button>
     </div>
 
-    <h2 style="margin-top:18px">채널</h2>
+    </div>
+    <div class="grpB">
+    <h2 class="h2b">채널</h2>
     <p class="hint">같은 채널에 있어야 함께 거닐 수 있어요. <b id="chWho">열린 정원</b><br>
       실시간 연결 <b id="chHow">잇는 중</b></p>
     <div class="codeRow">
@@ -552,7 +687,7 @@
     <input id="addCode" type="text" autocapitalize="characters" placeholder="받은 코드를 붙여넣으세요">
     <button type="button" class="go" id="addCodeBtn">그 아이로 바꾸기</button>
     <p class="said" id="codeSaid"></p>
-
+    </div>
     <button type="button" class="close" id="closeCode">닫기</button>
   </div>
 </div>
@@ -561,6 +696,7 @@
 
 <div id="start">
   <form class="card" id="startForm" autocomplete="off">
+    <div class="side">
     <div class="arc">
       <i style="background:#FF9CA0"></i><i style="background:#FFBE78"></i>
       <i style="background:#FFE783"></i><i style="background:#94E799"></i>
@@ -569,9 +705,11 @@
     </div>
     <h1>무지개 정원</h1>
     <p class="lead">강아지나 고양이와 천천히 거니는 정원이에요.<br>이름을 알려주시면 문을 열어 드릴게요.</p>
+    </div>
+    <div class="fields">
 
     <label for="nameInput">당신의 이름</label>
-    <input id="nameInput" type="text" maxlength="12" required placeholder="캐릭터 이름이 됩니다">
+    <input id="nameInput" type="text" maxlength="12" required placeholder="캐릭터 이름이 됩니다" aria-label="당신의 이름">
 
     <label>캐릭터</label>
     <div class="seg" id="gender">
@@ -580,6 +718,24 @@
     </div>
 
     <label>반려동물</label>
+    <button type="button" class="sumrow" id="petBtn" aria-haspopup="dialog">
+      <span class="ico" id="petIco">🐶</span><span class="txt" id="petSum">—</span><span class="go">바꾸기 ›</span></button>
+
+    <label>입장 채널</label>
+    <button type="button" class="sumrow" id="chBtn" aria-haspopup="dialog">
+      <span class="ico">🌈</span><span class="txt" id="chSum">열린 정원</span><span class="go">바꾸기 ›</span></button>
+
+    <button type="submit">정원으로 들어가기</button>
+    </div>
+    <p class="note foot"><span class="txt">서두를 것도, 지는 것도 없는 곳이에요.</span>
+      <span class="ver">2026-11-22g</span></p>
+  </form>
+</div>
+
+<!-- 시작 화면의 창 — 반려동물 · 채널. 시작 화면은 스크롤하지 않고, 고를 거리는 여기에 띄운다 -->
+<div class="pop" id="petPop" hidden role="dialog" aria-modal="true" aria-labelledby="petPopT">
+  <div class="popcard">
+    <header><h2 id="petPopT">반려동물</h2><button type="button" class="x" data-close aria-label="닫기">✕</button></header>
     <div class="seg" id="petMode">
       <button type="button" data-pm="new" class="on">새로 만들기</button>
       <button type="button" data-pm="load">불러오기</button>
@@ -587,25 +743,26 @@
     </div>
 
     <div id="petNew">
-      <label>누구와 함께 갈까요</label>
-      <div class="seg" id="kind">
-        <button type="button" data-kind="dog" class="on">강아지</button>
-        <button type="button" data-kind="cat">고양이</button>
+      <div class="pair">
+        <div class="seg" id="kind">
+          <button type="button" data-kind="dog" class="on">강아지</button>
+          <button type="button" data-kind="cat">고양이</button>
+        </div>
+        <input id="dogInput" type="text" maxlength="12" placeholder="아이 이름" aria-label="아이 이름">
       </div>
-
-      <label for="dogInput">이름</label>
-      <input id="dogInput" type="text" maxlength="12" required placeholder="곁에서 따라다녀요">
-
-      <label>품종</label>
-      <div class="picks" id="breeds"></div>
-
-      <label>섞을 품종 <span class="sel" id="mixName">안 섞어요</span></label>
-      <div class="picks" id="mixes"></div>
-
-      <label>털빛 <span class="sel" id="coatName">화이트</span></label>
-      <div class="coats" id="coats"></div>
+      <div class="seg tabs" id="petTab">
+        <button type="button" data-tab="breed" class="on">품종</button>
+        <button type="button" data-tab="mix">섞기</button>
+        <button type="button" data-tab="coat">털빛</button>
+      </div>
+      <div data-pane="breed"><div class="picks" id="breeds"></div></div>
+      <div data-pane="mix" hidden>
+        <p class="selline">섞을 품종 · <span class="sel" id="mixName">안 섞어요</span></p>
+        <div class="picks" id="mixes"></div></div>
+      <div data-pane="coat" hidden>
+        <p class="selline">털빛 · <span class="sel" id="coatName">화이트</span></p>
+        <div class="coats" id="coats"></div></div>
     </div>
-
     <div id="petLoad" hidden>
       <label>지금까지 지낸 아이 <span class="sel" id="savedName">—</span></label>
       <div class="picks" id="saved"></div>
@@ -622,7 +779,12 @@
         그 아이 <b>한 마리</b>를 함께 봐요.</p>
     </div>
 
-    <label for="chCode">입장 채널 <span class="sel" id="chName">열린 정원</span></label>
+    <button type="button" class="ok" data-close>확인</button>
+  </div>
+</div>
+<div class="pop" id="chPop" hidden role="dialog" aria-modal="true" aria-labelledby="chPopT">
+  <div class="popcard">
+    <header><h2 id="chPopT">입장 채널 <span class="sel" id="chName">열린 정원</span></h2><button type="button" class="x" data-close aria-label="닫기">✕</button></header>
     <div class="seg" id="chPick">
       <button type="button" data-ch="open" class="on">열린 정원</button>
       <button type="button" data-ch="mine">내 채널</button>
@@ -633,12 +795,10 @@
     <p class="sel" id="chHint" style="margin:-6px 4px 13px;font-size:11.5px">
       누구나 들어오는 정원이에요. 한 채널에 서른 명까지.</p>
 
-    <button type="submit">정원으로 들어가기</button>
-    <p class="note">서두를 것도, 지는 것도 없는 곳이에요.
-      <span class="ver">2026-11-22e</span></p>
-  </form>
+    <button type="button" class="ok" data-close>확인</button>
+  </div>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-22e"></script>
+<script type="module" src="./js/main.js?v=2026-11-22g"></script>
 </body>
 </html>
