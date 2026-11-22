@@ -166,6 +166,10 @@ async function body(request){
 }
 
 export async function handleApi(request, env){
+  /* 서버 시각 — Metaversal Studio 의 모든 화면이 이 시계 하나를 쓴다 (shared/js/clock.js).
+     폰마다 시계가 달라도 모두 같은 시간대(밤낮)와 같은 순서를 보게 하려는 것이다.
+     계정 저장소가 없어도 답한다. */
+  if (new URL(request.url).pathname === '/api/time') return json({ now: Date.now() });
   if (!env.ACCOUNTS || !env.SESSION_SECRET) return fail('계정 서버가 아직 준비되지 않았어요', 503);
   const path = new URL(request.url).pathname;
   const method = request.method;

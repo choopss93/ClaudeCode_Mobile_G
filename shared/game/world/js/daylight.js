@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { seoulHour } from '../../../js/clock.js?v=k1';
 
 /*
  * 시간에 따라 정원의 빛이 바뀐다. 새벽 · 아침 · 낮 · 노을 · 밤.
@@ -66,8 +67,8 @@ function hourNow(){
     }
     for (const [h, k] of CLOCK) if (k === key) return h;
   }
-  const d = new Date();
-  return d.getHours() + d.getMinutes() / 60;
+  // 폰 시계가 아니라 서버 시각, 한국 시간으로 — 모두가 같은 하늘을 본다
+  return seoulHour();
 }
 
 const ca = new THREE.Color(), cb = new THREE.Color();

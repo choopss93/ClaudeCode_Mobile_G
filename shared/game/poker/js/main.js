@@ -2,6 +2,7 @@ import { shuffled, evaluate, compare, label, isRed, SUITS, suitOf, cellName } fr
 import { joinRoom, makeId, MAX_SEATS } from './room.js?v=10';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
+import { serverNow } from '../../../js/clock.js?v=k1';
 
 /*
  * Memory Poker (기억 포커).
@@ -112,7 +113,7 @@ function enter(id){
   const name = nameIn.value.trim().slice(0, 12);
   if (!name){ nameIn.focus(); $('#lobbyMsg').textContent = '이름을 먼저 적어 주세요.'; return; }
   store.name = name; save();
-  me.name = name; me.at = Date.now();
+  me.name = name; me.at = serverNow();   // 들어온 순서(방장)는 서버 시각으로 — 폰 시계가 틀려도 같은 순서
   roomComm = me.comm = store.comm;   // 내가 방장이면 이 장수로 판을 돌린다
   roomId = id;
   writeChannelToHash(id);
