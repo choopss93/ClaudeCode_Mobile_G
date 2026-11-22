@@ -37,11 +37,16 @@
   - 공개 주소는 **https://claudecode-mobile-g.choopss93.workers.dev** —
     Cloudflare Worker `claudecode-mobile-g` (Pages 가 아니라 Worker 다).
     공용 게임 링크는 이 주소 밑의 `/shared/…` 로 보낸다.
-  - **배포는 내가 직접 한다.** `main` 에 올린 뒤 저장소 뿌리에서
-    `CLOUDFLARE_API_TOKEN=proxy-injected CLOUDFLARE_ACCOUNT_ID=c5785881c6d79be37f553bfb854fb824 npx wrangler deploy`.
-    토큰은 이 저장소용 클라우드 환경(`ClaudeCode_Mobile_G`)에 네트워크 비밀로
-    저장돼 있어 프록시가 대신 붙인다 — 값을 적거나 보낼 일이 없다.
-    Cloudflare 쪽 자동 배포(Workers Builds)는 토큰이 끊겨 돌지 않는다.
+  - **배포는 Cloudflare 의 자동 배포(Workers Builds)가 한다.** `main` 에 올리면
+    Cloudflare 가 받아 `npx wrangler deploy` 로 올린다. 그러려면 Worker 의
+    Settings → Build 의 **API 토큰이 살아 있어야** 한다 (한동안 끊겨 있었다 —
+    'This token may have been deleted…' 가 보이면 사용자가 Create new token).
+  - 이 저장소용 클라우드 환경(`ClaudeCode_Mobile_G`)에는 Cloudflare API 토큰이
+    네트워크 비밀로 들어 있다. 그걸로 `CLOUDFLARE_API_TOKEN=proxy-injected
+    CLOUDFLARE_ACCOUNT_ID=c5785881c6d79be37f553bfb854fb824 npx wrangler …` 를
+    돌릴 수 있지만, **사이트 파일이 바뀐 배포는 401 로 실패한다.** 파일을 올릴
+    때 쓰는 일회용 출입증(Authorization)을 프록시가 토큰으로 덮어쓰기 때문이다.
+    여기서는 문지기 코드만 바뀐 배포 · `secret put` · 상태 읽기까지만 된다.
   - 배포한 뒤 공개 주소를 curl 로 찍어 본다 — `/shared/…` 200, `/` 401.
     그 환경은 `api.cloudflare.com` 과 공개 주소만 열려 있다. 설정은 `wrangler.jsonc` — 저장소 뿌리 전체를 사이트
     파일로 올리고(`assets.directory: "."`), `run_worker_first` 로 모든 요청이
