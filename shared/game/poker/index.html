@@ -64,10 +64,12 @@
   #joinForm .field{text-transform:uppercase;letter-spacing:.1em;min-width:0}
   #joinForm .btn{white-space:nowrap;flex:none;padding-inline:18px}
   /* 가운데 카드 장수 — 둥근 라디오 둘. 방을 만든 사람(방장)의 것이 방의 규칙이 된다 */
-  .seg{border:0;margin:0;padding:0;display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:center;min-width:0}
-  .seg legend{float:left;font-size:12px;color:var(--muted);font-weight:600;padding:0;margin-right:2px}
+  /* fieldset/legend 는 쓰지 않는다 — 아이폰 사파리가 legend 를 제 줄로 빼내
+     칸이 좁아지고 '3장' 이 세로로 꺾였다. 보통 div 로 세 칸을 나눈다. */
+  .seg{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:center;min-width:0}
+  .seg .lbl{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
   /* #lobby label(이름 칸 머리글)보다 구체적이어야 덮인다 */
-  #lobby .seg label{display:flex;align-items:center;gap:7px;min-height:44px;padding:0 12px;cursor:pointer;font-size:inherit;font-weight:400;color:inherit;
+  #lobby .seg label{display:flex;align-items:center;gap:7px;min-height:44px;min-width:0;padding:0 10px 0 12px;cursor:pointer;font-size:inherit;font-weight:400;color:inherit;
     border:1px solid var(--line);border-radius:12px;background:var(--surface-2);margin:0;-webkit-tap-highlight-color:transparent}
   #lobby .seg label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
   .seg input{appearance:none;-webkit-appearance:none;margin:0;flex:none;width:18px;height:18px;border-radius:50%;
@@ -76,8 +78,11 @@
   .seg input:checked{border-color:var(--accent)}
   .seg input:checked::before{transform:scale(1)}
   .seg input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .seg span{font-size:15px;font-weight:600;color:var(--ink)}
-  .seg small{font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap}
+  /* 글자는 절대 꺾지 않는다. 자리가 모자라면 작은 설명만 줄임표로 */
+  .seg label span{font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap;flex:none}
+  .seg small{font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  /* 좁은 폰에서는 반쯤 잘린 설명보다 아예 없는 편이 낫다 */
+  @media (max-width:370px){ .seg small{display:none} }
   #lobbyMsg{color:#F08A6A;font-size:12.5px;min-height:1.2em;margin:0}
   .rules{margin:12px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.5}
   .rules li{margin:2px 0}
@@ -311,11 +316,11 @@
         <label for="name">내 이름</label>
         <input class="field" id="name" maxlength="12" autocomplete="nickname" placeholder="친구들에게 보일 이름">
       </div>
-      <fieldset class="seg">
-        <legend>가운데 카드</legend>
+      <div class="seg" role="radiogroup" aria-labelledby="commLbl">
+        <span class="lbl" id="commLbl">가운데 카드</span>
         <label><input type="radio" name="comm" value="2"><span>2장</span><small>4장 족보</small></label>
         <label><input type="radio" name="comm" value="3"><span>3장</span><small>5장 족보</small></label>
-      </fieldset>
+      </div>
       <button class="btn primary" id="make" type="button">새 방 만들기</button>
       <p class="or">또는 받은 방 코드로</p>
       <form id="joinForm">
@@ -363,7 +368,7 @@
     </div>
   </section>
 
-  <p class="ver">판 8</p>
+  <p class="ver">판 9</p>
 </div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="card2">
@@ -375,6 +380,6 @@
   </div>
 </div>
 <div id="toast" hidden></div>
-<script type="module" src="js/main.js?v=8"></script>
+<script type="module" src="js/main.js?v=9"></script>
 </body>
 </html>
