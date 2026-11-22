@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s5';
 import { GENDERS, SKIN, PARTS, hex, cleanChar, randomChar } from './character.js?v=c3';
 import { readAccount, refresh, signup, login, logout, saveChar, recover, newRecovery } from './account.js?v=s7';
-import { createLogo } from './logo.js?v=l1';
+import { createLogo } from './logo.js?v=l2';
 
 /*
  * Metaversal Studio — 시작 → 가입·로그인 → 캐릭터 꾸미기 → 메뉴.
@@ -42,7 +42,7 @@ camera.lookAt(0, LOOK_Y, 0);
 const logo = createLogo();
 let showLogo = true;
 
-let actor = null, spin = 0.5, drag = null;
+let actor = null, spin = 0.5, pitch = 0.3, drag = null;   // pitch — 로고만 위아래로도 돈다
 function wear(char){
   if (actor) scene.remove(actor.group);
   actor = createActor({ style: cleanChar(char) });
@@ -64,8 +64,12 @@ function fit(){
 }
 new ResizeObserver(fit).observe(canvas);
 
-canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, s: spin }; canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointermove', e => { if (drag) spin = drag.s + (e.clientX - drag.x) * 0.012; });
+canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, s: spin, p: pitch }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return;
+  spin = drag.s + (e.clientX - drag.x) * 0.012;
+  if (showLogo) pitch = drag.p + (e.clientY - drag.y) * 0.012;   // 캐릭터는 옆으로만
+});
 canvas.addEventListener('pointerup', () => { drag = null; });
 canvas.addEventListener('pointercancel', () => { drag = null; });
 
@@ -75,8 +79,8 @@ function frame(t){
   const dt = Math.min(0.05, (t - last) / 1000); last = t;
   if (!canvas.isConnected) return;
   if (showLogo){
-    if (!drag) spin += dt * 0.45;
-    logo.update(dt, spin);
+    if (!drag){ spin += dt * 0.45; pitch += dt * 0.31; }   // 빠르기를 달리 해 구처럼 구른다
+    logo.update(dt, spin, pitch);
     renderer.render(logo.scene, logo.camera);
     return;
   }

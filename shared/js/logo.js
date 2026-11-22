@@ -13,7 +13,11 @@ import * as THREE from 'three';
 export function createLogo(){
   const scene = new THREE.Scene();
   const root = new THREE.Group();
+  /* 크기는 처음의 절반 (사용자 요청 — 너무 컸다). 별가루는 root 밖이라 그대로 */
+  root.scale.setScalar(0.5);
   scene.add(root);
+  const AX_Y = new THREE.Vector3(0, 1, 0), AX_X = new THREE.Vector3(1, 0, 0);
+  const qY = new THREE.Quaternion(), qX = new THREE.Quaternion();
 
   // 빛 — 정면 따뜻한 빛, 옆에서 보라 · 하늘색 테두리 빛
   scene.add(new THREE.AmbientLight(0xffffff, 0.45));
@@ -75,11 +79,13 @@ export function createLogo(){
   let t = 0;
   return {
     scene, camera,
-    /** spin — 손가락으로 돌린 만큼(라디안). 가만두면 저절로 천천히 돈다. */
-    update(dt, spin){
+    /** spin · pitch — 옆 · 위아래로 돌린 만큼(라디안). 둘 다 쌓이므로 구처럼 360° 어느 쪽으로나 돈다
+        (사용자 요청 — 처음엔 옆으로만 돌았다). 가만두면 둘이 다른 빠르기로 저절로 돈다. */
+    update(dt, spin, pitch = 0){
       t += dt;
-      root.rotation.y = spin;
-      root.rotation.x = Math.sin(t * 0.6) * 0.08;
+      qY.setFromAxisAngle(AX_Y, spin);
+      qX.setFromAxisAngle(AX_X, pitch);
+      root.quaternion.copy(qY).multiply(qX);
       M.position.y = Math.sin(t * 1.2) * 0.04;                     // 살짝 떠 있는 느낌
       globe.rotation.y -= dt * 0.15;
       for (const r of rings) r.spinner.rotation.z += dt * r.speed;
