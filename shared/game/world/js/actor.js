@@ -56,9 +56,9 @@ function piece(group, geo, mat, x, y, z, sx, sy, sz){
 }
 
 export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
-                              lamp = false } = {}){
+                              lamp = false, skin: skinColor = 0xFFE9D4 } = {}){
   const group = new THREE.Group();
-  const skin = toon(0xFFE9D4);
+  const skin = toon(skinColor);     // Metaversal Studio 에서 고른 피부색 (없으면 예전 그대로)
   const cloth = toon(color);
   const hairMat = toon(hair);
   const dark = toon(0x5C5560);

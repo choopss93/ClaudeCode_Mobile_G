@@ -6,6 +6,7 @@ node_modules
 .dev.vars
 worker.js
 lock.js
+api.js
 wrangler.jsonc
 functions
 _routes.json

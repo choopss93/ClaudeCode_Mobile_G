@@ -1,45 +1,185 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>공용</title>
-<meta name="description" content="여러 사람이 같이 쓰는 공간. 링크를 받은 사람이 바로 열 수 있습니다.">
-<meta name="color-scheme" content="light dark">
-<meta property="og:title" content="공용">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Metaversal Studio</title>
+<meta name="description" content="아이디 하나로 들어가는 작은 세계. 나만의 캐릭터를 꾸미고 무지개 정원과 Memory Poker 로.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="Metaversal Studio">
+<meta property="og:description" content="나만의 캐릭터로 들어가는 작은 세계.">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="../assets/base.css">
 <style>
-  /* 이 공간의 강조색 */
+  /* 공용 공간의 강조색 — 이 화면은 늘 검정 바탕 (Memory Poker 와 같은 결) */
   :root{ --accent:#8A5A24; --accent-soft:#F2E8DA }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]){ --accent:#DCA94E; --accent-soft:#33281A }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --accent:#DCA94E; --accent-soft:#33281A } }
+  :root[data-theme="dark"]{
+    --accent:#DCA94E; --accent-soft:#33281A;
+    --bg:#000000; --surface:#111111; --surface-2:#1C1C1C; --line:#2A2A2A;
+    --ink:#F2F2F2; --muted:#9C9C9C; --faint:#6E6E6E;
   }
-  :root[data-theme="dark"]{ --accent:#DCA94E; --accent-soft:#33281A }
+
+  /* 한 화면에 고정 — 확대도 스크롤도 없다 */
+  html{height:100%;overflow:hidden;touch-action:manipulation;-webkit-text-size-adjust:100%}
+  body{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+  input{-webkit-user-select:text;user-select:text}
+  .field{font-size:16px}
+
+  .app{height:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;
+    padding:max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))}
+  .screen{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+  .top{display:flex;align-items:center;gap:8px;height:36px;flex:none}
+  .top .back{all:unset;cursor:pointer;color:var(--muted);font-size:13px;min-height:36px;display:flex;align-items:center}
+  .top .spacer{flex:1}
+  .btn.big{min-height:48px;font-size:15.5px;width:100%;flex:none}
+
+  /* 3D 캐릭터가 서는 자리 — 화면마다 이 자리로 캔버스를 옮겨 단다 */
+  .stage{flex:1;min-height:120px;position:relative;border-radius:20px;overflow:hidden;
+    background:radial-gradient(120% 90% at 50% 100%, #3a2a12 0%, #17120a 45%, #000 80%)}
+  .stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  .stage .hint{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:11px;color:var(--faint);pointer-events:none}
+
+  /* 시작 */
+  .brand{text-align:center;flex:none;margin-top:6px}
+  .brand h1{font-size:clamp(30px, 9vw, 40px);font-weight:700;letter-spacing:-.02em;line-height:1.1;margin:0;
+    background:linear-gradient(100deg,#FFE9B8 0%,#DCA94E 45%,#E7B5F2 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand p{margin:8px 0 0;color:var(--muted);font-size:13.5px}
+  .who{text-align:center;color:var(--muted);font-size:12.5px;min-height:18px;margin:0;flex:none}
+
+  /* 가입 · 로그인 */
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:4px;flex:none}
+  .tabs button{all:unset;cursor:pointer;text-align:center;min-height:40px;border-radius:10px;font-size:14px;font-weight:600;color:var(--muted)}
+  .tabs button.on{background:var(--accent-soft);color:var(--ink)}
+  .form{display:flex;flex-direction:column;gap:8px;flex:none}
+  .form label{font-size:12px;color:var(--muted);font-weight:600;margin:4px 0 -2px}
+  .note{font-size:12px;color:var(--faint);line-height:1.5;margin:2px 0 0}
+  .msg{font-size:12.5px;color:#F08A6A;min-height:18px;margin:0}
+  .msg.ok{color:#6CCB8A}
+  .grow{flex:1;min-height:0}
+
+  /* 캐릭터 꾸미기 */
+  .row{display:flex;gap:8px;flex:none}
+  .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;flex:1}
+  .seg button{all:unset;cursor:pointer;text-align:center;min-height:42px;border-radius:12px;border:1px solid var(--line);
+    background:var(--surface);font-size:13.5px;font-weight:600;color:var(--muted)}
+  .seg button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+  .swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;flex:none}
+  .swatches button{all:unset;cursor:pointer;aspect-ratio:1;border-radius:50%;max-height:44px;justify-self:center;width:100%;max-width:44px;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+  .swatches button.on{outline:3px solid #fff;outline-offset:2px}
+
+  /* 메뉴 */
+  .hello{flex:none;margin:2px 0 0}
+  .hello h2{margin:0;font-size:20px;font-weight:700}
+  .hello p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+  .menu{display:flex;flex-direction:column;gap:10px;flex:none}
+  .menu a{display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;background:var(--surface);
+    border:1px solid var(--line);border-radius:16px;padding:14px 16px;min-height:76px}
+  .menu a:active{background:var(--surface-2)}
+  .menu .ic{width:46px;height:46px;border-radius:14px;flex:none;display:grid;place-items:center;font-size:22px}
+  .menu .t{flex:1;min-width:0}
+  .menu .t b{display:block;font-size:12px;color:var(--accent);letter-spacing:.04em;font-weight:700}
+  .menu .t span{display:block;font-size:16px;font-weight:700;margin-top:1px}
+  .menu .t small{display:block;font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .menu .go{color:var(--faint);font-size:18px}
+  .links{display:flex;gap:8px;flex:none}
+  .links .btn{flex:1;min-height:44px}
+
+  @media (max-height:600px){
+    .brand h1{font-size:28px} .brand p{font-size:12.5px}
+    .menu a{min-height:64px;padding:10px 14px} .menu .ic{width:40px;height:40px}
+  }
 </style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./game/world/js/vendor/three.module.min.js",
+    "#look": "./game/world/js/look.js?v=s1",
+    "#pets": "./game/world/js/pets.js?v=s1"
+  }
+}
+</script>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <p class="eyebrow">공간 3 · 공유 서비스</p>
-    <h1>공용</h1>
-    <p class="sub">여러 사람이 같이 쓰는 공간. 링크를 받은 사람이 바로 열 수 있습니다.</p>
-  </header>
+<div class="app">
 
-  <ul class="spaces">
-    <li><a class="card" href="game/">
-      <span class="name">게임</span>
-      <span class="desc">여럿이 같이 하는 게임</span>
-    </a></li>
-  </ul>
+  <!-- 1. 시작 -->
+  <section class="screen" id="intro">
+    <div class="brand">
+      <h1>Metaversal Studio</h1>
+      <p>아이디 하나로 들어가는 작은 세계</p>
+    </div>
+    <div class="stage" data-stage></div>
+    <p class="who" id="who"></p>
+    <button class="btn primary big" id="startBtn" type="button">시작하기</button>
+  </section>
 
-  <footer>
-    이 페이지는 <code>shared/index.html</code> 입니다.
-    안에 <code>game/</code> 폴더가 있고, 주소가 따로 열립니다.
-    서버가 없는 정적 페이지라, 공유는 링크에 상태를 담는 방식이 가장 잘 맞습니다.
-  </footer>
+  <!-- 2. 가입 · 로그인 -->
+  <section class="screen" id="auth" hidden>
+    <div class="top"><button class="back" data-go="intro" type="button">← 처음으로</button></div>
+    <div class="tabs" role="tablist">
+      <button type="button" data-mode="signup" class="on" role="tab">새 계정</button>
+      <button type="button" data-mode="login" role="tab">로그인</button>
+    </div>
+    <form class="form" id="authForm" autocomplete="on">
+      <label for="idIn">아이디</label>
+      <input class="field" id="idIn" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="16" placeholder="영문 소문자 · 숫자 · _ (3~16자)">
+      <label for="pwIn">비밀번호</label>
+      <input class="field" id="pwIn" type="password" autocomplete="new-password" maxlength="64" placeholder="6자 이상">
+      <div id="pw2Box">
+        <label for="pw2In">비밀번호 한 번 더</label>
+        <input class="field" id="pw2In" type="password" autocomplete="new-password" maxlength="64" style="margin-top:6px">
+      </div>
+      <p class="msg" id="authMsg" role="alert"></p>
+      <button class="btn primary big" id="authBtn" type="submit">다음 · 캐릭터 만들기</button>
+    </form>
+    <div class="grow"></div>
+    <p class="note" id="authNote">개인정보는 받지 않아요. 아이디와 비밀번호만 있으면 돼요.<br>비밀번호는 되찾을 수 없으니 꼭 기억해 두세요.</p>
+  </section>
+
+  <!-- 3. 캐릭터 꾸미기 -->
+  <section class="screen" id="maker" hidden>
+    <div class="top"><button class="back" id="makerBack" type="button">← 뒤로</button><span class="spacer"></span></div>
+    <div class="stage" data-stage></div>
+    <input class="field" id="nickIn" maxlength="12" placeholder="캐릭터 이름 (게임에 보일 이름)" aria-label="캐릭터 이름">
+    <div class="row"><div class="seg" id="lookSeg"></div></div>
+    <div class="row"><div class="seg" id="partSeg">
+      <button type="button" data-part="hair" class="on">머리색</button>
+      <button type="button" data-part="cloth">옷색</button>
+      <button type="button" data-part="skin">피부</button>
+    </div></div>
+    <div class="swatches" id="swatches"></div>
+    <p class="msg" id="makerMsg" role="alert"></p>
+    <button class="btn primary big" id="makerBtn" type="button">완료</button>
+  </section>
+
+  <!-- 4. 메뉴 -->
+  <section class="screen" id="menu" hidden>
+    <div class="hello"><h2 id="helloName">안녕하세요</h2><p id="helloId"></p></div>
+    <div class="stage" data-stage></div>
+    <nav class="menu">
+      <a href="game/world/">
+        <span class="ic" style="background:linear-gradient(135deg,#FFABB4,#FFED98,#94E2F1,#E7B5F2)">🌈</span>
+        <span class="t"><b>METAVERSAL STUDIO</b><span>무지개 정원</span><small>반려동물과 천천히 거니는 정원</small></span>
+        <span class="go">›</span>
+      </a>
+      <a href="game/poker/">
+        <span class="ic" style="background:#DCA94E;color:#1a1206">♠</span>
+        <span class="t"><b>META PROJECT</b><span>Memory Poker</span><small>16장을 외우고 두 칸을 골라 겨뤄요</small></span>
+        <span class="go">›</span>
+      </a>
+    </nav>
+    <div class="links">
+      <button class="btn" id="editBtn" type="button">캐릭터 꾸미기</button>
+      <button class="btn ghost" id="logoutBtn" type="button">로그아웃</button>
+    </div>
+  </section>
+
 </div>
+<script type="module" src="js/studio.js?v=s1"></script>
 </body>
 </html>

@@ -8,5 +8,9 @@
     "binding": "ASSETS",
     // 공개 파일(/shared/…)도 먼저 문지기를 거친다 — 그래야 잠근 쪽이 새지 않는다
     "run_worker_first": true
-  }
+  },
+  // 계정 저장소 (api.js) — Metaversal Studio 의 아이디 · 캐릭터
+  "kv_namespaces": [
+    { "binding": "ACCOUNTS", "id": "2ac9f05fd3fa4b30911f1a43a714fb33" }
+  ]
 }

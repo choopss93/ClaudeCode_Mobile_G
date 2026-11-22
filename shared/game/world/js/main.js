@@ -10,6 +10,8 @@ import { CAPACITY, PUBLIC, makeChannel, readChannel, showChannel,
 import { lookNow, createStars, createSun, applyLook } from '#daylight';
 import { createControls } from '#controls';
 import { createLocalNet } from '#net';
+import { readAccount } from '../../../js/account.js?v=s1';
+import { cleanChar, colorsOf } from '../../../js/character.js?v=s1';
 import { createLiveNet } from '#live';
 import { SKY, colorFor, hairFor, wind, toon } from '#look';
 
@@ -107,6 +109,12 @@ function rememberPet(card){
 
 const choice = { look: 'short', kind: 'dog', breed: 3, mix: null,
                  coat: 'white', paint: null, sprays: null };
+
+/* Metaversal Studio 계정 — 로그인돼 있으면 거기서 꾸민 캐릭터로 들어간다.
+   이름 · 머리 모양 · 색을 다시 묻지 않는다. 반려동물만 여기서 고른다.
+   로그인하지 않았어도(초대 링크로 바로 온 사람) 예전처럼 들어올 수 있다. */
+const ACCOUNT = readAccount();
+const MY_CHAR = ACCOUNT ? cleanChar(ACCOUNT.user.char) : null;
 
 /* 아이를 정하는 세 가지 길 — 새로 만들기 · 불러오기 · 코드 입력.
    어느 길로 왔든 마지막에는 카드 하나(`kind·breed·mix·coat·name`)가 되고,
@@ -479,6 +487,18 @@ paintCoats();
 paintSaved();
 paintPetMode();
 
+if (MY_CHAR){
+  nameIn.value = MY_CHAR.nick;
+  choice.look = MY_CHAR.look;
+  nameIn.required = false;                 // 숨긴 칸에 required 를 남기면 폼이 막힌다
+  const gender = $('gender');
+  for (const el of [nameIn.previousElementSibling, nameIn, gender.previousElementSibling, gender]) el.hidden = true;
+  const note = document.createElement('p');
+  note.className = 'lead';
+  note.textContent = `Metaversal Studio 캐릭터 「${MY_CHAR.nick}」 로 들어가요.`;
+  nameIn.parentNode.insertBefore(note, nameIn.previousElementSibling);
+}
+
 startForm.addEventListener('submit', e => {
   e.preventDefault();
   const name = nameIn.value.trim().slice(0, 12);
@@ -601,8 +621,8 @@ function begin(myName, petName, petSpec, friends, myLook){
 
   /* ── 나와 내 강아지 ── */
   // 등불 빛은 내 캐릭터에만 단다 (actor.js 의 lamp 설명 참고)
-  const me = createActor({ lamp: true, color: colorFor(myName), hair: hairFor(myName),
-                          long: myLook === 'long' });
+  const me = createActor({ lamp: true, ...(MY_CHAR ? colorsOf(MY_CHAR)
+                          : { color: colorFor(myName), hair: hairFor(myName), long: myLook === 'long' }) });
   // 무지개 다리 바깥 끝에서 시작한다. 앞으로 쭉 건너가면 들판이다.
   me.group.position.set(START.x, 0, START.z);
   me.group.rotation.y = Math.PI;
@@ -802,8 +822,10 @@ function begin(myName, petName, petSpec, friends, myLook){
 
   const handlers = {
     onJoin(id, info){
-      const actor = createActor({ color: colorFor(info.name), hair: hairFor(info.name),
-                                  long: info.look === 'long' });
+      // Metaversal Studio 캐릭터면 그 사람이 고른 색, 아니면 예전처럼 이름에서 뽑는다
+      const actor = createActor(Array.isArray(info.colors)
+        ? { color: info.colors[0], hair: info.colors[1], skin: info.colors[2], long: info.look === 'long' }
+        : { color: colorFor(info.name), hair: hairFor(info.name), long: info.look === 'long' });
       scene.add(actor.group);
       actor.setHand(look.dark > 0.5);
       /* 그 사람이 데려온 아이도 함께 보인다 (`peerPet`). 다만
@@ -926,6 +948,7 @@ function begin(myName, petName, petSpec, friends, myLook){
     handlers, channel,
     id: myId,
     me: { name: myName, look: myLook, dog: myCard.name,
+          colors: MY_CHAR ? (c => [c.color, c.hair, c.skin])(colorsOf(MY_CHAR)) : null,
           // '랜덤' 을 그대로 보내면 받는 쪽에서 다른 털빛이 된다.
           // 이미 뽑힌 값을 보내야 같은 아이가 된다.
           pet: { kind: myCard.kind, breed: myCard.breed, coat: myCard.coat,

@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | 1 | `design/` | 아토믹 디자인 · **매번 확인용** |
 | 2 | `my/` | MY (개인) — `my/admin/` 어드민 · `my/front/` 프론트 |
-| 3 | `shared/` | 공용 (공유 서비스) — `shared/game/` 게임, `shared/game/world/` 무지개 정원, `shared/game/poker/` Memory Poker |
+| 3 | `shared/` | 공용 (공유 서비스) — **Metaversal Studio** 첫 화면 · 계정 · 캐릭터 → `shared/game/world/` 무지개 정원, `shared/game/poker/` Memory Poker |
 | 4 | `etc/` | 기타 (임시) |
 
 ## 1번은 "확인하고 작업하는" 자리
@@ -103,6 +103,41 @@
   지금은 아무 데도 쓰이지 않는다. 지우는 일은 사용자에게 묻고 한다.
 - 폴더 이름이 곧 주소다. 폴더를 바꾸면 허브 `index.html` 의 링크도 같이 고칠 것.
 - **올린 것은 전부 공개된다.** `my/` 도 비공개가 아니므로 비밀로 둘 내용은 올리지 말 것.
+
+## Metaversal Studio (`shared/index.html` · `shared/js/`)
+
+- 3번 공간의 첫 화면이다 (사용자 요청). 흐름: **시작하기 → 가입 · 로그인 →
+  캐릭터 꾸미기 → 메뉴.** 메뉴는 둘 — `METAVERSAL STUDIO` → 무지개 정원,
+  `META PROJECT` → Memory Poker. 이름은 영어 철자 그대로 쓴다.
+- **개인정보는 받지 않는다.** 아이디(영문 소문자 · 숫자 · _ 3~16자)와
+  비밀번호(6자 이상), 꾸민 캐릭터뿐이다. 비밀번호는 되찾을 수 없다.
+- 계정은 **Cloudflare KV `ACCOUNTS`**(`metaversal-accounts`)에 둔다. 사용자는
+  처음에 Git 에 모으자고 했지만, 저장소가 공개라 아이디와 해시가 다 보여서
+  KV 로 정했다 (사용자 동의). **Git 에 계정을 적지 말 것.**
+  - 서버는 `api.js` (Worker 가 `/api/…` 를 먼저 받는다 — `worker.js`).
+    비밀번호는 PBKDF2-SHA256 + 소금, 계정마다 횟수(`iter`)를 적어 둔다.
+    무료 Worker 는 요청마다 CPU 10ms 라 횟수를 함부로 올리지 말 것.
+  - 로그인 표는 KV 에 적지 않고 서명(`SESSION_SECRET`, Worker 의 Secret)으로
+    만든다. 무료 KV 는 하루 쓰기 1000번이다 — 가입 · 캐릭터 저장만 쓴다.
+  - 표는 `X-Session` 머리글로 보낸다. `Authorization` 은 잠금(Basic)이 쓴다.
+  - 로그인 실패는 아이디가 없을 때도 같은 말로 답한다.
+  - 서버가 Cloudflare 에만 있으므로 **github.io 주소에서는 계정이 안 된다.**
+- 캐릭터는 **번호만** 담는다 — `{nick, look, hair, cloth, skin}`. 번호가 무슨
+  색인지는 `shared/js/character.js` 한 곳이 안다. 색을 더할 때는 **목록 끝에만**
+  붙인다 (가운데 끼우면 이미 만든 캐릭터 색이 바뀐다).
+- 3D 미리보기는 무지개 정원의 `actor.js` 를 그대로 쓴다 — 여기서 꾸민 모습이
+  게임 속 모습과 같다. 캔버스는 하나만 두고 화면마다 `.stage` 로 옮겨 단다.
+  피부색 때문에 `createActor` 에 `skin` 이 생겼다 (없으면 예전 색).
+- 게임과의 연결은 이 기기의 `localStorage.metaversal`({token, user}) 이다.
+  - 무지개 정원: 로그인돼 있으면 이름 · 머리 칸을 감추고 그 캐릭터로 들어간다
+    (`MY_CHAR`). 남들에게도 그 색이 보이도록 인사 끝에 `[옷, 머리, 피부]` 를
+    붙였다 (`hi` 의 일곱째 자리). 없으면 예전처럼 이름에서 색을 뽑는다.
+  - Memory Poker: 이름 칸에 캐릭터 이름을 넣어 둔다.
+  - **로그인하지 않아도 두 게임은 그대로 열린다** — 초대 링크로 바로 온 사람.
+- 한 화면에 고정 · 스크롤 없음 · 검정 바탕은 Memory Poker 와 같다.
+- `shared/game/` (옛 게임 목록)은 Studio 로 넘겨 준다. 게임의 '뒤로' 도 Studio.
+- 검사: `wrangler dev` 에 `.dev.vars`(SITE_PASSWORD · SESSION_SECRET)를 두고
+  띄우면 KV 도 흉내 낸다. 가입 → 꾸미기 → 메뉴 → 게임까지 브라우저로 눌러 본다.
 
 ## 무지개 정원 (`shared/game/world/`)
 
