@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s5';
 import { GENDERS, SKIN, PARTS, hex, cleanChar, randomChar } from './character.js?v=c3';
-import { readAccount, refresh, checkId, signup, login, logout, saveChar } from './account.js?v=s2';
+import { readAccount, refresh, checkId, signup, login, logout, saveChar } from './account.js?v=s6';
 
 /*
  * Metaversal Studio — 시작 → 가입·로그인 → 캐릭터 꾸미기 → 메뉴.
@@ -98,15 +98,18 @@ document.addEventListener('click', e => {
 
 /* ─────────── 상태 ─────────── */
 let account = readAccount();
-let draft = account ? cleanChar(account.user.char) : randomChar();   // 꾸미는 중인 캐릭터
-let pending = null;      // 가입 중인 {id, pw} — 캐릭터를 다 꾸민 뒤에 만든다
-let makerFrom = 'auth';  // 꾸미기를 마치면 어디로 — 새 계정이면 가입, 아니면 저장
+/* 캐릭터는 가입 때가 아니라 **무지개 정원에 처음 들어가기 직전**에 만든다 (사용자 요청).
+   그래서 계정에 캐릭터가 없을 수 있다 (user.char === null). */
+const charOf = a => (a && a.user && a.user.char ? cleanChar(a.user.char) : null);
+const nameOf = a => (charOf(a) ? charOf(a).nick : a.user.id);
+let draft = charOf(account) || randomChar();   // 꾸미는 중인 캐릭터
+let makerFrom = 'menu';  // 꾸미기를 마치면 어디로 — 'world' 면 저장하고 무지개 정원으로, 'menu' 면 메뉴로
 
 function paintIntro(){
   zoomTo = 0;
   $('#startBtn').textContent = account ? '들어가기' : '시작하기';
-  $('#who').textContent = account ? `${account.user.char.nick} 님으로 들어가요 · @${account.user.id}` : '';
-  wear(account ? account.user.char : draft);
+  $('#who').textContent = account ? `${nameOf(account)} 님으로 들어가요 · @${account.user.id}` : '';
+  wear(charOf(account) || draft);
 }
 $('#startBtn').onclick = () => (account ? openMenu() : show('auth'));
 
@@ -116,7 +119,7 @@ function paintMode(){
   for (const b of document.querySelectorAll('.tabs button')) b.classList.toggle('on', b.dataset.mode === mode);
   $('#pw2Box').hidden = mode !== 'signup';
   $('#pwIn').autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
-  $('#authBtn').textContent = mode === 'signup' ? '다음 · 캐릭터 만들기' : '로그인';
+  $('#authBtn').textContent = mode === 'signup' ? '계정 만들기' : '로그인';
   $('#authMsg').textContent = '';
   paintMatch();
 }
@@ -159,17 +162,16 @@ $('#authForm').onsubmit = async e => {
   try {
     if (mode === 'login'){
       account = await login(id, pw);
-      draft = cleanChar(account.user.char);
+      draft = charOf(account) || randomChar();
       $('#pwIn').value = '';
       openMenu();
     } else {
       if (!$('#pw2In').value) throw new Error('비밀번호 확인 칸에 한 번 더 적어 주세요');
       if (pw !== $('#pw2In').value) throw new Error('비밀번호 두 칸이 서로 달라요');
-      const c = await checkId(id);
-      if (!c.ok) throw new Error(c.why || '쓸 수 없는 아이디예요');
-      pending = { id, pw };
-      makerFrom = 'auth';
-      openMaker();
+      account = await signup(id, pw);         // 아이디 · 비밀번호만 — 캐릭터는 정원 앞에서
+      $('#pwIn').value = ''; $('#pw2In').value = ''; paintMatch();
+      draft = randomChar();
+      openMenu();
     }
   } catch (err){
     msg.textContent = err.message;
@@ -220,11 +222,11 @@ function paintMaker(){
 function openMaker(){
   $('#nickIn').value = draft.nick || '';
   $('#makerMsg').textContent = '';
-  $('#makerBtn').textContent = makerFrom === 'auth' ? '완료 · 계정 만들기' : '저장';
+  $('#makerBtn').textContent = makerFrom === 'world' ? '완료 · 무지개 정원으로' : '저장';
   paintMaker();
   show('maker');
 }
-$('#makerBack').onclick = () => show(makerFrom === 'auth' ? 'auth' : 'menu');
+$('#makerBack').onclick = () => openMenu();
 
 $('#makerBtn').onclick = async () => {
   const msg = $('#makerMsg'), btn = $('#makerBtn');
@@ -232,30 +234,33 @@ $('#makerBtn').onclick = async () => {
   if (!draft.nick){ msg.textContent = '캐릭터 이름을 적어 주세요'; $('#nickIn').focus(); return; }
   btn.disabled = true;
   try {
-    if (makerFrom === 'auth'){
-      account = await signup(pending.id, pending.pw, cleanChar(draft));
-      pending = null;
-      $('#pwIn').value = ''; $('#pw2In').value = ''; paintMatch();
-    } else {
-      account = await saveChar(cleanChar(draft));
-    }
+    account = await saveChar(cleanChar(draft));
+    if (makerFrom === 'world'){ location.href = 'game/world/'; return; }
     openMenu();
   } catch (err){
     msg.textContent = err.message;
-    if (err.status === 409){ setTimeout(() => show('auth'), 1200); }   // 그 사이 누가 아이디를 가져갔다
   } finally { btn.disabled = false; }
 };
 
 /* ─────────── 메뉴 ─────────── */
 function openMenu(){
   zoomTo = 0;
-  const c = account.user.char;
-  $('#helloName').textContent = `안녕하세요, ${c.nick} 님`;
-  $('#helloId').textContent = `@${account.user.id} · 어디로 갈까요?`;
-  wear(c);
+  const c = charOf(account);
+  $('#helloName').textContent = `안녕하세요, ${nameOf(account)} 님`;
+  $('#helloId').textContent = c ? `@${account.user.id} · 어디로 갈까요?` : `@${account.user.id} · 캐릭터는 무지개 정원에 들어갈 때 만들어요`;
+  $('#editBtn').hidden = !c;               // 만들기 전에는 고칠 것이 없다
+  wear(c || draft);
   show('menu');
 }
-$('#editBtn').onclick = () => { draft = cleanChar(account.user.char); makerFrom = 'menu'; openMaker(); };
+$('#editBtn').onclick = () => { draft = charOf(account) || randomChar(); makerFrom = 'menu'; openMaker(); };
+
+/* 무지개 정원 — 캐릭터가 없으면 들어가기 직전에 만든다 */
+function toWorld(e){
+  if (charOf(account)) return;            // 있으면 링크 그대로 들어간다
+  e && e.preventDefault();
+  draft = randomChar(); makerFrom = 'world'; openMaker();
+}
+document.querySelector('.menu a[href="game/world/"]').addEventListener('click', toWorld);
 $('#logoutBtn').onclick = () => {
   logout(); account = null; draft = randomChar();
   $('#idIn').value = ''; mode = 'login'; paintMode();
@@ -264,6 +269,10 @@ $('#logoutBtn').onclick = () => {
 
 /* ─────────── 시작 ─────────── */
 paintIntro();
-show('intro');
+// 정원에서 "캐릭터부터" 하고 돌려보냈으면 (#make) 곧장 꾸미기로
+if (account && location.hash === '#make'){
+  history.replaceState(null, '', location.pathname);
+  charOf(account) ? openMenu() : toWorld();
+} else show('intro');
 // 다른 기기에서 캐릭터를 바꿨을 수 있으니 서버에서 다시 받아 둔다
 refresh().then(a => { account = a; if (!$('#intro').hidden) paintIntro(); });

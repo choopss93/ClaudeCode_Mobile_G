@@ -10,7 +10,7 @@ import { CAPACITY, PUBLIC, makeChannel, readChannel, showChannel,
 import { lookNow, createStars, createSun, applyLook } from '#daylight';
 import { createControls } from '#controls';
 import { createLocalNet } from '#net';
-import { readAccount } from '../../../js/account.js?v=s2';
+import { readAccount } from '../../../js/account.js?v=s6';
 import { cleanChar, colorsOf } from '../../../js/character.js?v=c3';
 import { createLiveNet } from '#live';
 import { SKY, colorFor, hairFor, wind, toon } from '#look';
@@ -114,7 +114,9 @@ const choice = { look: 'short', kind: 'dog', breed: 3, mix: null,
    이름 · 머리 모양 · 색을 다시 묻지 않는다. 반려동물만 여기서 고른다.
    로그인하지 않았어도(초대 링크로 바로 온 사람) 예전처럼 들어올 수 있다. */
 const ACCOUNT = readAccount();
-const MY_CHAR = ACCOUNT ? cleanChar(ACCOUNT.user.char) : null;
+const MY_CHAR = ACCOUNT && ACCOUNT.user.char ? cleanChar(ACCOUNT.user.char) : null;
+// 로그인했는데 캐릭터가 아직 없으면 — 정원에 들어가기 직전에 만들게 돼 있다 — 만들러 보낸다
+if (ACCOUNT && !MY_CHAR) location.replace('../../#make');
 
 /* 아이를 정하는 세 가지 길 — 새로 만들기 · 불러오기 · 코드 입력.
    어느 길로 왔든 마지막에는 카드 하나(`kind·breed·mix·coat·name`)가 되고,

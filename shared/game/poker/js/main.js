@@ -1,7 +1,7 @@
 import { shuffled, evaluate, compare, label, isRed, SUITS, suitOf, cellName } from './cards.js?v=8';
 import { joinRoom, makeId, MAX_SEATS } from './room.js?v=8';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
-import { readAccount } from '../../../js/account.js?v=s1';
+import { readAccount } from '../../../js/account.js?v=s6';
 
 /*
  * Memory Poker (기억 포커).
@@ -71,7 +71,7 @@ const nameOf = id => (id === me.id ? me.name : (net.peers.get(id)?.name || names
 const nameIn = $('#name'), codeIn = $('#code');
 // Metaversal Studio 에 로그인돼 있으면 캐릭터 이름으로 들어간다 (고쳐 쓸 수는 있다)
 const ACCOUNT = readAccount();
-nameIn.value = (ACCOUNT && ACCOUNT.user.char && ACCOUNT.user.char.nick) || store.name || '';
+nameIn.value = (ACCOUNT && ((ACCOUNT.user.char && ACCOUNT.user.char.nick) || ACCOUNT.user.id)) || store.name || '';
 const fromLink = channelFromHash();
 if (fromLink && fromLink !== 'OPEN') codeIn.value = showChannel(fromLink);
 

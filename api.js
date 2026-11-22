@@ -6,7 +6,7 @@
  * 같은 계정으로 들어온다. Git 저장소에는 두지 않는다 (저장소가 공개라 다 보인다).
  *
  *   POST /api/check   {id}            쓸 수 있는 아이디인가
- *   POST /api/signup  {id, pw, char}  만들기 → {token, user}
+ *   POST /api/signup  {id, pw}        만들기 → {token, user}  (캐릭터는 나중에 PUT /api/me)
  *   POST /api/login   {id, pw}        들어가기 → {token, user}
  *   GET  /api/me                       내 계정 (X-Session 머리글에 token)
  *   PUT  /api/me      {char}          캐릭터 고치기
@@ -117,7 +117,7 @@ export async function handleApi(request, env){
     const char = cleanChar(b.char);
     if (!ID_RE.test(id)) return fail('아이디는 영문 소문자 · 숫자 · _ 로 3~16자예요');
     if (pw.length < 6 || pw.length > 64) return fail('비밀번호는 6~64자예요');
-    if (!char) return fail('캐릭터 이름을 적어 주세요');
+    // 캐릭터는 가입 때 만들지 않는다 — 무지개 정원에 처음 들어가기 직전에 만든다 (char: null)
     if (await env.ACCOUNTS.get('user:' + id)) return fail('이미 있는 아이디예요', 409);
     const salt = crypto.getRandomValues(new Uint8Array(16));
     const user = { id, salt: b64u(salt), hash: b64u(await hashPw(pw, salt)), iter: ITER, char, created: Date.now() };

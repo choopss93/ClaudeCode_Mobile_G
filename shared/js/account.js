@@ -38,7 +38,7 @@ async function call(path, { method = 'POST', body, token } = {}){
 }
 
 export const checkId = id => call('check', { body: { id } });
-export async function signup(id, pw, char){ const d = await call('signup', { body: { id, pw, char } }); return keep({ token: d.token, user: d.user }); }
+export async function signup(id, pw){ const d = await call('signup', { body: { id, pw } }); return keep({ token: d.token, user: d.user }); }
 export async function login(id, pw){ const d = await call('login', { body: { id, pw } }); return keep({ token: d.token, user: d.user }); }
 
 /** 서버에서 내 계정을 다시 받아 사본을 고친다. 표가 낡았으면 로그아웃한다. */
