@@ -34,8 +34,21 @@
 
 - **잠금** — 공개하는 것은 3번 공간 `shared/` 뿐이다. 허브(`/`) · 1 `design/` ·
   2 `my/` · 4 `etc/` 는 나만 본다 (사용자 요청).
-  - 막는 것은 **Cloudflare Pages 의 서버 쪽 문지기** `functions/_middleware.js`
-    다. `/shared/` 와 그 페이지들이 쓰는 `/assets/base.css` 만 그냥 내주고,
+  - 공개 주소는 **Cloudflare Worker `claudecode-mobile-g`** 다 (Pages 가 아니라
+    Worker 로 만들어졌다). `main` 에 올리면 Workers Builds 가 `wrangler deploy`
+    로 다시 올린다. 설정은 `wrangler.jsonc` — 저장소 뿌리 전체를 사이트
+    파일로 올리고(`assets.directory: "."`), `run_worker_first` 로 모든 요청이
+    먼저 `worker.js` 를 거친다. 올리지 않을 것은 `.assetsignore` 에 적는다
+    (문지기 코드 · 설정 · `.git` · `.dev.vars`).
+  - 잠금 규칙은 **`lock.js` 한 곳**이다. `worker.js`(Worker) 와
+    `functions/_middleware.js`(Pages 로 옮길 때) 는 그것을 부르기만 한다.
+  - 비밀번호는 Worker 의 **Settings → Variables and Secrets**(실행 때 쓰는 쪽)
+    에 Secret 으로 둔다. 같은 설정 화면의 Build 아래 'Variables and secrets'
+    는 빌드 때만 쓰이는 다른 칸이다 — 거기 넣으면 잠금에 안 쓰인다.
+  - 검사: `npx wrangler dev` 에 `.dev.vars`(SITE_PASSWORD=…) 를 두고 띄워
+    공개 · 잠금 경로를 curl 로 찍는다. `.dev.vars` 는 `.gitignore` 에 있다 —
+    시험이 끝나면 지운다.
+  - 문지기는 `/shared/` 와 그 페이지들이 쓰는 `/assets/base.css` 만 그냥 내주고,
     나머지는 비밀번호(Basic 인증)를 대야 내준다. 비밀번호는 저장소에 적지
     않고 Cloudflare 프로젝트 설정의 `SITE_PASSWORD` 에만 둔다. 비어 있으면
     **잠근 채로** 둔다 — 실수로 다 열리는 것보다 낫다.

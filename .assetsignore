@@ -1,0 +1,11 @@
+# 사이트 파일로 올리지 않는 것 — 문지기 코드와 설정, 저장소 살림
+.git
+.github
+node_modules
+.wrangler
+.dev.vars
+worker.js
+lock.js
+wrangler.jsonc
+functions
+_routes.json

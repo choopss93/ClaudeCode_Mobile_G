@@ -1,0 +1,12 @@
+// Cloudflare Worker 설정. 이름은 Cloudflare 에 만든 Worker 이름과 같아야 한다.
+{
+  "name": "claudecode-mobile-g",
+  "main": "worker.js",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    // 공개 파일(/shared/…)도 먼저 문지기를 거친다 — 그래야 잠근 쪽이 새지 않는다
+    "run_worker_first": true
+  }
+}

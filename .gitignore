@@ -1,0 +1,4 @@
+# 로컬 시험용 — 올리지 않는다
+.dev.vars
+.wrangler/
+node_modules/
