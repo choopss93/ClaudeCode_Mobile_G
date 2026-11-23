@@ -4,6 +4,7 @@ import { joinRoom, makeId } from '../../poker/js/room.js?v=11';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
 import { serverNow } from '../../../js/clock.js?v=k1';
+import { isBot, botName, withBots } from '../../../js/bots.js?v=b1';
 
 /*
  * Tower 13 — 접속과 화면.
@@ -60,7 +61,9 @@ let boomZone = null;
 
 const isHost = () => net && net.order()[0].id === me.id;
 const roomSeats = () => net.order().slice(0, MAX_SEATS);
-const nameOf = id => (id === me.id ? me.name : (net && net.peers.get(id)?.name) || (S && S.names[id]) || '나간 사람');
+const nameOf = id => (id === me.id ? me.name : isBot(id) ? botName(id) : (net && net.peers.get(id)?.name) || (S && S.names[id]) || '나간 사람');
+/* 판에 남아 있는가 — 봇은 방장 기기 안에 늘 있다 */
+const here = id => isBot(id) || net.present(id);
 const inGame = () => S && !S.over && S.order.includes(me.id);
 const drawing = () => S && !S.over && now() - startedAt < DRAW_SHOW;
 const keyOf = s => s ? `${s.g}|${s.round}|${s.step}|${s.turn}|${s.queue.length}` : '';
@@ -132,7 +135,7 @@ function sendState(){
 function commit(next){ adopt(next, 0, now() - startedAt); sendState(); }
 function startGame(){
   if (!isHost() || !allReady()) return;
-  const seats = roomSeats().map(s => s.id);
+  const seats = withBots(roomSeats().map(s => s.id));     // 혼자면 META BOT 셋이 함께 (사용자 요청)
   const names = {};
   for (const id of seats) names[id] = nameOf(id);
   adopt(newGame((S ? S.g : 0) + 1, seats, names), 0, 0);
@@ -153,23 +156,59 @@ setInterval(() => {
   if (!S.over && !drawing()){
     const t = now() - stepAt;
     if (S.step === 'choose'){
-      // 못 고른 사람 — 시간이 다 됐거나 나가 있으면 대신 고른다
+      // 못 고른 사람 — 시간이 다 됐거나 나가 있으면 대신 고른다. 봇은 1~3초 뒤 스스로 고른다
       for (const id of S.order){
         if (S.picks[id]) continue;
-        if (t > CHOOSE_T + 600 || (!net.present(id) && t > AWAY)){
+        if (isBot(id) && t > botDelay(id)){
+          const p = botChoose(S, id);
+          if (p && hostChoose(id, p.card, p.chip, p.zone)) return;
+          continue;
+        }
+        if (t > CHOOSE_T + 600 || (!here(id) && t > AWAY)){
           const p = autoPick(S, id);
           if (p && hostChoose(id, p.card, p.chip, p.zone)) return;
         }
       }
     } else if (S.step === 'turn'){
       const id = turnOf(S);
-      if (t > TURN + 600 || (!net.present(id) && t > AWAY)){ if (hostAct(id, 'put')) return; }
+      if (isBot(id) && t > botDelay(id)){ if (hostAct(id, botAct(S, id))) return; }
+      if (t > TURN + 600 || (!here(id) && t > AWAY)){ if (hostAct(id, 'put')) return; }
     } else if (S.step === 'resolve'){
       if (now() - lastResolve > RESOLVE_MS && t > RESOLVE_MS * 0.6){ lastResolve = now(); commit(resolveStep(S)); return; }
     }
   }
   if (now() - lastSent > RESEND) sendState();
 }, 250);
+
+/* ── META BOT 이 두는 법 ──
+   고르기: 지금 보이는 탑의 합에 견주어, 13을 넘기지 않는 박스를 주로 고른다 (조금씩 흔들어
+   사람처럼). 차례: 보이는 합 + 내 박스가 13을 넘으면 대개 패스, 아니면 대개 확정. */
+const botWait = new Map();
+function botDelay(id){
+  const k = stepKey + '|' + id;
+  if (!botWait.has(k)) botWait.set(k, 1000 + Math.random() * 2000);
+  return botWait.get(k);
+}
+function botChoose(s, id){
+  const u = s.used[id];
+  let best = null;
+  for (const card of CARDS) for (let chip = 0; chip < CHIPS.length; chip++) for (const zone of ZONES){
+    if (u.c.includes(card) || u.h.includes(chip) || !canPut(chip, zone)) continue;
+    const after = sumOf(s.zones[zone]) + card;
+    const risk = (after >= LIMIT ? 20 + s.zones[zone].length : after) + Math.random() * 5
+      + (CHIPS[chip] === 'w' ? 2 : 0);                        // 무지개는 아껴 둔다
+    if (!best || risk < best.risk) best = { card, chip, zone, risk };
+  }
+  return best;
+}
+function botAct(s, id){
+  const p = s.picks[id];
+  if (!p) return 'put';
+  const after = sumOf(s.zones[p.zone]) + p.card;
+  const ahead = s.order.filter(o => s.done[o] === 'put').length;   // 앞에서 확정한 수만큼 더 쌓일 수 있다
+  const danger = after >= LIMIT ? 0.8 : after + ahead * 2 >= LIMIT ? 0.5 : 0.2;
+  return Math.random() < danger ? 'pass' : 'put';
+}
 
 /* ─────────── 꾸러미 받기 ─────────── */
 function onMessage(m){
@@ -349,20 +388,22 @@ function render(){
   const pending = S && ph === 'resolve' ? S.queue : [];
 
   // 자리 — 이름 · 점수 · 지금 무엇을 하는지
-  const showIds = between ? roomSeats().map(s => s.id) : S.order;
+  // 게임이 끝난 뒤에도 그 게임의 사람(봇 포함)은 자리에 남겨 점수를 보여 준다
+  const showIds = ph === 'idle' ? roomSeats().map(s => s.id)
+    : ph === 'over' ? [...new Set([...S.order, ...roomSeats().map(s => s.id)])].slice(0, MAX_SEATS) : S.order;
   $('#seats').innerHTML = showIds.map(id => {
     const has = S && S.scores[id] != null;
     const sc = has ? S.scores[id] : 0;
-    const rd = between && isReady(id);
+    const rd = between && (isBot(id) || isReady(id));
     let right = '';
-    if (between) right = id === host ? '방장' : rd ? '✓ 준비' : '대기';
+    if (between) right = id === host ? '방장' : isBot(id) ? 'BOT' : rd ? '✓ 준비' : '대기';
     else if (ph === 'draw') right = `${S.order.indexOf(id) + 1}번`;
     else if (ph === 'choose') right = S.picks[id] ? '✓ 고름' : '고르는 중';
     else if (ph === 'turn'){
       const d = S.done[id];
       right = id === cur ? '▶ 차례' : d === 'pass' ? '패스' : d === 'put' ? '✓ 확정' : `${S.order.indexOf(id) + 1}번`;
     } else if (ph === 'resolve') right = (S.done[id] === 'pass' ? '패스' : '확정') + (pending.includes(id) ? ' · 대기' : ' · 쌓임');
-    return `<li class="${id === me.id ? 'me' : ''} ${id === cur || pending[0] === id ? 'turn' : ''} ${rd ? 'rd' : ''} ${!between && !net.present(id) ? 'out' : ''}">
+    return `<li class="${id === me.id ? 'me' : ''} ${id === cur || pending[0] === id ? 'turn' : ''} ${rd ? 'rd' : ''} ${!between && !here(id) ? 'out' : ''}">
       <span class="nm">${id === host ? '<em>★</em>' : ''}${esc(nameOf(id))}</span>
       <span class="sc ${sc < 0 ? 'down' : ''}">${has ? sc : ''}</span><span class="pk ${rd ? 'up' : ''}">${right}</span></li>`;
   }).join('') + Array.from({ length: Math.max(0, MAX_SEATS - showIds.length) }, () => '<li class="empty">빈자리</li>').join('');
@@ -403,7 +444,7 @@ function render(){
   if (ph === 'idle'){
     const n = roomSeats().length;
     head = allReady() ? (isHost() ? '모두 준비됐어요' : '모두 준비 · 곧 시작') : `준비 ${readyCount()}/${n}`;
-    sub = isHost() ? (n === 1 ? '혼자서도 연습할 수 있어요 · 위의 초대로' : allReady() ? '게임 시작을 눌러 주세요' : '모두 게임 준비를 누르면 시작할 수 있어요')
+    sub = isHost() ? (n === 1 ? '혼자 시작하면 META BOT 셋이 함께 해요' : allReady() ? '게임 시작을 눌러 주세요' : '모두 게임 준비를 누르면 시작할 수 있어요')
       : roomSeats().some(s => s.id === me.id) ? (me.ready === readyBase() ? `방장 ${nameOf(host)} 님이 시작하길 기다려요` : '게임 준비를 눌러 주세요') : '자리가 차서 지켜봐요';
   } else if (ph === 'draw'){
     head = '순서를 뽑는 중';

@@ -3,6 +3,7 @@ import { joinRoom, makeId, MAX_SEATS } from './room.js?v=10';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
 import { serverNow } from '../../../js/clock.js?v=k1';
+import { isBot, botName, withBots } from '../../../js/bots.js?v=b1';
 
 /*
  * Memory Poker (기억 포커).
@@ -98,7 +99,9 @@ function readyButton(){
     ? '<button class="btn on" data-act="ready" type="button">✓ 준비 완료 <small>· 취소</small></button>'
     : '<button class="btn primary" data-act="ready" type="button">게임 준비</button>';
 }
-const nameOf = id => (id === me.id ? me.name : (net.peers.get(id)?.name || names[id] || '나간 사람'));
+const nameOf = id => (id === me.id ? me.name : isBot(id) ? botName(id) : (net.peers.get(id)?.name || names[id] || '나간 사람'));
+/* 판에 남아 있는가 — 봇은 방장 기기 안에 늘 있다 */
+const here = id => isBot(id) || net.present(id);
 
 /* ─────────── 첫 화면 ─────────── */
 const nameIn = $('#name'), codeIn = $('#code');
@@ -177,7 +180,7 @@ function sendRound(){
 
 function finish(){
   const n = round.n;
-  const playing = round.seats.filter(id => net.present(id));
+  const playing = round.seats.filter(here);
   const rows = playing.map(id => {
     const p = (picks.get(id) || []).filter(i => i >= 0 && i < 16);
     const cards = [...p.map(i => round.grid[i]), ...round.comm];
@@ -206,15 +209,45 @@ function sendResult(){
   net.send({ t: 'rs', n: result.n, rows: result.rows, tie: result.tie, scores, names: { ...names } });
 }
 
+/* ── META BOT 이 두는 법 ──
+   고르는 시간에 2~7초 사이 아무 때나 두 칸을 고른다. 다 외우는 건 아니라서
+   절반쯤은 가장 좋은 두 칸, 나머지는 괜찮은 쪽 · 아무 칸이나. */
+function botPick(){
+  const pairs = [];
+  for (let a = 0; a < 16; a++) for (let b = a + 1; b < 16; b++)
+    pairs.push({ p: [a, b], key: evaluate([round.grid[a], round.grid[b], ...round.comm]).key });
+  pairs.sort((x, y) => compare(y.key, x.key));
+  const r = Math.random();
+  const at = r < 0.5 ? 0 : r < 0.8 ? 1 + Math.floor(Math.random() * 12) : Math.floor(Math.random() * pairs.length);
+  return pairs[at].p;
+}
+const botWhen = new Map();     // 봇 id → 이번 판에 고를 때 (판 시작부터 밀리초)
+function runBots(t){
+  if (!round || (result && result.n >= round.n)) return;
+  for (const id of round.seats){
+    if (!isBot(id)) continue;
+    const key = round.n + ':' + id;
+    if (!botWhen.has(key)) botWhen.set(key, SHOW + 2000 + Math.random() * 5000);
+    if (!picks.has(id) && t - round.start > botWhen.get(key) && t - round.start < SHOW + PICK){
+      picks.set(id, botPick());
+      render();
+    }
+    // 남들 화면의 '고른 수' 가 맞게 — 1초쯤마다 알려 준다
+    if (picks.has(id) && (!runBots.sent || t - runBots.sent > 1000)) net.send({ t: 'pk', id, n: round.n, p: picks.get(id) });
+  }
+  if (t - (runBots.sent || 0) > 1000) runBots.sent = t;
+}
+
 setInterval(() => {
   if (!net || !isHost()) return;
   const t = now();
+  runBots(t);
   if (round && (!result || result.n < round.n)){
     if (t - round.start > SHOW + PICK + GRACE) finish();
     else if (t - lastSent > RESEND) sendRound();
   } else if (result){
     if (result.tie && t - result.at > TIE_PAUSE){
-      const left = result.tie.filter(id => net.present(id));
+      const left = result.tie.filter(here);
       if (left.length > 1) startRound(left, true);
       else { result.tie = null; render(); }
     } else if (t - lastSent > RESEND) sendResult();
@@ -291,7 +324,8 @@ $('#grid').addEventListener('click', e => {
   const b = e.target.closest('[data-i]');
   if (b) tap(+b.dataset.i);
 });
-function startNext(){ if (isHost() && allReady()) { result = null; closeSheet(); startRound(seatsNow().map(s => s.id), false); } }
+/* 혼자 시작하면 META BOT 셋이 함께 한다 (사용자 요청) */
+function startNext(){ if (isHost() && allReady()) { result = null; closeSheet(); startRound(withBots(seatsNow().map(s => s.id)), false); } }
 
 /* ─────────── 올라오는 창 ───────────
    화면에 늘어놓으면 판이 밀리므로, 결과와 사람별 자세한 내용은 여기에 띄운다. */
@@ -415,14 +449,14 @@ function drawSheet(){
 
   // 사람 창
   const id = sheetFor;
-  if (!net.present(id)){ closeSheet(); return; }
+  if (!here(id)){ closeSheet(); return; }
   const st = stats[id] || { w: 0, l: 0, last: null };
   const sc = scores[id] || 0;
   const order = net.order();
   const seat = order.findIndex(o => o.id === id);
   T.textContent = nameOf(id);
   S.textContent = '';
-  const tags = [id === host ? '★ 방장' : '', id === me.id ? '나' : '', seat >= MAX_SEATS ? '관전 중' : `${seat + 1}번 자리`].filter(Boolean);
+  const tags = isBot(id) ? ['META BOT · 혼자일 때 함께 해요'] : [id === host ? '★ 방장' : '', id === me.id ? '나' : '', seat >= MAX_SEATS ? '관전 중' : `${seat + 1}번 자리`].filter(Boolean);
   const ph = phase();
   let cur = '';
   if (round && round.seats.includes(id) && (ph === 'pick' || ph === 'wait')){
@@ -468,7 +502,9 @@ function render(){
   if (!net) return;
   const ph = phase();
   const order = net.order();
-  const seated = order.slice(0, MAX_SEATS);
+  // 이번 판에 META BOT 이 있으면 자리에 함께 보인다
+  const bots = round ? round.seats.filter(isBot).map(id => ({ id, name: botName(id) })) : [];
+  const seated = [...order.slice(0, MAX_SEATS), ...bots].slice(0, MAX_SEATS);
   const host = order[0].id;
   const iHost = host === me.id;
 
@@ -480,8 +516,8 @@ function render(){
     const res = ph === 'result' && result.rows.find(r => r.id === s.id);
     // 판 사이(기다리는 중 · 결과)에는 준비했는지를 보여 준다. 결과의 ±1 은 점수와 결과 창에 있다
     const between = ph === 'idle' || (ph === 'result' && !result.tie);
-    const rd = between && isReady(s.id);
-    const right = between ? (s.id === host ? '방장' : rd ? '✓ 준비' : '대기') : n >= 0 ? `${n}/2` : res ? ptText(res) : '';
+    const rd = between && (isBot(s.id) || isReady(s.id));
+    const right = between ? (s.id === host ? '방장' : isBot(s.id) ? 'BOT' : rd ? '✓ 준비' : '대기') : n >= 0 ? `${n}/2` : res ? ptText(res) : '';
     return `<li class="${s.id === me.id ? 'me' : ''} ${out ? 'out' : ''} ${rd ? 'rd' : ''}"><button type="button" data-id="${s.id}" aria-label="${esc(s.name)} 자세히">
       <span class="nm">${s.id === host ? '<em>★</em>' : ''}${esc(s.name)}</span>
       <span class="sc ${ptCls(sc)}">${sc > 0 ? '+' : ''}${sc}</span>
@@ -510,7 +546,7 @@ function render(){
   if (ph === 'idle'){
     head = allReady() ? (iHost ? '모두 준비됐어요' : '모두 준비 · 곧 시작') : `준비 ${readyCount()}/${seated.length}`;
     sub = `가운데 ${commNow()}장 · ` + (iHost
-      ? (seated.length === 1 ? '혼자서도 연습할 수 있어요 · 위의 초대로' : allReady() ? '게임 시작을 눌러 주세요' : '모두 게임 준비를 누르면 시작할 수 있어요')
+      ? (seated.length === 1 ? '혼자 시작하면 META BOT 셋이 함께 해요' : allReady() ? '게임 시작을 눌러 주세요' : '모두 게임 준비를 누르면 시작할 수 있어요')
       : seated.some(s => s.id === me.id) ? (me.ready === readyBase() ? `방장 ${nameOf(host)} 님이 시작하길 기다려요` : '게임 준비를 눌러 주세요') : '자리가 차서 지켜봐요');
   } else if (ph === 'show'){
     head = round.tie ? '결승 · 외우세요' : '외우세요';
