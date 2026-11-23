@@ -132,13 +132,14 @@
   .zone .sum small{font-size:11px;color:var(--faint);font-weight:600}
   .zone .meter{flex:none;height:5px;border-radius:5px;background:var(--surface-2);overflow:hidden}
   .zone .meter i{display:block;height:100%;border-radius:5px;transform-origin:left}
-  /* 박스가 많아지면 얇게 줄이는 대신 **옆 줄로 넘겨** 쌓는다 — 숫자가 늘 보여야 한다 */
-  .zone .stack{flex:1;min-height:0;display:flex;flex-flow:column-reverse wrap;align-content:stretch;gap:3px;overflow:hidden}
-  .zone .stack.dense .box{flex-basis:20px;font-size:12.5px;border-radius:5px}
-  .zone .stack.dense .box small{display:none}
-  .box{flex:0 0 28px;min-height:0;border-radius:6px;display:flex;align-items:center;justify-content:center;
-    font-weight:700;color:#141414;font-variant-numeric:tabular-nums;font-size:15px;overflow:hidden;line-height:1;position:relative}
-  .box small{position:absolute;left:5px;font-size:9.5px;font-weight:600;opacity:.6;max-width:45%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  /* 박스는 **정사각형, 한 줄에 두 개씩** 아래부터 쌓는다 (사용자 요청). 크기(--s)는
+     main.js 의 fitBoxes 가 탑의 폭 · 높이에 맞춰 정한다 — 많이 쌓이면 작아진다 */
+  .zone .pile{flex:1;min-height:0;display:flex;flex-wrap:wrap-reverse;align-content:flex-start;justify-content:center;gap:3px;overflow:hidden}
+  .box{width:var(--s,40px);height:var(--s,40px);flex:none;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-weight:700;color:#141414;font-variant-numeric:tabular-nums;overflow:hidden;line-height:1;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+  .box b{font-size:calc(var(--s,40px) * .44)}
+  .box small{font-size:9px;font-weight:600;opacity:.65;max-width:92%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-top:2px}
+  .pile.small .box small{display:none}
   .box.new{outline:2px solid #fff;outline-offset:-2px}
   .zone[data-z="r"] .nmz,.zone[data-z="r"] .sum{color:var(--zr)} .zone[data-z="r"] .box,.zone[data-z="r"] .meter i{background:var(--zr)}
   .zone[data-z="g"] .nmz,.zone[data-z="g"] .sum{color:var(--zg)} .zone[data-z="g"] .box,.zone[data-z="g"] .meter i{background:var(--zg)}
@@ -249,8 +250,8 @@
     </div>
 
     <ol class="rules">
-      <li>내 차례에 <b>숫자 카드 한 장 + 색 칩 하나</b>를 내요.</li>
-      <li>그 색 탑에 숫자 박스가 올라가요. 무지개 칩은 아무 색에나.</li>
+      <li>판마다 모두 몰래 <b>박스(숫자 카드 + 색 칩)</b>를 골라요. 무지개는 아무 색에나.</li>
+      <li>내 차례에 <b>올리기</b> 또는 <b>패스</b> — 패스한 박스는 판 끝에 거꾸로 쌓여요.</li>
       <li>올린 뒤 그 탑이 <b>13 이상</b>이면 와르르 — 박스를 전부 가져오고 <b>하나에 −1점</b>.</li>
       <li>모두 한 번씩 올리면 한 판. <b>7판</b> 뒤 점수가 높은 사람이 이겨요.</li>
     </ol>
@@ -287,7 +288,7 @@
     <div class="actions" id="actions"></div>
   </section>
 
-  <p class="ver">판 1</p>
+  <p class="ver">판 2</p>
 </div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="card2">
@@ -299,6 +300,6 @@
   </div>
 </div>
 <div id="toast" hidden></div>
-<script type="module" src="js/main.js?v=1"></script>
+<script type="module" src="js/main.js?v=2"></script>
 </body>
 </html>

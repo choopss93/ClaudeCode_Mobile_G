@@ -1,12 +1,17 @@
 /*
  * Tower 13 — 판의 규칙만 담는다 (화면 · 접속과 따로). 방장이 이것으로 판을 돌리고,
- * 모두가 같은 결과를 그린다.
+ * 모두가 같은 결과를 그린다. 노드에서 바로 돌려 볼 수 있다.
  *
  *   각자 숫자 카드 0~6 일곱 장과 칩 일곱 개(빨강 · 초록 · 파랑 둘씩, 무지개 하나).
- *   차례가 되면 카드 한 장 + 칩 하나를 내서 그 색 구역에 박스(카드의 숫자)를 올린다.
- *   무지개 칩은 아무 색에나. 올린 뒤 그 구역의 합이 13 이상이면, 올린 사람이
- *   그 구역의 박스를 **방금 올린 것까지 전부** 가져가고 박스 하나에 −1점. 구역은 빈다.
- *   모두 한 번씩 올리면 한 판, 일곱 판이면 끝. 점수가 높을수록 위.
+ *   한 판은 세 단계다 (사용자가 정함):
+ *     1. 고르기  — 판이 시작하면 **모두가 동시에** 이번 판의 박스(카드 한 장 + 칩 하나,
+ *                  무지개면 올릴 색까지)를 몰래 고른다. 다 고르면 다음으로.
+ *     2. 차례    — 정해진 순서대로 자기 차례에 **올리기**(고른 박스를 공개하며 쌓기)
+ *                  또는 **패스**.
+ *     3. 패스 정리 — 패스한 사람들의 박스를 **역순으로**(마지막에 패스한 사람부터 처음
+ *                  패스한 사람까지) 하나씩 자동으로 쌓는다.
+ *   박스를 올린 뒤 그 탑이 13 이상이면, 그 박스의 주인이 탑의 박스를 **방금 것까지
+ *   전부** 가져오고 하나에 −1점. 탑은 빈다. 일곱 판이면 끝, 점수가 높을수록 위.
  */
 export const ROUNDS = 7;
 export const LIMIT = 13;
@@ -33,21 +38,61 @@ export function newGame(g, ids, names){
   const order = pairs.map(p => p[0]);
   const used = {}, scores = {}, took = {};
   for (const id of order){ used[id] = { c: [], h: [] }; scores[id] = 0; took[id] = 0; }
-  return { g, seq: 0, order, names: { ...names }, draw: Object.fromEntries(pairs), round: 1, turn: 0,
+  return { g, seq: 0, order, names: { ...names }, draw: Object.fromEntries(pairs),
+           round: 1, step: 'choose', turn: 0, picks: {}, done: {}, passed: [], queue: [],
            zones: { r: [], g: [], b: [] }, scores, took, used, last: null, over: false };
 }
 
-/** 그 사람이 지금 이 수를 둘 수 있는가. */
-export function legal(s, id, card, chip, zone){
-  if (!s || s.over || s.order[s.turn] !== id) return false;
+/* ── 1. 고르기 ── */
+export function canChoose(s, id, card, chip, zone){
+  if (!s || s.over || s.step !== 'choose' || !s.order.includes(id) || s.picks[id]) return false;
   const u = s.used[id];
   return CARDS.includes(card) && chip >= 0 && chip < CHIPS.length &&
          !u.c.includes(card) && !u.h.includes(chip) && canPut(chip, zone);
 }
-
-/** 수를 둔다 — 새 판 상태를 돌려준다 (원래 것은 건드리지 않는다). */
-export function play(s, id, card, chip, zone){
+export function choose(s, id, card, chip, zone){
   const n = structuredClone(s);
+  n.picks[id] = { card, chip, zone };
+  n.seq++;
+  if (n.order.every(p => n.picks[p])){ n.step = 'turn'; n.turn = 0; }
+  return n;
+}
+
+/* ── 2. 차례 ── */
+export const turnOf = s => (s && !s.over && s.step === 'turn' ? s.order[s.turn] : null);
+export function act(s, id, what){
+  const n = structuredClone(s);
+  if (what === 'pass'){
+    n.passed.push(id);
+    n.done[id] = 'pass';
+    n.last = { id, pass: true, round: n.round };
+  } else {
+    place(n, id);
+    n.done[id] = 'put';
+  }
+  n.seq++;
+  n.turn++;
+  if (n.turn >= n.order.length){
+    n.step = 'resolve';
+    n.queue = n.passed.slice().reverse();     // 마지막에 패스한 사람부터
+    if (!n.queue.length) endRound(n);
+  }
+  return n;
+}
+
+/* ── 3. 패스 정리 — 한 번에 하나씩 (보는 사람이 따라갈 수 있게) ── */
+export function resolveStep(s){
+  const n = structuredClone(s);
+  const id = n.queue.shift();
+  if (id){ place(n, id); n.last.auto = true; }
+  n.seq++;
+  if (!n.queue.length) endRound(n);
+  return n;
+}
+
+/* 고른 박스를 탑에 올린다 — 13 이상이면 주인이 전부 가져온다 */
+function place(n, id){
+  const { card, chip, zone } = n.picks[id];
   n.zones[zone].push([card, id]);
   n.used[id].c.push(card);
   n.used[id].h.push(chip);
@@ -60,15 +105,16 @@ export function play(s, id, card, chip, zone){
     n.zones[zone] = [];
   }
   n.last = { id, card, chip: CHIPS[chip], zone, sum, boom, round: n.round };
-  n.seq++;
-  n.turn++;
-  if (n.turn >= n.order.length){ n.turn = 0; n.round++; }
-  if (n.round > ROUNDS){ n.over = true; n.round = ROUNDS; n.turn = 0; }
-  return n;
+}
+function endRound(n){
+  n.round++;
+  n.picks = {}; n.done = {}; n.passed = []; n.queue = [];
+  n.turn = 0; n.step = 'choose';
+  if (n.round > ROUNDS){ n.over = true; n.round = ROUNDS; n.step = 'over'; }
 }
 
-/** 시간이 다 됐거나 나간 사람의 차례 — 아무거나 하나 둔다 (덜 위험한 쪽으로). */
-export function autoMove(s, id){
+/** 시간이 다 됐거나 나간 사람 — 덜 위험한 박스를 대신 고른다. */
+export function autoPick(s, id){
   const u = s.used[id];
   const cards = CARDS.filter(c => !u.c.includes(c));
   const chips = CHIPS.map((_, i) => i).filter(i => !u.h.includes(i));
@@ -76,7 +122,7 @@ export function autoMove(s, id){
   for (const card of cards) for (const chip of chips) for (const zone of ZONES){
     if (!canPut(chip, zone)) continue;
     const after = sumOf(s.zones[zone]) + card;
-    const risk = after >= LIMIT ? 100 + s.zones[zone].length : after;   // 터지지 않는 쪽 · 낮게 쌓는 쪽
+    const risk = after >= LIMIT ? 100 + s.zones[zone].length : after;
     if (!best || risk < best.risk) best = { card, chip, zone, risk };
   }
   return best;
