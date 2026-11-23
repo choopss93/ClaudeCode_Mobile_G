@@ -57,6 +57,8 @@
 
 - **잠금** — 공개하는 것은 3번 공간 `shared/` 뿐이다. 허브(`/`) · 1 `design/` ·
   2 `my/` · 4 `etc/` 는 나만 본다 (사용자 요청).
+  - **사용자가 링크를 달라고 하면 첫 화면 하나만 준다** (사용자 요청) —
+    https://claudecode-mobile-g.choopss93.workers.dev/shared/ (게임마다 따로 늘어놓지 말 것).
   - 공개 주소는 **https://claudecode-mobile-g.choopss93.workers.dev** —
     Cloudflare Worker `claudecode-mobile-g` (Pages 가 아니라 Worker 다).
     공용 게임 링크는 이 주소 밑의 `/shared/…` 로 보낸다.
