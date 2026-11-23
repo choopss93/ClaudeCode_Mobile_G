@@ -121,9 +121,6 @@
   #phase,#hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
   #phase{font-size:17px;font-weight:700;line-height:24px;height:24px}
   #hint{color:var(--muted);font-size:12.5px;line-height:18px;height:18px}
-  #count{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);width:1.5em;text-align:right;line-height:1;flex:none}
-  .track{height:4px;border-radius:4px;background:var(--surface-2);overflow:hidden;flex:none}
-  #bar{height:100%;background:var(--accent);transform-origin:left;transform:scaleX(0)}
 
   /* 판 — 세 구역이 나란히. 박스는 아래부터 쌓이고, 많아지면 얇아진다 */
   .board{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -190,14 +187,13 @@
   /* 가로로 눕힌 낮은 화면 — 판은 왼쪽, 자리 · 손 · 단추는 오른쪽 */
   @media (orientation:landscape) and (max-height:520px){
     .wrap{max-width:none}
-    #room{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto auto 1fr auto;column-gap:16px;row-gap:6px}
+    #room{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto 1fr auto;column-gap:16px;row-gap:6px}
     #room > .top{grid-column:1 / -1}
     #room > #seats{grid-column:2;grid-row:2}
     #room > .status{grid-column:2;grid-row:3;height:40px}
-    #room > .track{grid-column:2;grid-row:4}
     #room > .board{grid-column:1;grid-row:2 / -1}
-    #room > .hand{grid-column:2;grid-row:5;align-self:end}
-    #room > .actions{grid-column:2;grid-row:6}
+    #room > .hand{grid-column:2;grid-row:4;align-self:end}
+    #room > .actions{grid-column:2;grid-row:5}
     #seats li{height:32px}
     .row7 button{height:36px;font-size:15px}
     #chips button{height:32px}
@@ -277,9 +273,7 @@
         <p id="phase">기다리는 중</p>
         <p id="hint"></p>
       </div>
-      <span id="count" aria-live="polite"></span>
     </div>
-    <div class="track"><div id="bar"></div></div>
 
     <div class="board" id="board"></div>
 
@@ -291,7 +285,7 @@
     <div class="actions" id="actions"></div>
   </section>
 
-  <p class="ver">판 5</p>
+  <p class="ver">판 6</p>
 </div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="card2">
@@ -303,6 +297,6 @@
   </div>
 </div>
 <div id="toast" hidden></div>
-<script type="module" src="js/main.js?v=5"></script>
+<script type="module" src="js/main.js?v=6"></script>
 </body>
 </html>

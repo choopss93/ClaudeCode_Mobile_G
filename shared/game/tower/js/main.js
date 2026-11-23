@@ -25,8 +25,8 @@ import { isBot, botName, withBots } from '../../../js/bots.js?v=b1';
  *   {t:'ch', id, g, round, card, chip, zone}              이번 판 내 박스 → 방장
  *   {t:'ac', id, g, seq, what:'put'|'pass'}               내 차례 → 방장
  */
-const CHOOSE_T = 30000;      // 고르기 30초 — 못 고른 사람은 방장이 덜 위험한 박스로
-const TURN = 30000;          // 한 차례 30초 — 넘기면 올리기로
+/* 시간 제한은 없다 — 카운트다운을 모두 뺐다 (사용자 요청). 다만 나간 사람(AWAY)의
+   차례는 방장이 대신 정해 판이 멈추지 않게 한다. */
 const AWAY = 2500;           // 나가 있는 사람은 이만큼 기다렸다 대신
 const RESOLVE_MS = 1400;     // 공개하며 하나씩 쌓는 간격 (보는 사람이 따라가게)
 const DRAW_SHOW = 4000;      // 순서 뽑기를 보여 주는 시간
@@ -174,7 +174,7 @@ setInterval(() => {
           if (p && hostChoose(id, p.card, p.chip, p.zone)) return;
           continue;
         }
-        if (t > CHOOSE_T + 600 || (!here(id) && t > AWAY)){
+        if (!here(id) && t > AWAY){
           const p = autoPick(S, id);
           if (p && hostChoose(id, p.card, p.chip, p.zone)) return;
         }
@@ -182,7 +182,7 @@ setInterval(() => {
     } else if (S.step === 'turn'){
       const id = turnOf(S);
       if (isBot(id) && t > botDelay(id)){ if (hostAct(id, botAct(S, id))) return; }
-      if (t > TURN + 600 || (!here(id) && t > AWAY)){ if (hostAct(id, 'put')) return; }
+      if (!here(id) && t > AWAY){ if (hostAct(id, 'put')) return; }
     } else if (S.step === 'resolve'){
       if (now() - lastResolve > RESOLVE_MS && t > RESOLVE_MS * 0.6){ lastResolve = now(); commit(resolveStep(S)); return; }
     }
@@ -346,7 +346,7 @@ const HOW = `<ol class="how">
   <li>순서대로 한 사람씩 <b>올리기 확정</b> 또는 <b>패스</b>. 모두 정하기 전까지 내 박스는 남에게 안 보여요.</li>
   <li>모두 정하면 공개 — 확정한 박스는 <b>순서대로</b>, 패스한 박스는 <b>거꾸로</b>(마지막에 패스한 사람부터) 쌓여요.</li>
   <li>쌓은 뒤 그 탑이 <b>13 이상</b>이면 와르르 — 그 박스 주인이 탑의 박스를 <b>전부</b> 가져오고 <b>하나에 −1점</b>. 탑은 비어요.</li>
-  <li><b>7판</b>이면 끝. 점수가 높을수록 위. 고르기 · 차례는 <b>30초</b>, 넘기면 대신 정해져요.</li>
+  <li><b>7판</b>이면 끝. 점수가 높을수록 위. 시간 제한은 없어요 — 나간 사람의 차례만 대신 정해져요.</li>
 </ol>`;
 $('#howBtn').onclick = () => {
   sheetFor = 'how';
@@ -532,21 +532,12 @@ function fitBoxes(){
 }
 new ResizeObserver(fitBoxes).observe($('#board'));
 
-/* 시간 띠 · 남은 초는 따로 자주 그린다 */
+/* 단계가 바뀌었는지 · 무너짐 표시가 끝났는지만 자주 본다 (남은 초는 없다) */
 let lastPh = null;
 function clock(){
   requestAnimationFrame(clock);
   const ph = phaseNow();
   if (ph !== lastPh){ lastPh = ph; render(); }
-  const bar = $('#bar'), num = $('#count');
-  const whole = ph === 'choose' ? CHOOSE_T : ph === 'turn' ? TURN : 0;
-  if (!whole){ bar.style.transform = 'scaleX(0)'; num.textContent = ''; }
-  else {
-    const left = Math.max(0, whole - (now() - stepAt));
-    bar.style.transform = `scaleX(${left / whole})`;
-    const s = Math.ceil(left / 1000);
-    if (num.textContent !== String(s)) num.textContent = s;
-  }
   if (boomZone && now() - boomZone.at > 1700){ boomZone = null; render(); }
 }
 requestAnimationFrame(clock);
