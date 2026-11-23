@@ -114,7 +114,12 @@
   #seats .nm{grid-column:1 / -1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
   #seats .nm em{font-style:normal;color:var(--accent);margin-right:2px}
   #seats .sc{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
-  #seats .pk{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.1;white-space:nowrap}
+  #seats .pk{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.1;white-space:nowrap;display:flex;align-items:center;justify-content:flex-end;gap:3px}
+  /* 모두 고른 뒤 공개되는 박스 — 색 · 숫자 (무지개 칩이면 흰 테두리) */
+  #seats .pb{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:4px;
+    font-size:11px;font-weight:800;color:#141414;flex:none}
+  #seats .pb[data-z="r"]{background:var(--zr)} #seats .pb[data-z="g"]{background:var(--zg)} #seats .pb[data-z="b"]{background:var(--zb)}
+  #seats .pb[data-w]{box-shadow:0 0 0 1.5px #fff}
 
   .status{display:flex;align-items:center;gap:10px;flex:none;min-width:0;height:44px}
   .status .txt{flex:1;min-width:0}
@@ -250,7 +255,7 @@
 
     <ol class="rules">
       <li>판마다 모두 몰래 <b>박스(숫자 카드 + 색 칩)</b>를 골라요. 무지개는 아무 색에나.</li>
-      <li>순서대로 <b>올리기 확정</b> 또는 <b>패스</b>. 모두 정하면 공개 — 확정은 순서대로, 패스는 거꾸로 쌓여요.</li>
+      <li>모두 고르면 <b>모두의 박스 공개</b>. 보고 순서대로 <b>확정</b> 또는 <b>패스</b> — 확정은 순서대로, 패스는 거꾸로 쌓여요.</li>
       <li>올린 뒤 그 탑이 <b>13 이상</b>이면 와르르 — 박스를 전부 가져오고 <b>하나에 −1점</b>.</li>
       <li>모두 한 번씩 올리면 1세트, <b>7세트가 1판</b>. <b>7판</b>을 이어서 하고, 탑과 점수는 내내 그대로예요.</li>
     </ol>
@@ -285,7 +290,7 @@
     <div class="actions" id="actions"></div>
   </section>
 
-  <p class="ver">판 8</p>
+  <p class="ver">판 9</p>
 </div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="card2">
@@ -297,6 +302,6 @@
   </div>
 </div>
 <div id="toast" hidden></div>
-<script type="module" src="js/main.js?v=8"></script>
+<script type="module" src="js/main.js?v=9"></script>
 </body>
 </html>

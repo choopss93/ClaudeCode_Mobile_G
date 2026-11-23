@@ -16,7 +16,8 @@ import { isBot, botName, withBots } from '../../../js/bots.js?v=b1';
  *
  * 한 세트 = 고르기(모두 동시에, 몰래) → 차례(올리기 확정 · 패스, 박스는 숨긴 채) → 공개
  * (확정한 박스는 순서대로, 패스한 박스는 역순으로 자동).
- * 고른 박스는 판 상태에 들어 있지만 **화면에는 내 것만** 그린다. 공개 브로커라 마음먹고
+ * 고르는 동안에는 **내 것만** 그리고, **모두 고르면 모두의 박스를 공개**한다 (사용자 요청) —
+ * 그걸 보고 순서대로 확정 · 패스를 정한다. 공개 브로커라 마음먹고
  * 들여다보면 보이므로, 정말 숨겨야 할 내용은 아니라는 것을 기억할 것.
  *
  * 꾸러미
@@ -216,9 +217,11 @@ function botChoose(s, id){
 function botAct(s, id){
   const p = s.picks[id];
   if (!p) return 'put';
-  const after = sumOf(s.zones[p.zone]) + p.card;
-  const ahead = s.order.filter(o => s.done[o] === 'put').length;   // 앞에서 확정한 수만큼 더 쌓일 수 있다
-  const danger = after >= LIMIT ? 0.8 : after + ahead * 2 >= LIMIT ? 0.5 : 0.2;
+  // 모두의 박스가 공개돼 있으므로, 앞에서 확정해 먼저 쌓일 같은 색 박스까지 더해 본다
+  const ahead = s.order.filter(o => s.done[o] === 'put' && s.picks[o] && s.picks[o].zone === p.zone)
+    .reduce((t, o) => t + s.picks[o].card, 0);
+  const after = sumOf(s.zones[p.zone]) + ahead + p.card;
+  const danger = after >= LIMIT ? 0.85 : after >= LIMIT - 2 ? 0.45 : 0.15;
   return Math.random() < danger ? 'pass' : 'put';
 }
 
@@ -236,7 +239,7 @@ function onMessage(m){
 
 function adopt(s, el, st){
   const fresh = !S || s.g !== S.g;
-  const prevSet = S && setOf(S), prevGame = S && S.game;
+  const prevSet = S && setOf(S), prevGame = S && S.game, prevStep = S && S.step;
   S = s;
   const k = keyOf(s);
   if (k !== stepKey){ stepKey = k; stepAt = now() - el; }
@@ -245,6 +248,8 @@ function adopt(s, el, st){
   if (!fresh && prevGame && s.game !== prevGame && !s.over)
     flash(`${s.game}판 시작 — 카드 · 칩을 새로 받았어요 · 탑은 그대로`, 2800);
   // 새로 올라온 박스 · 무너짐을 한 번 알린다
+  // 모두 고른 순간 — 모두의 박스가 공개된다
+  if (!fresh && prevStep === 'choose' && s.step === 'turn') flash('모두의 박스 공개! — 보고 확정 · 패스를 정해요', 2200);
   if (s.seq !== seenSeq && s.last){
     seenSeq = s.seq;
     const L = s.last;
@@ -347,7 +352,7 @@ addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden){ clo
 const HOW = `<ol class="how">
   <li>각자 <b>숫자 카드 0~6</b> 일곱 장과 <b>칩 일곱 개</b>(빨강 · 초록 · 파랑 둘씩, 무지개 하나). 시작할 때 카드를 뽑아 <b>순서</b>를 정해요.</li>
   <li>판이 시작하면 <b>모두 동시에</b> 이번 판의 박스(카드 + 칩)를 몰래 골라요. <b>무지개</b>는 올릴 색까지.</li>
-  <li>순서대로 한 사람씩 <b>올리기 확정</b> 또는 <b>패스</b>. 모두 정하기 전까지 내 박스는 남에게 안 보여요.</li>
+  <li>모두 고르면 <b>모두의 박스가 공개</b>돼요. 그걸 보고 순서대로 한 사람씩 <b>올리기 확정</b> 또는 <b>패스</b>.</li>
   <li>모두 정하면 공개 — 확정한 박스는 <b>순서대로</b>, 패스한 박스는 <b>거꾸로</b>(마지막에 패스한 사람부터) 쌓여요.</li>
   <li>쌓은 뒤 그 탑이 <b>13 이상</b>이면 와르르 — 그 박스 주인이 탑의 박스를 <b>전부</b> 가져오고 <b>하나에 −1점</b>. 탑은 비어요.</li>
   <li>모두 한 번씩 올리면 <b>1세트</b>, <b>7세트가 1판</b>. 판마다 카드 · 칩을 새로 받아요.</li>
@@ -416,8 +421,8 @@ function render(){
     else if (ph === 'choose') right = S.picks[id] ? '✓ 고름' : '고르는 중';
     else if (ph === 'turn'){
       const d = S.done[id];
-      right = id === cur ? '▶ 차례' : d === 'pass' ? '패스' : d === 'put' ? '✓ 확정' : `${S.order.indexOf(id) + 1}번`;
-    } else if (ph === 'resolve') right = (S.done[id] === 'pass' ? '패스' : '확정') + (pending.includes(id) ? ' · 대기' : ' · 쌓임');
+      right = pbox(id) + (id === cur ? '▶ 차례' : d === 'pass' ? '패스' : d === 'put' ? '✓ 확정' : `${S.order.indexOf(id) + 1}번`);
+    } else if (ph === 'resolve') right = pbox(id) + (S.done[id] === 'pass' ? '패스' : '확정') + (pending.includes(id) ? ' · 대기' : ' · 쌓임');
     return `<li class="${id === me.id ? 'me' : ''} ${id === cur || pending[0] === id ? 'turn' : ''} ${rd ? 'rd' : ''} ${!between && !here(id) ? 'out' : ''}">
       <span class="nm">${id === host ? '<em>★</em>' : ''}${esc(nameOf(id))}</span>
       <span class="sc ${sc < 0 ? 'down' : ''}">${has ? sc : ''}</span><span class="pk ${rd ? 'up' : ''}">${right}</span></li>`;
@@ -475,8 +480,8 @@ function render(){
     head = `${where(S)} · ` + (cur === me.id ? '내 차례' : `${nameOf(cur)} 님 차례`);
     if (cur === me.id && mineP){
       const puts = S.order.filter(id => S.done[id] === 'put').length;
-      sub = `확정 또는 패스 · 내 박스 ${boxText(mineP)} · 보이는 합 ${sumOf(S.zones[mineP.zone])}` + (puts ? ` · 앞에서 ${puts}명 확정` : '');
-    } else sub = lastLine();
+      sub = `모두의 박스를 보고 확정 또는 패스 · 내 박스 ${boxText(mineP)} · 지금 합 ${sumOf(S.zones[mineP.zone])}` + (puts ? ` · 앞에서 ${puts}명 확정` : '');
+    } else sub = S.last && S.last.decide ? lastLine() : '모두의 박스가 공개됐어요 — 자리 칸을 보세요';
   } else if (ph === 'resolve'){
     head = `${where(S)} · 공개하며 쌓는 중`;
     sub = (pending.length ? `다음 ${nameOf(pending[0])} 님 (${S.done[pending[0]] === 'pass' ? '패스 · 거꾸로' : '확정'}) · ${pending.length} 남음 · ` : '') + lastLine();
@@ -511,6 +516,12 @@ function render(){
   if (ph !== 'draw' && sheetFor === 'draw') closeSheet();
   if (ph === 'over' && shownOver !== S.g){ shownOver = S.g; openSheet('result'); return; }
   if (sheetFor) drawSheet();
+}
+/* 모두 고른 뒤에는 각자 고른 박스를 자리 칸에 공개한다 — 색 · 숫자, 무지개면 테두리 */
+function pbox(id){
+  const p = S && S.picks[id];
+  if (!p) return '';
+  return `<i class="pb" data-z="${p.zone}" ${CHIPS[p.chip] === 'w' ? 'data-w' : ''} title="${ZONE_NAME[p.zone]} ${p.card}">${p.card}</i>`;
 }
 function lastLine(){
   const L = S && S.last;
