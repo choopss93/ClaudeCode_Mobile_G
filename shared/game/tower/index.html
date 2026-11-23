@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Tower 13</title>
+<meta name="description" content="숫자 박스를 색깔 탑에 쌓다가 13을 넘기면 무너지는 1~8인 온라인 게임.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta property="og:title" content="Tower 13">
+<meta property="og:description" content="박스를 쌓다가 13을 넘기면 와르르. 1~8명.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Metaversal Studio">
+<meta property="og:url" content="https://claudecode-mobile-g.choopss93.workers.dev/shared/game/tower/">
+<!-- 링크 미리보기 그림 (카카오톡 · 메시지 등). 주소는 꼭 전체 주소로 -->
+<meta property="og:image" content="https://claudecode-mobile-g.choopss93.workers.dev/shared/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Metaversal Studio 로고">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../../../assets/base.css">
+<style>
+  /* 공용 공간의 강조색 — Memory Poker 와 같은 금빛, 늘 검정 바탕 */
+  :root{ --accent:#8A5A24; --accent-soft:#F2E8DA }
+  :root[data-theme="dark"]{
+    --accent:#DCA94E; --accent-soft:#33281A;
+    --bg:#000000; --surface:#111111; --surface-2:#1C1C1C; --line:#2A2A2A;
+    --ink:#F2F2F2; --muted:#9C9C9C; --faint:#6E6E6E;
+  }
+  /* 세 구역의 빛깔 — 밝은 바탕 박스에 짙은 글씨 */
+  :root{ --zr:#F0767A; --zg:#6CCB8A; --zb:#6FA8F5; --zw:linear-gradient(135deg,#F0767A,#F5D06A,#6CCB8A,#6FA8F5,#C79BF2); }
+  .up{color:#6CCB8A!important} .down{color:#F08A6A!important}
+
+  /* ─── 한 화면에 고정: 확대도 스크롤도 없다 ─── */
+  html{height:100%;overflow:hidden;touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  input{-webkit-user-select:text;user-select:text}
+  .field{font-size:16px}
+  .wrap{height:100%;max-width:560px;display:flex;flex-direction:column;
+    padding:0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    padding-bottom:max(10px, env(safe-area-inset-bottom))}
+  section{flex:1;min-height:0;display:flex;flex-direction:column}
+  .ver{flex:none;margin:4px 0 0;text-align:center;color:var(--faint);font-size:10.5px;height:14px;line-height:14px}
+
+  /* ─── 첫 화면 ─── */
+  #lobby header{padding-block:14px 12px}
+  #lobby .back{margin-bottom:8px}
+  #lobby .panel{margin-top:14px;padding:16px 14px;gap:9px}
+  #lobby label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+  #lobby .or{color:var(--faint);font-size:12px;text-align:center;margin:0}
+  #lobby .btn{min-height:46px;font-size:15px}
+  #joinForm{display:flex;gap:8px}
+  #joinForm .field{text-transform:uppercase;letter-spacing:.1em;min-width:0}
+  #joinForm .btn{white-space:nowrap;flex:none;padding-inline:18px}
+  #lobbyMsg{color:#F08A6A;font-size:12.5px;min-height:1.2em;margin:0}
+  .rules{margin:12px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.5}
+  .rules li{margin:2px 0}
+  .rules b{color:var(--ink)}
+  #howBtn{margin-top:auto;margin-bottom:4px;flex:none;width:100%;min-height:46px;font-size:15px}
+  @media (max-height:640px){
+    #lobby .sub{display:none}
+    #lobby .panel{margin-top:10px}
+    .rules{font-size:11.5px;margin-top:8px}
+  }
+  @media (max-height:600px){
+    #lobby header{padding-block:8px 8px}
+    #lobby .back{margin-bottom:4px}
+    #lobby h1{font-size:22px}
+    #lobby .panel{margin-top:8px;padding:12px 12px;gap:7px}
+    #lobby .or{display:none}
+    #lobby .btn,#howBtn{min-height:42px}
+    #lobby .field{min-height:42px;padding-block:7px}
+    #lobbyMsg{min-height:0}
+    .rules{margin-top:6px;line-height:1.4}
+  }
+  @media (orientation:landscape) and (max-height:520px){
+    #lobby{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);grid-template-rows:auto 1fr auto;column-gap:18px;padding-top:env(safe-area-inset-top)}
+    #lobby header{grid-column:1;border:0;padding-bottom:0}
+    #lobby .rules{grid-column:1;grid-row:2;margin-top:4px}
+    #lobby .panel{grid-column:2;grid-row:1 / -1;align-self:center;margin:0;padding:12px 14px;gap:7px}
+    #lobby .btn{min-height:44px}
+    #lobby .field{min-height:42px;padding-block:7px}
+    #lobbyMsg{min-height:0}
+    #howBtn{grid-column:1;grid-row:3;min-height:40px;margin:0 0 4px}
+  }
+
+  /* ─── 방 화면 — 자리마다 높이를 못 박아 단계가 바뀌어도 판이 들썩이지 않는다 ─── */
+  #room{padding-top:max(8px, env(safe-area-inset-top));gap:8px}
+  .top{display:flex;align-items:center;gap:6px;flex:none;min-width:0;height:36px}
+  .top .back{margin:0;min-height:36px;flex:none;font-size:13px}
+  .top .spacer{flex:1}
+  .top .pill{white-space:nowrap;min-width:0;min-height:32px}
+  #roomBtn{font:inherit;cursor:pointer;color:var(--ink);gap:6px}
+  #roomBtn .code{font-weight:700;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+  #roomBtn .inv{color:var(--accent);font-weight:600}
+  #netText{overflow:hidden;text-overflow:ellipsis;max-width:18vw}
+
+  /* 자리 — 8자리 = 4칸 두 줄, 늘 깔아 둔다. 차례인 사람은 금빛 테두리 */
+  #seats{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;flex:none}
+  #seats li{height:36px;box-sizing:border-box;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:2px 6px;
+    display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:1fr 1fr;column-gap:4px;align-items:center;font-size:11.5px;min-width:0}
+  #seats li.me{background:var(--accent-soft)}
+  #seats li.turn{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  #seats li.out{opacity:.45}
+  #seats li.rd{border-color:rgba(108,203,138,.55)}
+  #seats li.empty{border-style:dashed;color:var(--faint);display:flex;align-items:center;justify-content:center;background:none}
+  #seats .nm{grid-column:1 / -1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+  #seats .nm em{font-style:normal;color:var(--accent);margin-right:2px}
+  #seats .sc{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+  #seats .pk{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.1;white-space:nowrap}
+
+  .status{display:flex;align-items:center;gap:10px;flex:none;min-width:0;height:44px}
+  .status .txt{flex:1;min-width:0}
+  #phase,#hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
+  #phase{font-size:17px;font-weight:700;line-height:24px;height:24px}
+  #hint{color:var(--muted);font-size:12.5px;line-height:18px;height:18px}
+  #count{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);width:1.5em;text-align:right;line-height:1;flex:none}
+  .track{height:4px;border-radius:4px;background:var(--surface-2);overflow:hidden;flex:none}
+  #bar{height:100%;background:var(--accent);transform-origin:left;transform:scaleX(0)}
+
+  /* 판 — 세 구역이 나란히. 박스는 아래부터 쌓이고, 많아지면 얇아진다 */
+  .board{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .zone{all:unset;box-sizing:border-box;min-height:0;display:flex;flex-direction:column;border-radius:12px;background:var(--surface);
+    border:1px solid var(--line);padding:6px;gap:5px;position:relative;-webkit-tap-highlight-color:transparent}
+  .zone .head{flex:none;display:flex;align-items:baseline;justify-content:space-between;gap:4px}
+  .zone .nmz{font-size:12px;font-weight:700}
+  .zone .sum{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+  .zone .sum small{font-size:11px;color:var(--faint);font-weight:600}
+  .zone .meter{flex:none;height:5px;border-radius:5px;background:var(--surface-2);overflow:hidden}
+  .zone .meter i{display:block;height:100%;border-radius:5px;transform-origin:left}
+  /* 박스가 많아지면 얇게 줄이는 대신 **옆 줄로 넘겨** 쌓는다 — 숫자가 늘 보여야 한다 */
+  .zone .stack{flex:1;min-height:0;display:flex;flex-flow:column-reverse wrap;align-content:stretch;gap:3px;overflow:hidden}
+  .zone .stack.dense .box{flex-basis:20px;font-size:12.5px;border-radius:5px}
+  .zone .stack.dense .box small{display:none}
+  .box{flex:0 0 28px;min-height:0;border-radius:6px;display:flex;align-items:center;justify-content:center;
+    font-weight:700;color:#141414;font-variant-numeric:tabular-nums;font-size:15px;overflow:hidden;line-height:1;position:relative}
+  .box small{position:absolute;left:5px;font-size:9.5px;font-weight:600;opacity:.6;max-width:45%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .box.new{outline:2px solid #fff;outline-offset:-2px}
+  .zone[data-z="r"] .nmz,.zone[data-z="r"] .sum{color:var(--zr)} .zone[data-z="r"] .box,.zone[data-z="r"] .meter i{background:var(--zr)}
+  .zone[data-z="g"] .nmz,.zone[data-z="g"] .sum{color:var(--zg)} .zone[data-z="g"] .box,.zone[data-z="g"] .meter i{background:var(--zg)}
+  .zone[data-z="b"] .nmz,.zone[data-z="b"] .sum{color:var(--zb)} .zone[data-z="b"] .box,.zone[data-z="b"] .meter i{background:var(--zb)}
+  .zone.can{cursor:pointer;border-color:var(--faint)}
+  .zone.pick{border-color:#fff;box-shadow:0 0 0 2px #fff}
+  .zone .none{margin:auto;color:var(--faint);font-size:11px}
+  /* 무너질 때 — 잠깐 흔들리고 빈다 */
+  .zone.boom{animation:boom .6s ease-out}
+  @keyframes boom{0%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}100%{transform:none}}
+  .zone .bang{position:absolute;inset:auto 0 40%;text-align:center;font-size:15px;font-weight:700;color:#fff;pointer-events:none;
+    text-shadow:0 2px 8px rgba(0,0,0,.8);animation:bang 1.6s ease-out forwards}
+  @keyframes bang{0%{opacity:0;transform:scale(.6)}15%{opacity:1;transform:scale(1.1)}80%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+
+  /* 내 손 — 숫자 카드 일곱, 칩 일곱. 쓴 것은 흐리게. 남에게는 안 보인다 */
+  .hand{flex:none;display:flex;flex-direction:column;gap:6px}
+  .row7{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+  .row7 button{all:unset;box-sizing:border-box;height:44px;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+    font-weight:700;font-size:18px;font-variant-numeric:tabular-nums;-webkit-tap-highlight-color:transparent;position:relative}
+  #cards button{background:var(--paper,#FFFDF8);color:#24221F}
+  #chips button{height:40px}
+  #chips button i{width:24px;height:24px;border-radius:50%;display:block;box-shadow:inset 0 0 0 2px rgba(0,0,0,.25)}
+  #chips button[data-c="r"] i{background:var(--zr)} #chips button[data-c="g"] i{background:var(--zg)}
+  #chips button[data-c="b"] i{background:var(--zb)} #chips button[data-c="w"] i{background:var(--zw)}
+  #chips button{background:var(--surface);border:1px solid var(--line)}
+  .row7 button:disabled{opacity:.18;cursor:default}
+  .row7 button.sel{outline:3px solid #fff;outline-offset:1px}
+  .row7 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .hand.off .row7 button:not(:disabled){opacity:.55}
+
+  .actions{display:flex;gap:8px;height:46px;flex:none}
+  .actions .btn{flex:1;min-height:46px;font-size:15px}
+  .btn.on{background:rgba(108,203,138,.14);border-color:#6CCB8A;color:#6CCB8A}
+  .btn.on small{font-size:12px;opacity:.75;font-weight:500}
+  .actions .wait{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;
+    border:1px dashed var(--line);border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 12px}
+
+  /* 키 낮은 폰 — 손 칸을 조금 얇게 */
+  @media (max-height:600px){
+    #room{gap:6px}
+    .row7 button{height:40px;font-size:16px}
+    #chips button{height:34px}
+    #chips button i{width:20px;height:20px}
+  }
+  /* 가로로 눕힌 낮은 화면 — 판은 왼쪽, 자리 · 손 · 단추는 오른쪽 */
+  @media (orientation:landscape) and (max-height:520px){
+    .wrap{max-width:none}
+    #room{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto auto 1fr auto;column-gap:16px;row-gap:6px}
+    #room > .top{grid-column:1 / -1}
+    #room > #seats{grid-column:2;grid-row:2}
+    #room > .status{grid-column:2;grid-row:3;height:40px}
+    #room > .track{grid-column:2;grid-row:4}
+    #room > .board{grid-column:1;grid-row:2 / -1}
+    #room > .hand{grid-column:2;grid-row:5;align-self:end}
+    #room > .actions{grid-column:2;grid-row:6}
+    #seats li{height:32px}
+    .row7 button{height:36px;font-size:15px}
+    #chips button{height:32px}
+    #chips button i{width:18px;height:18px}
+    .actions,.actions .btn{height:42px;min-height:42px}
+  }
+
+  /* 창 안 — 순위 */
+  #rank{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+  #rank li{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto;gap:8px;align-items:center;background:var(--surface-2);
+    border:1px solid var(--line);border-radius:10px;padding:7px 10px;min-height:0}
+  #rank li.win{border-color:var(--accent)}
+  #rank .no{font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+  #rank .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #rank .tk{font-size:11.5px;color:var(--muted);white-space:nowrap}
+  #rank .sc{font-weight:700;font-variant-numeric:tabular-nums;font-size:16px;width:2.6em;text-align:right}
+  #rank.tight li{padding:4px 10px} #rank.tight{gap:3px}
+  /* 가로 화면 — 여덟 줄이면 넘치므로 두 칸으로 */
+  @media (orientation:landscape) and (max-height:520px){ #rank{display:grid;grid-template-columns:1fr 1fr;gap:5px} #rank li{padding:5px 10px} }
+  .order{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .order li{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:7px 10px;min-width:0}
+  .order .card{flex:none;width:28px;height:36px;border-radius:5px;background:#FFFDF8;color:#24221F;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .order .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .how{margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:var(--muted)}
+  .how li{margin:3px 0} .how b{color:var(--ink)}
+  @media (max-height:600px){ .how{font-size:12px;line-height:1.45} }
+
+  #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 56px);transform:translateX(-50%);z-index:20;background:#fff;color:#111;
+    border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.5);white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section id="lobby">
+    <header>
+      <a class="back" href="../../">← Metaversal Studio</a>
+      <h1>Tower 13</h1>
+      <p class="sub">숫자 박스를 색깔 탑에 쌓다가, 13을 넘기면 와르르. 1~8명.</p>
+    </header>
+
+    <div class="panel stack">
+      <div>
+        <label for="name">내 이름</label>
+        <input class="field" id="name" maxlength="12" autocomplete="nickname" placeholder="친구들에게 보일 이름">
+      </div>
+      <button class="btn primary" id="make" type="button">새 방 만들기</button>
+      <p class="or">또는 받은 방 코드로</p>
+      <form id="joinForm">
+        <input class="field" id="code" maxlength="8" autocomplete="off" autocapitalize="characters" placeholder="ABC-123" aria-label="방 코드">
+        <button class="btn" type="submit">들어가기</button>
+      </form>
+      <p id="lobbyMsg" role="alert"></p>
+    </div>
+
+    <ol class="rules">
+      <li>내 차례에 <b>숫자 카드 한 장 + 색 칩 하나</b>를 내요.</li>
+      <li>그 색 탑에 숫자 박스가 올라가요. 무지개 칩은 아무 색에나.</li>
+      <li>올린 뒤 그 탑이 <b>13 이상</b>이면 와르르 — 박스를 전부 가져오고 <b>하나에 −1점</b>.</li>
+      <li>모두 한 번씩 올리면 한 판. <b>7판</b> 뒤 점수가 높은 사람이 이겨요.</li>
+    </ol>
+
+    <button class="btn" id="howBtn" type="button">게임 방법 자세히</button>
+  </section>
+
+  <section id="room" hidden>
+    <div class="top">
+      <a class="back" href="./">← 나가기</a>
+      <button class="pill" id="roomBtn" type="button" aria-label="친구 부르기">방 <span class="code" id="roomCode"></span> <span class="inv">초대</span></button>
+      <span class="spacer"></span>
+      <span class="pill"><span class="dot off" id="netDot"></span><span id="netText">연결 중</span></span>
+    </div>
+
+    <ul id="seats"></ul>
+
+    <div class="status">
+      <div class="txt">
+        <p id="phase">기다리는 중</p>
+        <p id="hint"></p>
+      </div>
+      <span id="count" aria-live="polite"></span>
+    </div>
+    <div class="track"><div id="bar"></div></div>
+
+    <div class="board" id="board"></div>
+
+    <div class="hand off" id="hand">
+      <div class="row7" id="cards" role="group" aria-label="내 숫자 카드"></div>
+      <div class="row7" id="chips" role="group" aria-label="내 색 칩"></div>
+    </div>
+
+    <div class="actions" id="actions"></div>
+  </section>
+
+  <p class="ver">판 1</p>
+</div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="card2">
+    <div class="grip"></div>
+    <header><h2 id="sheetTitle"></h2><button class="x" id="sheetClose" type="button" aria-label="닫기">✕</button></header>
+    <p class="sub2" id="sheetSub"></p>
+    <div class="body" id="sheetBody"></div>
+    <div class="btns" id="sheetBtns"></div>
+  </div>
+</div>
+<div id="toast" hidden></div>
+<script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>

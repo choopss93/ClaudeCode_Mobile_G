@@ -48,10 +48,12 @@ export function makeId(){
 }
 
 /**
- * joinRoom({ room, me:{id,name,at}, onMessage, onPeers, onStatus })
+ * joinRoom({ room, me:{id,name,at}, onMessage, onPeers, onStatus, topicBase?, keep? })
  */
-export function joinRoom({ room, me, onMessage, onPeers, onStatus }){
-  const topic = TOPIC + room;
+export function joinRoom({ room, me, onMessage, onPeers, onStatus, topicBase = TOPIC, keep = ['rd', 'rs'] }){
+  /* topicBase · keep — 다른 게임(Tower 13)도 이 방을 그대로 쓴다. keep 은 내가 보낸 것이라도
+     되돌려 받을 꾸러미 종류다. */
+  const topic = topicBase + room;
   const peers = new Map();          // id → { name, at, seen }
   let client = null, alive = true, tries = 0, lastHi = 0;
   const list = brokersToTry();
@@ -74,7 +76,7 @@ export function joinRoom({ room, me, onMessage, onPeers, onStatus }){
       onText({ text }){
         let m;
         try { m = JSON.parse(text); } catch (_){ return; }
-        if (!m || typeof m !== 'object' || m.id === me.id && m.t !== 'rd' && m.t !== 'rs') return;
+        if (!m || typeof m !== 'object' || m.id === me.id && !keep.includes(m.t)) return;
         if (m.t === 'hi'){
           const old = peers.get(m.id);
           const ready = Number.isInteger(m.ready) ? m.ready : -1;
