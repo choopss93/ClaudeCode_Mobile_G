@@ -1,5 +1,5 @@
-import { ROUNDS, LIMIT, CARDS, CHIPS, ZONES, ZONE_NAME, MAX_SEATS, sumOf, canPut, newGame,
-         canChoose, choose, turnOf, act, resolveStep, autoPick, ranking } from './rules.js?v=3';
+import { SETS, GAMES, LIMIT, CARDS, CHIPS, ZONES, ZONE_NAME, MAX_SEATS, sumOf, canPut, newGame,
+         canChoose, choose, turnOf, act, resolveStep, autoPick, ranking } from './rules.js?v=4';
 import { joinRoom, makeId } from '../../poker/js/room.js?v=11';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
@@ -14,7 +14,7 @@ import { isBot, botName, withBots } from '../../../js/bots.js?v=b1';
  * 자기 고르기('ch')와 올리기/패스('ac')를 방장에게 보낸다. 방장이 나가면 다음 사람이
  * 마지막 상태로 이어 간다.
  *
- * 한 판 = 고르기(모두 동시에, 몰래) → 차례(올리기 확정 · 패스, 박스는 숨긴 채) → 공개
+ * 한 세트 = 고르기(모두 동시에, 몰래) → 차례(올리기 확정 · 패스, 박스는 숨긴 채) → 공개
  * (확정한 박스는 순서대로, 패스한 박스는 역순으로 자동).
  * 고른 박스는 판 상태에 들어 있지만 **화면에는 내 것만** 그린다. 공개 브로커라 마음먹고
  * 들여다보면 보이므로, 정말 숨겨야 할 내용은 아니라는 것을 기억할 것.
@@ -22,7 +22,7 @@ import { isBot, botName, withBots } from '../../../js/bots.js?v=b1';
  * 꾸러미
  *   {t:'hi', id, name, at, ready}                         들어왔음 · 3초마다 (room.js)
  *   {t:'gs', id, s, el, st}                               판 상태 (el = 이번 단계가 시작된 뒤 · st = 게임이 시작된 뒤)
- *   {t:'ch', id, g, round, card, chip, zone}              이번 판 내 박스 → 방장
+ *   {t:'ch', id, g, set, card, chip, zone}                이번 세트 내 박스 → 방장 (set = '판-세트')
  *   {t:'ac', id, g, seq, what:'put'|'pass'}               내 차례 → 방장
  */
 /* 시간 제한은 없다 — 카운트다운을 모두 뺐다 (사용자 요청). 다만 나간 사람(AWAY)의
@@ -66,7 +66,9 @@ const nameOf = id => (id === me.id ? me.name : isBot(id) ? botName(id) : (net &&
 const here = id => isBot(id) || net.present(id);
 const inGame = () => S && !S.over && S.order.includes(me.id);
 const drawing = () => S && !S.over && now() - startedAt < DRAW_SHOW;
-const keyOf = s => s ? `${s.g}|${s.round}|${s.step}|${s.turn}|${s.queue.length}` : '';
+const keyOf = s => s ? `${s.g}|${s.game}|${s.round}|${s.step}|${s.turn}|${s.queue.length}` : '';
+const setOf = s => `${s.game}-${s.round}`;          // 몇 판 몇 세트인가
+const where = s => `${s.game}/${GAMES}판 · ${s.round}/${SETS}세트`;
 const myPick = () => (S && S.picks[me.id]) || null;
 const choosing = () => S && !S.over && !drawing() && S.step === 'choose' && inGame() && !myPick();
 const myTurn = () => S && !drawing() && turnOf(S) === me.id;
@@ -225,7 +227,7 @@ function onMessage(m){
   if (m.t === 'gs' && m.s && Array.isArray(m.s.order)){
     if (S && (m.s.g < S.g || (m.s.g === S.g && m.s.seq <= S.seq))) return;   // 더 나중 것만
     adopt(m.s, +m.el || 0, +m.st || 0);
-  } else if (m.t === 'ch' && isHost() && S && m.g === S.g && m.round === S.round){
+  } else if (m.t === 'ch' && isHost() && S && m.g === S.g && m.set === setOf(S)){
     hostChoose(m.id, m.card | 0, m.chip | 0, m.zone);
   } else if (m.t === 'ac' && isHost() && S && m.g === S.g && m.seq === S.seq){
     hostAct(m.id, m.what);
@@ -234,12 +236,14 @@ function onMessage(m){
 
 function adopt(s, el, st){
   const fresh = !S || s.g !== S.g;
-  const prevRound = S && S.round;
+  const prevSet = S && setOf(S), prevGame = S && S.game;
   S = s;
   const k = keyOf(s);
   if (k !== stepKey){ stepKey = k; stepAt = now() - el; }
   if (fresh){ startedAt = now() - st; seenSeq = s.seq; closeSheet(); }
-  if (fresh || prevRound !== s.round) pick = { card: null, chip: null, zone: null };
+  if (fresh || prevSet !== setOf(s)) pick = { card: null, chip: null, zone: null };
+  if (!fresh && prevGame && s.game !== prevGame && !s.over)
+    flash(`${s.game}판 시작 — 카드 · 칩을 새로 받았어요 · 탑은 그대로`, 2800);
   // 새로 올라온 박스 · 무너짐을 한 번 알린다
   if (s.seq !== seenSeq && s.last){
     seenSeq = s.seq;
@@ -272,9 +276,9 @@ function chooseZone(z){
 function sendChoice(){
   if (!choosing() || pick.card == null || pick.chip == null || !pick.zone) return;
   if (!canChoose(S, me.id, pick.card, pick.chip, pick.zone)) return;
-  pick.sent = S.round;
+  pick.sent = setOf(S);
   if (isHost()) hostChoose(me.id, pick.card, pick.chip, pick.zone);
-  else net.send({ t: 'ch', id: me.id, g: S.g, round: S.round, card: pick.card, chip: pick.chip, zone: pick.zone });
+  else net.send({ t: 'ch', id: me.id, g: S.g, set: setOf(S), card: pick.card, chip: pick.chip, zone: pick.zone });
   render();
 }
 function sendAct(what){
@@ -288,8 +292,8 @@ let lastAc = 'put';
 // 보낸 것이 방장에게 닿지 않았을 수 있다 (QoS 0) — 그대로면 1초마다 다시 보낸다
 setInterval(() => {
   if (!net || !S || isHost()) return;
-  if (S.step === 'choose' && pick.sent === S.round && !myPick() && pick.card != null)
-    net.send({ t: 'ch', id: me.id, g: S.g, round: S.round, card: pick.card, chip: pick.chip, zone: pick.zone });
+  if (S.step === 'choose' && pick.sent === setOf(S) && !myPick() && pick.card != null)
+    net.send({ t: 'ch', id: me.id, g: S.g, set: setOf(S), card: pick.card, chip: pick.chip, zone: pick.zone });
   if (myTurn() && sentAc === S.seq)
     net.send({ t: 'ac', id: me.id, g: S.g, seq: S.seq, what: lastAc });
 }, 1000);
@@ -346,8 +350,8 @@ const HOW = `<ol class="how">
   <li>순서대로 한 사람씩 <b>올리기 확정</b> 또는 <b>패스</b>. 모두 정하기 전까지 내 박스는 남에게 안 보여요.</li>
   <li>모두 정하면 공개 — 확정한 박스는 <b>순서대로</b>, 패스한 박스는 <b>거꾸로</b>(마지막에 패스한 사람부터) 쌓여요.</li>
   <li>쌓은 뒤 그 탑이 <b>13 이상</b>이면 와르르 — 그 박스 주인이 탑의 박스를 <b>전부</b> 가져오고 <b>하나에 −1점</b>. 탑은 비어요.</li>
-  <li>판이 바뀌어도 <b>탑은 그대로</b> — 일곱 판 내내 이어서 쌓아요. 무너질 때만 비어요.</li>
-  <li><b>7판</b>이면 끝. 점수가 높을수록 위. 시간 제한은 없어요 — 나간 사람의 차례만 대신 정해져요.</li>
+  <li>모두 한 번씩 올리면 <b>1세트</b>, <b>7세트가 1판</b>. 판마다 카드 · 칩을 새로 받아요.</li>
+  <li><b>7판</b>을 이어서 해요. <b>탑과 점수는 7판 내내 그대로</b> — 탑은 무너질 때만 비어요. 점수가 높을수록 위. 시간 제한은 없어요.</li>
 </ol>`;
 $('#howBtn').onclick = () => {
   sheetFor = 'how';
@@ -363,7 +367,7 @@ function drawSheet(){
   const T = $('#sheetTitle'), Sub = $('#sheetSub'), B = $('#sheetBody'), F = $('#sheetBtns');
   if (sheetFor === 'draw'){
     T.textContent = '순서 뽑기';
-    Sub.textContent = '뽑은 카드가 작은 사람부터 해요. 일곱 판 내내 이 순서예요.';
+    Sub.textContent = '뽑은 카드가 작은 사람부터 해요. 7판 내내 이 순서예요.';
     B.innerHTML = '<ul class="order">' + S.order.map(id => `<li><span class="card">${S.draw[id]}</span><span class="nm">${esc(nameOf(id))}${id === me.id ? ' (나)' : ''}</span></li>`).join('') + '</ul>';
     F.innerHTML = '<button class="btn" data-act="close" type="button">확인</button>';
     return;
@@ -462,19 +466,19 @@ function render(){
     sub = S.order.map(id => nameOf(id)).join(' → ');
   } else if (ph === 'choose'){
     const n = S.order.filter(id => S.picks[id]).length;
-    head = `${S.round}/${ROUNDS}판 · 박스 고르기`;
+    head = `${where(S)} · 박스 고르기`;
     if (choosing()){
-      sub = pick.card == null ? (S.round > 1 ? '탑은 지난 판 그대로 — 이어서 쌓을 카드를 골라요 (몰래)' : '이번 판에 낼 숫자 카드를 골라요 (몰래)') : pick.chip == null ? '색 칩을 골라요'
+      sub = pick.card == null ? (S.round > 1 || S.game > 1 ? '탑은 그대로 — 이어서 쌓을 카드를 골라요 (몰래)' : '이번 세트에 낼 숫자 카드를 골라요 (몰래)') : pick.chip == null ? '색 칩을 골라요'
         : !pick.zone ? '무지개 칩 — 올릴 탑을 눌러요' : `${boxText(pick)} · 정하기를 눌러요`;
     } else sub = mineP ? `내 박스 ${boxText(mineP)} · 다른 사람 기다리는 중 ${n}/${S.order.length}` : `고르는 중 ${n}/${S.order.length}`;
   } else if (ph === 'turn'){
-    head = `${S.round}/${ROUNDS}판 · ` + (cur === me.id ? '내 차례 — 확정할까, 패스할까' : `${nameOf(cur)} 님 차례`);
+    head = `${where(S)} · ` + (cur === me.id ? '내 차례' : `${nameOf(cur)} 님 차례`);
     if (cur === me.id && mineP){
       const puts = S.order.filter(id => S.done[id] === 'put').length;
-      sub = `내 박스 ${boxText(mineP)} · 지금 보이는 합 ${sumOf(S.zones[mineP.zone])}` + (puts ? ` · 앞에서 ${puts}명 확정` : '');
+      sub = `확정 또는 패스 · 내 박스 ${boxText(mineP)} · 보이는 합 ${sumOf(S.zones[mineP.zone])}` + (puts ? ` · 앞에서 ${puts}명 확정` : '');
     } else sub = lastLine();
   } else if (ph === 'resolve'){
-    head = `${S.round}/${ROUNDS}판 · 공개하며 쌓는 중`;
+    head = `${where(S)} · 공개하며 쌓는 중`;
     sub = (pending.length ? `다음 ${nameOf(pending[0])} 님 (${S.done[pending[0]] === 'pass' ? '패스 · 거꾸로' : '확정'}) · ${pending.length} 남음 · ` : '') + lastLine();
   } else if (ph === 'over'){
     const r = ranking(S).find(x => x.id === me.id);
@@ -490,8 +494,8 @@ function render(){
   else if (ph === 'draw') act = '<span class="wait">곧 시작해요</span>';
   else if (ph === 'choose'){
     if (choosing()){
-      const ok = pick.card != null && pick.chip != null && pick.zone && pick.sent !== S.round;
-      act = `<button class="btn primary" data-act="choose" type="button" ${ok ? '' : 'disabled'}>${pick.sent === S.round ? '보내는 중…' : '이 박스로 정하기'}</button>`;
+      const ok = pick.card != null && pick.chip != null && pick.zone && pick.sent !== setOf(S);
+      act = `<button class="btn primary" data-act="choose" type="button" ${ok ? '' : 'disabled'}>${pick.sent === setOf(S) ? '보내는 중…' : '이 박스로 정하기'}</button>`;
     } else act = `<span class="wait">${inGame() ? '정했어요 · 모두 고르면 시작' : '고르는 중 · 지켜보는 중'}</span>`;
   } else if (ph === 'turn'){
     if (cur === me.id){

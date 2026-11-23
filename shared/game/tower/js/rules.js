@@ -14,7 +14,12 @@
  *   박스를 올린 뒤 그 탑이 13 이상이면, 그 박스의 주인이 탑의 박스를 **방금 것까지
  *   전부** 가져오고 하나에 −1점. 탑은 빈다. 일곱 판이면 끝, 점수가 높을수록 위.
  */
-export const ROUNDS = 7;
+/* 세트 · 판 · 게임 (사용자가 정함) — 모두 한 번씩 올리면 **1세트**, 7세트가 **1판**,
+   7판이 **한 게임**(49세트). 카드 0~6 · 칩 일곱은 **판마다 새로** 받는다. 탑과 점수는
+   게임 내내 이어진다. 순서는 게임을 시작할 때 한 번 뽑는다. */
+export const SETS = 7;
+export const GAMES = 7;
+export const ROUNDS = SETS;      // 옛 이름 — 한 판의 세트 수
 export const LIMIT = 13;
 export const CARDS = [0, 1, 2, 3, 4, 5, 6];
 export const CHIPS = ['r', 'r', 'g', 'g', 'b', 'b', 'w'];   // w = 무지개 (아무 색에나)
@@ -40,7 +45,7 @@ export function newGame(g, ids, names){
   const used = {}, scores = {}, took = {};
   for (const id of order){ used[id] = { c: [], h: [] }; scores[id] = 0; took[id] = 0; }
   return { g, seq: 0, order, names: { ...names }, draw: Object.fromEntries(pairs),
-           round: 1, step: 'choose', turn: 0, picks: {}, done: {}, puts: [], passed: [], queue: [],
+           game: 1, round: 1, step: 'choose', turn: 0, picks: {}, done: {}, puts: [], passed: [], queue: [],
            zones: { r: [], g: [], b: [] }, scores, took, used, last: null, over: false };
 }
 
@@ -102,13 +107,18 @@ function place(n, id){
     n.took[id] += boom;
     n.zones[zone] = [];
   }
-  n.last = { id, card, chip: CHIPS[chip], zone, sum, boom, round: n.round };
+  n.last = { id, card, chip: CHIPS[chip], zone, sum, boom, round: n.round, game: n.game };
 }
 function endRound(n){
   n.round++;
   n.picks = {}; n.done = {}; n.puts = []; n.passed = []; n.queue = [];
   n.turn = 0; n.step = 'choose';
-  if (n.round > ROUNDS){ n.over = true; n.round = ROUNDS; n.step = 'over'; }
+  if (n.round > SETS){                     // 한 판 끝 — 카드 · 칩을 새로 받는다. 탑 · 점수는 그대로
+    n.game++;
+    n.round = 1;
+    for (const id of n.order) n.used[id] = { c: [], h: [] };
+  }
+  if (n.game > GAMES){ n.over = true; n.game = GAMES; n.round = SETS; n.step = 'over'; }
 }
 
 /** 시간이 다 됐거나 나간 사람 — 덜 위험한 박스를 대신 고른다. */
