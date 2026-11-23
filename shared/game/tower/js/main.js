@@ -346,6 +346,7 @@ const HOW = `<ol class="how">
   <li>순서대로 한 사람씩 <b>올리기 확정</b> 또는 <b>패스</b>. 모두 정하기 전까지 내 박스는 남에게 안 보여요.</li>
   <li>모두 정하면 공개 — 확정한 박스는 <b>순서대로</b>, 패스한 박스는 <b>거꾸로</b>(마지막에 패스한 사람부터) 쌓여요.</li>
   <li>쌓은 뒤 그 탑이 <b>13 이상</b>이면 와르르 — 그 박스 주인이 탑의 박스를 <b>전부</b> 가져오고 <b>하나에 −1점</b>. 탑은 비어요.</li>
+  <li>판이 바뀌어도 <b>탑은 그대로</b> — 일곱 판 내내 이어서 쌓아요. 무너질 때만 비어요.</li>
   <li><b>7판</b>이면 끝. 점수가 높을수록 위. 시간 제한은 없어요 — 나간 사람의 차례만 대신 정해져요.</li>
 </ol>`;
 $('#howBtn').onclick = () => {
@@ -463,7 +464,7 @@ function render(){
     const n = S.order.filter(id => S.picks[id]).length;
     head = `${S.round}/${ROUNDS}판 · 박스 고르기`;
     if (choosing()){
-      sub = pick.card == null ? '이번 판에 낼 숫자 카드를 골라요 (몰래)' : pick.chip == null ? '색 칩을 골라요'
+      sub = pick.card == null ? (S.round > 1 ? '탑은 지난 판 그대로 — 이어서 쌓을 카드를 골라요 (몰래)' : '이번 판에 낼 숫자 카드를 골라요 (몰래)') : pick.chip == null ? '색 칩을 골라요'
         : !pick.zone ? '무지개 칩 — 올릴 탑을 눌러요' : `${boxText(pick)} · 정하기를 눌러요`;
     } else sub = mineP ? `내 박스 ${boxText(mineP)} · 다른 사람 기다리는 중 ${n}/${S.order.length}` : `고르는 중 ${n}/${S.order.length}`;
   } else if (ph === 'turn'){
