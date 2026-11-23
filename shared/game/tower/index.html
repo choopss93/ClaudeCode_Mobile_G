@@ -64,6 +64,10 @@
   .rules li{margin:2px 0}
   .rules b{color:var(--ink)}
   #howBtn{margin-top:auto;margin-bottom:4px;flex:none;width:100%;min-height:46px;font-size:15px}
+  @media (max-height:700px){
+    #lobby .panel{gap:7px}
+    #lobby .or{display:none}
+  }
   @media (max-height:640px){
     #lobby .sub{display:none}
     #lobby .panel{margin-top:10px}
@@ -179,6 +183,15 @@
   .actions .btn{flex:1;min-height:46px;font-size:15px}
   .btn.on{background:rgba(108,203,138,.14);border-color:#6CCB8A;color:#6CCB8A}
   .btn.on small{font-size:12px;opacity:.75;font-weight:500}
+  .gstep{display:flex;align-items:center;gap:2px;flex:none;border:1px solid var(--line);border-radius:999px;padding:3px;height:46px;box-sizing:border-box}
+  .gstep button{width:38px;height:38px;border-radius:50%;border:0;background:var(--surface);color:var(--text);font-size:20px;font-weight:700;cursor:pointer;touch-action:manipulation}
+  .gstep button:disabled{opacity:.3;cursor:default}
+  .gstep b{min-width:40px;text-align:center;font-size:14.5px;white-space:nowrap}
+  #lobbyGames .gstep{height:42px;justify-content:space-between}
+  #lobbyGames .gstep button{width:34px;height:34px}
+  #lobby .grow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  #lobby .grow label{margin:0;font-size:13px;color:var(--text)}
+  #lobby .grow label small{display:block;font-weight:500;font-size:11.5px;color:var(--faint);margin-top:2px}
   .actions .wait{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;
     border:1px dashed var(--line);border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 12px}
 
@@ -244,6 +257,7 @@
         <label for="name">내 이름</label>
         <input class="field" id="name" maxlength="12" autocomplete="nickname" placeholder="친구들에게 보일 이름">
       </div>
+      <div class="grow"><label>몇 판 할까요<small>판마다 7세트 · 시작 전까지 바꿔요</small></label><div id="lobbyGames"></div></div>
       <button class="btn primary" id="make" type="button">새 방 만들기</button>
       <p class="or">또는 받은 방 코드로</p>
       <form id="joinForm">
@@ -257,7 +271,7 @@
       <li>판마다 모두 몰래 <b>박스(숫자 카드 + 색 칩)</b>를 골라요. 무지개는 아무 색에나.</li>
       <li>모두 고르면 <b>모두의 박스 공개</b>. 보고 순서대로 <b>확정</b> 또는 <b>패스</b> — 확정은 순서대로, 패스는 거꾸로 쌓여요.</li>
       <li>올린 뒤 그 탑이 <b>13 이상</b>이면 와르르 — 박스를 전부 가져오고 <b>하나에 −1점</b>.</li>
-      <li>모두 한 번씩 올리면 1세트, <b>7세트가 1판</b>. <b>7판</b>을 이어서 하고, 탑과 점수는 내내 그대로예요.</li>
+      <li>모두 한 번씩 올리면 1세트, <b>7세트가 1판</b>. 판 수는 <b>방장이 정해요</b>(기본 7판). 판을 이어서 하고, 탑과 점수는 내내 그대로예요.</li>
     </ol>
 
     <button class="btn" id="howBtn" type="button">게임 방법 자세히</button>
@@ -290,7 +304,7 @@
     <div class="actions" id="actions"></div>
   </section>
 
-  <p class="ver">판 9</p>
+  <p class="ver">판 10</p>
 </div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="card2">
@@ -302,6 +316,6 @@
   </div>
 </div>
 <div id="toast" hidden></div>
-<script type="module" src="js/main.js?v=9"></script>
+<script type="module" src="js/main.js?v=10"></script>
 </body>
 </html>

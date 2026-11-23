@@ -1,6 +1,6 @@
-import { SETS, GAMES, LIMIT, CARDS, CHIPS, ZONES, ZONE_NAME, MAX_SEATS, sumOf, canPut, newGame,
-         canChoose, choose, turnOf, act, resolveStep, autoPick, ranking } from './rules.js?v=4';
-import { joinRoom, makeId } from '../../poker/js/room.js?v=11';
+import { SETS, GAMES, MAX_GAMES, gamesOf, LIMIT, CARDS, CHIPS, ZONES, ZONE_NAME, MAX_SEATS, sumOf, canPut, newGame,
+         canChoose, choose, turnOf, act, resolveStep, autoPick, ranking } from './rules.js?v=5';
+import { joinRoom, makeId } from '../../poker/js/room.js?v=12';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
 import { serverNow } from '../../../js/clock.js?v=k1';
@@ -46,7 +46,11 @@ for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEv
 document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
 /* ─────────── 상태 ─────────── */
-const me = { id: makeId(), name: '', at: 0, ready: -1 };
+const me = { id: makeId(), name: '', at: 0, ready: -1, games: GAMES };
+/* 판 수 — 방장이 방을 만들 때 정하고, 게임 시작 전까지(준비가 다 된 뒤에도) 바꿀 수 있다
+   (사용자 요청). 세트는 7 고정. 인사(hi)의 games 로 모두에게 알리고, 방장 아닌 사람은
+   방장 값을 받아 둔다 — 방장이 나가도 다음 방장이 같은 값으로 잇게. */
+const clampG = n => Math.max(1, Math.min(MAX_GAMES, n | 0 || GAMES));
 let net = null, roomId = null;
 let S = null;            // 판 상태 (rules.js 모양)
 let stepKey = '';        // 단계가 바뀌었는지 (고르기 · 차례 · 정리 · 판)
@@ -69,7 +73,7 @@ const inGame = () => S && !S.over && S.order.includes(me.id);
 const drawing = () => S && !S.over && now() - startedAt < DRAW_SHOW;
 const keyOf = s => s ? `${s.g}|${s.game}|${s.round}|${s.step}|${s.turn}|${s.queue.length}` : '';
 const setOf = s => `${s.game}-${s.round}`;          // 몇 판 몇 세트인가
-const where = s => `${s.game}/${GAMES}판 · ${s.round}/${SETS}세트`;
+const where = s => `${s.game}/${gamesOf(s)}판 · ${s.round}/${SETS}세트`;
 const myPick = () => (S && S.picks[me.id]) || null;
 const choosing = () => S && !S.over && !drawing() && S.step === 'choose' && inGame() && !myPick();
 const myTurn = () => S && !drawing() && turnOf(S) === me.id;
@@ -88,6 +92,7 @@ const readyCount = () => roomSeats().filter(s => isReady(s.id)).length;
 const nameIn = $('#name'), codeIn = $('#code');
 const ACCOUNT = readAccount();
 nameIn.value = store.name || '';
+me.games = clampG(store.games);
 /* 로그인했으면 이름은 **아이디로 고정** — 게임 안에서는 못 고친다. 아이디는 Metaversal Studio
    메뉴의 '아이디 바꾸기' 에서만 바꾼다 (사용자 요청). 초대 링크로 온 손님만 이름을 적는다. */
 if (ACCOUNT){
@@ -151,7 +156,7 @@ function startGame(){
   const seats = withBots(roomSeats().map(s => s.id));     // 혼자면 META BOT 셋이 함께 (사용자 요청)
   const names = {};
   for (const id of seats) names[id] = nameOf(id);
-  adopt(newGame((S ? S.g : 0) + 1, seats, names), 0, 0);
+  adopt(newGame((S ? S.g : 0) + 1, seats, names, me.games), 0, 0);
   sendState();
 }
 function hostChoose(id, card, chip, zone){
@@ -303,6 +308,29 @@ setInterval(() => {
     net.send({ t: 'ac', id: me.id, g: S.g, seq: S.seq, what: lastAc });
 }, 1000);
 
+/* 지금 방의 판 수 — 방장 것. 방장이 아니면 받아 둔다 */
+function roomGames(){
+  if (!net) return me.games;
+  const h = net.order()[0];
+  if (h.id !== me.id){ const g = net.peers.get(h.id)?.games; if (g) me.games = clampG(g); }
+  return me.games;
+}
+function setGames(d){
+  if (net && !isHost()) return;
+  me.games = clampG(me.games + d);
+  store.games = me.games; save();
+  if (net){ net.hi(); render(); } else paintLobbyGames();
+}
+function gamesStepper(){
+  return `<span class="gstep" role="group" aria-label="판 수"><button type="button" data-act="g-" ${me.games <= 1 ? 'disabled' : ''} aria-label="판 줄이기">−</button><b>${me.games}판</b><button type="button" data-act="g+" ${me.games >= MAX_GAMES ? 'disabled' : ''} aria-label="판 늘리기">+</button></span>`;
+}
+function paintLobbyGames(){
+  const L = $('#lobbyGames');
+  if (L) L.innerHTML = gamesStepper();
+}
+paintLobbyGames();
+$('#lobbyGames').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b) setGames(b.dataset.act === 'g+' ? 1 : -1); });
+
 function toggleReady(){
   if (isHost() || !roomSeats().some(s => s.id === me.id)) return;
   me.ready = me.ready === readyBase() ? -1 : readyBase();
@@ -312,7 +340,7 @@ function readyButton(){
   const n = roomSeats().length;
   if (isHost()){
     const ok = allReady();
-    return `<button class="btn primary" data-act="start" type="button" ${ok ? '' : 'disabled'}>${ok ? '게임 시작' : `준비 기다리는 중 ${readyCount()}/${n}`}</button>`;
+    return gamesStepper() + `<button class="btn primary" data-act="start" type="button" ${ok ? '' : 'disabled'}>${ok ? '게임 시작' : `준비 기다리는 중 ${readyCount()}/${n}`}</button>`;
   }
   if (!roomSeats().some(s => s.id === me.id)) return '<span class="wait">관전 중 · 자리가 나면 앉아요</span>';
   return me.ready === readyBase()
@@ -331,6 +359,7 @@ $('#actions').addEventListener('click', e => {
   else if (a === 'put' || a === 'pass') sendAct(a);
   else if (a === 'start') startGame();
   else if (a === 'ready') toggleReady();
+  else if (a === 'g+' || a === 'g-') setGames(a === 'g+' ? 1 : -1);
   else if (a === 'result') openSheet('result');
 });
 
@@ -356,7 +385,7 @@ const HOW = `<ol class="how">
   <li>모두 정하면 공개 — 확정한 박스는 <b>순서대로</b>, 패스한 박스는 <b>거꾸로</b>(마지막에 패스한 사람부터) 쌓여요.</li>
   <li>쌓은 뒤 그 탑이 <b>13 이상</b>이면 와르르 — 그 박스 주인이 탑의 박스를 <b>전부</b> 가져오고 <b>하나에 −1점</b>. 탑은 비어요.</li>
   <li>모두 한 번씩 올리면 <b>1세트</b>, <b>7세트가 1판</b>. 판마다 카드 · 칩을 새로 받아요.</li>
-  <li><b>7판</b>을 이어서 해요. <b>탑과 점수는 7판 내내 그대로</b> — 탑은 무너질 때만 비어요. 점수가 높을수록 위. 시간 제한은 없어요.</li>
+  <li>판 수는 <b>방장이 정해요</b>(1~10판, 기본 7판 · 게임 시작 전까지 바꿀 수 있어요). 판을 이어서 하고, <b>탑과 점수는 끝까지 그대로</b> — 탑은 무너질 때만 비어요. 점수가 높을수록 위. 시간 제한은 없어요.</li>
 </ol>`;
 $('#howBtn').onclick = () => {
   sheetFor = 'how';
@@ -372,7 +401,7 @@ function drawSheet(){
   const T = $('#sheetTitle'), Sub = $('#sheetSub'), B = $('#sheetBody'), F = $('#sheetBtns');
   if (sheetFor === 'draw'){
     T.textContent = '순서 뽑기';
-    Sub.textContent = '뽑은 카드가 작은 사람부터 해요. 7판 내내 이 순서예요.';
+    Sub.textContent = `뽑은 카드가 작은 사람부터 해요. ${gamesOf(S)}판 내내 이 순서예요.`;
     B.innerHTML = '<ul class="order">' + S.order.map(id => `<li><span class="card">${S.draw[id]}</span><span class="nm">${esc(nameOf(id))}${id === me.id ? ' (나)' : ''}</span></li>`).join('') + '</ul>';
     F.innerHTML = '<button class="btn" data-act="close" type="button">확인</button>';
     return;
@@ -463,7 +492,7 @@ function render(){
   let head = '', sub = '';
   if (ph === 'idle'){
     const n = roomSeats().length;
-    head = allReady() ? (isHost() ? '모두 준비됐어요' : '모두 준비 · 곧 시작') : `준비 ${readyCount()}/${n}`;
+    head = (allReady() ? (isHost() ? '모두 준비됐어요' : '모두 준비 · 곧 시작') : `준비 ${readyCount()}/${n}`) + ` · ${roomGames()}판 · 판마다 7세트`;
     sub = isHost() ? (n === 1 ? '혼자 시작하면 META BOT 셋이 함께 해요' : allReady() ? '게임 시작을 눌러 주세요' : '모두 게임 준비를 누르면 시작할 수 있어요')
       : roomSeats().some(s => s.id === me.id) ? (me.ready === readyBase() ? `방장 ${nameOf(host)} 님이 시작하길 기다려요` : '게임 준비를 눌러 주세요') : '자리가 차서 지켜봐요';
   } else if (ph === 'draw'){
@@ -487,7 +516,7 @@ function render(){
     sub = (pending.length ? `다음 ${nameOf(pending[0])} 님 (${S.done[pending[0]] === 'pass' ? '패스 · 거꾸로' : '확정'}) · ${pending.length} 남음 · ` : '') + lastLine();
   } else if (ph === 'over'){
     const r = ranking(S).find(x => x.id === me.id);
-    head = '7판 끝!';
+    head = `${gamesOf(S)}판 끝! · 다음 게임 ${roomGames()}판`;
     sub = (r ? `나는 ${r.rank}등 · ${r.score}점 · ` : '') + `다음 게임 준비 ${readyCount()}/${roomSeats().length}`;
   }
   $('#phase').textContent = head;

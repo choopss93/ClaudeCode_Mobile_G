@@ -59,7 +59,7 @@ export function joinRoom({ room, me, onMessage, onPeers, onStatus, topicBase = T
   const list = brokersToTry();
 
   function send(obj){ client && client.ready && client.publish(topic, JSON.stringify(obj)); }
-  const hi = () => { lastHi = performance.now(); send({ t: 'hi', id: me.id, name: me.name, at: me.at, comm: me.comm, ready: me.ready }); };
+  const hi = () => { lastHi = performance.now(); send({ t: 'hi', id: me.id, name: me.name, at: me.at, comm: me.comm, games: me.games, ready: me.ready }); };
 
   function open(){
     const url = list[tries % list.length];
@@ -80,9 +80,9 @@ export function joinRoom({ room, me, onMessage, onPeers, onStatus, topicBase = T
         if (m.t === 'hi'){
           const old = peers.get(m.id);
           const ready = Number.isInteger(m.ready) ? m.ready : -1;
-          peers.set(m.id, { name: String(m.name || '').slice(0, 12) || '손님', at: +m.at || 0, comm: +m.comm || 0, ready, seen: performance.now() });
+          peers.set(m.id, { name: String(m.name || '').slice(0, 12) || '손님', at: +m.at || 0, comm: +m.comm || 0, games: +m.games || 0, ready, seen: performance.now() });
           if (!old){ hi(); onPeers(); }        // 새로 온 사람이 나를 바로 알게
-          else if (old.ready !== ready) onPeers();   // 준비를 누르거나 거뒀다
+          else if (old.ready !== ready || old.games !== (+m.games || 0)) onPeers();   // 준비 · 판 수가 바뀌었다
           return;
         }
         if (m.t === 'bye'){

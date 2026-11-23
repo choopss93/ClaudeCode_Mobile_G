@@ -14,11 +14,13 @@
  *   박스를 올린 뒤 그 탑이 13 이상이면, 그 박스의 주인이 탑의 박스를 **방금 것까지
  *   전부** 가져오고 하나에 −1점. 탑은 빈다. 일곱 판이면 끝, 점수가 높을수록 위.
  */
-/* 세트 · 판 · 게임 (사용자가 정함) — 모두 한 번씩 올리면 **1세트**, 7세트가 **1판**,
-   7판이 **한 게임**(49세트). 카드 0~6 · 칩 일곱은 **판마다 새로** 받는다. 탑과 점수는
+/* 세트 · 판 · 게임 (사용자가 정함) — 모두 한 번씩 올리면 **1세트**, 7세트가 **1판**(고정),
+   판 수는 **방장이 정한다**(1~10, 기본 7). 카드 0~6 · 칩 일곱은 **판마다 새로** 받는다. 탑과 점수는
    게임 내내 이어진다. 순서는 게임을 시작할 때 한 번 뽑는다. */
 export const SETS = 7;
-export const GAMES = 7;
+export const GAMES = 7;          // 기본 판 수 — 방장이 1~MAX_GAMES 로 정한다 (사용자 요청)
+export const MAX_GAMES = 10;
+export const gamesOf = s => (s && s.games) || GAMES;
 export const ROUNDS = SETS;      // 옛 이름 — 한 판의 세트 수
 export const LIMIT = 13;
 export const CARDS = [0, 1, 2, 3, 4, 5, 6];
@@ -38,13 +40,13 @@ function shuffle(a){
 }
 
 /** 새 게임 — 순서는 카드를 한 장씩 뽑아 정한다 (작은 수부터). */
-export function newGame(g, ids, names){
+export function newGame(g, ids, names, games = GAMES){
   const draw = shuffle(ids.map((_, i) => i + 1));
   const pairs = ids.map((id, i) => [id, draw[i]]).sort((a, b) => a[1] - b[1]);
   const order = pairs.map(p => p[0]);
   const used = {}, scores = {}, took = {};
   for (const id of order){ used[id] = { c: [], h: [] }; scores[id] = 0; took[id] = 0; }
-  return { g, seq: 0, order, names: { ...names }, draw: Object.fromEntries(pairs),
+  return { g, games: Math.max(1, Math.min(MAX_GAMES, games | 0 || GAMES)), seq: 0, order, names: { ...names }, draw: Object.fromEntries(pairs),
            game: 1, round: 1, step: 'choose', turn: 0, picks: {}, done: {}, puts: [], passed: [], queue: [],
            zones: { r: [], g: [], b: [] }, scores, took, used, last: null, over: false };
 }
@@ -118,7 +120,7 @@ function endRound(n){
     n.round = 1;
     for (const id of n.order) n.used[id] = { c: [], h: [] };
   }
-  if (n.game > GAMES){ n.over = true; n.game = GAMES; n.round = SETS; n.step = 'over'; }
+  if (n.game > gamesOf(n)){ n.over = true; n.game = gamesOf(n); n.round = SETS; n.step = 'over'; }
 }
 
 /** 시간이 다 됐거나 나간 사람 — 덜 위험한 박스를 대신 고른다. */
