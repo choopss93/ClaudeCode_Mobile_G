@@ -91,6 +91,9 @@
   .seg small{font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   /* 좁은 폰에서는 반쯤 잘린 설명보다 아예 없는 편이 낫다 */
   @media (max-width:370px){ .seg small{display:none} }
+  /* 로그인한 사람의 이름 칸 — 아이디로 고정 */
+  .field.locked{color:var(--muted);background:var(--surface-2);cursor:default}
+  .lockNote{font-weight:400;color:var(--faint);font-size:11px}
   #lobbyMsg{color:#F08A6A;font-size:12.5px;min-height:1.2em;margin:0}
   .rules{margin:12px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.5}
   .rules li{margin:2px 0}
@@ -311,7 +314,7 @@
 <div class="wrap">
   <section id="lobby">
     <header>
-      <a class="back" href="../../">← Metaversal Studio</a>
+      <a class="back" href="../../#project">← Metaversal Studio › META PROJECT</a>
       <h1>Memory Poker</h1>
       <p class="sub">16장을 외우고, 두 칸을 골라 포커 족보로 겨뤄요. 1~8명.</p>
     </header>
@@ -373,7 +376,7 @@
     </div>
   </section>
 
-  <p class="ver">판 18</p>
+  <p class="ver">판 19</p>
 </div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="card2">
@@ -385,6 +388,6 @@
   </div>
 </div>
 <div id="toast" hidden></div>
-<script type="module" src="js/main.js?v=18"></script>
+<script type="module" src="js/main.js?v=19"></script>
 </body>
 </html>

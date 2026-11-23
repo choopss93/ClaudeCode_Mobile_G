@@ -14,7 +14,7 @@ import { createLogo } from './logo.js?v=l2';
  */
 
 const $ = s => document.querySelector(s);
-const screens = ['intro', 'auth', 'recover', 'codeScreen', 'maker', 'menu'];
+const screens = ['intro', 'auth', 'recover', 'codeScreen', 'maker', 'menu', 'cat'];
 
 /* 확대 막기 — 두 손가락 오므리기 (사파리는 viewport 를 듣지 않는다) */
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
@@ -106,7 +106,7 @@ requestAnimationFrame(frame);
 function show(name){
   for (const s of screens) $('#' + s).hidden = s !== name;
   // 첫 화면 · 캐릭터 없는 메뉴에는 로고, 그 밖에는 캐릭터
-  showLogo = name === 'intro' || (name === 'menu' && !charOf(account));
+  showLogo = name === 'intro' || ((name === 'menu' || name === 'cat') && !charOf(account));
   const slot = $('#' + name + ' [data-stage]');
   if (slot){ slot.appendChild(canvas); requestAnimationFrame(fit); }
 }
@@ -275,7 +275,7 @@ function openMaker(){
   paintMaker();
   show('maker');
 }
-$('#makerBack').onclick = () => openMenu();
+$('#makerBack').onclick = () => (makerFrom === 'world' ? openCat('world') : openMenu());
 
 $('#makerBtn').onclick = async () => {
   const msg = $('#makerMsg'), btn = $('#makerBtn');
@@ -309,7 +309,45 @@ function toWorld(e){
   e && e.preventDefault();
   draft = randomChar(); makerFrom = 'world'; openMaker();
 }
-document.querySelector('.menu a[href="game/world/"]').addEventListener('click', toWorld);
+
+/* ─────────── 갈래 목록 ───────────
+   메뉴는 두 갈래 — Metaversal Studio › META WORLD › 무지개 정원,
+   Metaversal Studio › META PROJECT › Memory Poker · Tower 13 (사용자 요청).
+   게임의 '뒤로' 는 자기 갈래(#world · #project)로 돌아온다. 게임을 더할 때는 여기에 한 줄. */
+const CATS = {
+  world: { label: 'META WORLD', name: '메타 월드', sub: '걸어 다니며 함께 지내는 3D 세계', items: [
+    { href: 'game/world/', ic: '🌈', icStyle: 'background:linear-gradient(135deg,#FFABB4,#FFED98,#94E2F1,#E7B5F2)', name: '무지개 정원', desc: '반려동물과 천천히 거니는 정원' }
+  ] },
+  project: { label: 'META PROJECT', name: '메타 프로젝트', sub: '친구와 · META BOT 과 겨루는 게임', items: [
+    { href: 'game/poker/', ic: '♠', icStyle: 'background:#DCA94E;color:#1a1206', name: 'Memory Poker', desc: '16장을 외우고 두 칸을 골라 겨뤄요' },
+    { href: 'game/tower/', ic: '13', icStyle: 'background:linear-gradient(180deg,#F0767A 0 33%,#6CCB8A 33% 66%,#6FA8F5 66%);color:#141414;font-weight:800;font-size:17px', name: 'Tower 13', desc: '박스를 쌓다가 13을 넘기면 와르르' }
+  ] }
+};
+const escH = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function openCat(key){
+  const c = CATS[key];
+  if (!c || !account) return;
+  const ch = charOf(account);
+  if (ch) wear(ch);
+  $('#catCrumb').innerHTML = `Metaversal Studio › <b>${c.label}</b>`;
+  $('#catTitle').textContent = c.name;
+  $('#catSub').textContent = c.sub;
+  $('#catList').innerHTML = c.items.map(it => `<a href="${it.href}">
+    <span class="ic" style="${it.icStyle}">${it.ic}</span>
+    <span class="t"><b>${c.label}</b><span>${escH(it.name)}</span><small>${escH(it.desc)}</small></span>
+    <span class="go">›</span></a>`).join('');
+  history.replaceState(null, '', location.pathname + '#' + key);   // 새로 고쳐도 이 목록에 머문다
+  show('cat');
+}
+document.querySelector('#menu .menu').addEventListener('click', e => {
+  const a = e.target.closest('[data-cat]');
+  if (a){ e.preventDefault(); openCat(a.dataset.cat); }
+});
+$('#catList').addEventListener('click', e => {
+  const a = e.target.closest('a[href="game/world/"]');
+  if (a) toWorld(e);
+});
+$('#catBack').onclick = () => { history.replaceState(null, '', location.pathname); openMenu(); };
 $('#logoutBtn').onclick = () => {
   logout(); account = null; draft = randomChar();
   $('#idIn').value = ''; mode = 'login'; paintMode();
@@ -413,6 +451,9 @@ paintIntro();
 if (account && location.hash === '#make'){
   history.replaceState(null, '', location.pathname);
   charOf(account) ? openMenu() : toWorld();
+} else if (account && CATS[location.hash.slice(1)]){
+  // 게임에서 '뒤로' 를 누르면 자기 갈래 목록으로 (#world · #project)
+  openMenu(); openCat(location.hash.slice(1));
 } else show('intro');
 // 다른 기기에서 캐릭터를 바꿨을 수 있으니 서버에서 다시 받아 둔다
 refresh().then(a => { account = a; if (!$('#intro').hidden) paintIntro(); });

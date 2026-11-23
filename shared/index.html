@@ -117,6 +117,8 @@
   .menu .t span{display:block;font-size:16px;font-weight:700;margin-top:1px}
   .menu .t small{display:block;font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .menu .go{color:var(--faint);font-size:18px}
+  .crumb{margin:0 0 2px;font-size:11.5px;color:var(--faint);letter-spacing:.02em}
+  .crumb b{color:var(--accent);font-weight:700}
   .links{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:none}
   .links .btn{min-height:44px}
 
@@ -150,6 +152,11 @@
     #menu > .stage{grid-column:1;grid-row:2 / span 2}
     #menu > .menu{grid-row:1 / span 2;align-self:center}
     #menu > .links{grid-row:3}
+    #cat{grid-template-rows:auto auto 1fr;align-content:stretch}
+    #cat > .top{grid-column:1;grid-row:1}
+    #cat > .hello{grid-column:1;grid-row:2}
+    #cat > .stage{grid-column:1;grid-row:3}
+    #cat > .menu{grid-row:1 / -1;align-self:center}
     .menu a{min-height:64px;padding:10px 14px}
   }
 
@@ -256,24 +263,28 @@
     <button class="btn primary big" id="makerBtn" type="button">완료</button>
   </section>
 
+  <!-- 5. 갈래 목록 — Metaversal Studio › META WORLD / META PROJECT › 게임 -->
+  <section class="screen" id="cat" hidden>
+    <div class="top"><button class="back" id="catBack" type="button">← 메뉴</button><span class="spacer"></span></div>
+    <div class="hello"><p class="crumb" id="catCrumb"></p><h2 id="catTitle"></h2><p id="catSub"></p></div>
+    <div class="stage" data-stage></div>
+    <nav class="menu" id="catList"></nav>
+  </section>
+
   <!-- 4. 메뉴 -->
   <section class="screen" id="menu" hidden>
     <div class="hello"><h2 id="helloName">안녕하세요</h2><p id="helloId"></p></div>
     <div class="stage" data-stage></div>
+    <!-- 갈래 둘 — 누르면 그 갈래의 목록 화면(#cat)이 열린다 (사용자 요청) -->
     <nav class="menu">
-      <a href="game/world/">
+      <a href="#world" data-cat="world">
         <span class="ic" style="background:linear-gradient(135deg,#FFABB4,#FFED98,#94E2F1,#E7B5F2)">🌈</span>
-        <span class="t"><b>METAVERSAL STUDIO</b><span>무지개 정원</span><small>반려동물과 천천히 거니는 정원</small></span>
+        <span class="t"><b>META WORLD</b><span>메타 월드</span><small>무지개 정원</small></span>
         <span class="go">›</span>
       </a>
-      <a href="game/poker/">
+      <a href="#project" data-cat="project">
         <span class="ic" style="background:#DCA94E;color:#1a1206">♠</span>
-        <span class="t"><b>META PROJECT</b><span>Memory Poker</span><small>16장을 외우고 두 칸을 골라 겨뤄요</small></span>
-        <span class="go">›</span>
-      </a>
-      <a href="game/tower/">
-        <span class="ic" style="background:linear-gradient(180deg,#F0767A 0 33%,#6CCB8A 33% 66%,#6FA8F5 66%);color:#141414;font-weight:800;font-size:17px">13</span>
-        <span class="t"><b>META PROJECT</b><span>Tower 13</span><small>박스를 쌓다가 13을 넘기면 와르르</small></span>
+        <span class="t"><b>META PROJECT</b><span>메타 프로젝트</span><small>Memory Poker · Tower 13</small></span>
         <span class="go">›</span>
       </a>
     </nav>
@@ -302,6 +313,6 @@
     <div class="btns"><button class="btn" type="button" data-close>그만두기</button><button class="btn primary" id="idSave" type="submit">바꾸기</button></div>
   </form>
 </div>
-<script type="module" src="js/studio.js?v=s9"></script>
+<script type="module" src="js/studio.js?v=s10"></script>
 </body>
 </html>

@@ -56,6 +56,9 @@
   #joinForm{display:flex;gap:8px}
   #joinForm .field{text-transform:uppercase;letter-spacing:.1em;min-width:0}
   #joinForm .btn{white-space:nowrap;flex:none;padding-inline:18px}
+  /* 로그인한 사람의 이름 칸 — 아이디로 고정 */
+  .field.locked{color:var(--muted);background:var(--surface-2);cursor:default}
+  .lockNote{font-weight:400;color:var(--faint);font-size:11px}
   #lobbyMsg{color:#F08A6A;font-size:12.5px;min-height:1.2em;margin:0}
   .rules{margin:12px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.5}
   .rules li{margin:2px 0}
@@ -230,7 +233,7 @@
 <div class="wrap">
   <section id="lobby">
     <header>
-      <a class="back" href="../../">← Metaversal Studio</a>
+      <a class="back" href="../../#project">← Metaversal Studio › META PROJECT</a>
       <h1>Tower 13</h1>
       <p class="sub">숫자 박스를 색깔 탑에 쌓다가, 13을 넘기면 와르르. 1~8명.</p>
     </header>
@@ -288,7 +291,7 @@
     <div class="actions" id="actions"></div>
   </section>
 
-  <p class="ver">판 4</p>
+  <p class="ver">판 5</p>
 </div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="card2">
@@ -300,6 +303,6 @@
   </div>
 </div>
 <div id="toast" hidden></div>
-<script type="module" src="js/main.js?v=4"></script>
+<script type="module" src="js/main.js?v=5"></script>
 </body>
 </html>

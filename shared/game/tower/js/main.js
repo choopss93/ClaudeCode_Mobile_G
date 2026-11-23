@@ -84,14 +84,24 @@ const readyCount = () => roomSeats().filter(s => isReady(s.id)).length;
 /* ─────────── 첫 화면 ─────────── */
 const nameIn = $('#name'), codeIn = $('#code');
 const ACCOUNT = readAccount();
-nameIn.value = store.name || (ACCOUNT && ACCOUNT.user.id) || '';
+nameIn.value = store.name || '';
+/* 로그인했으면 이름은 **아이디로 고정** — 게임 안에서는 못 고친다. 아이디는 Metaversal Studio
+   메뉴의 '아이디 바꾸기' 에서만 바꾼다 (사용자 요청). 초대 링크로 온 손님만 이름을 적는다. */
+if (ACCOUNT){
+  nameIn.value = ACCOUNT.user.id;
+  nameIn.readOnly = true;
+  nameIn.classList.add('locked');
+  nameIn.title = '아이디는 Metaversal Studio 메뉴에서 바꿀 수 있어요';
+  const lbl = document.querySelector('label[for="name"]');
+  if (lbl) lbl.innerHTML = '내 아이디 <small class="lockNote">· 바꾸기는 Studio 메뉴에서</small>';
+}
 const fromLink = channelFromHash();
 if (fromLink && fromLink !== 'OPEN') codeIn.value = showChannel(fromLink);
 
 function enter(id){
   const name = nameIn.value.trim().slice(0, 12);
   if (!name){ nameIn.focus(); $('#lobbyMsg').textContent = '이름을 먼저 적어 주세요.'; return; }
-  store.name = name; save();
+  if (!ACCOUNT){ store.name = name; save(); }   // 아이디는 손님 이름으로 기억하지 않는다
   me.name = name; me.at = serverNow();     // 들어온 순서(방장)는 서버 시각으로
   roomId = id;
   writeChannelToHash(id);

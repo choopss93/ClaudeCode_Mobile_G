@@ -108,14 +108,24 @@ const nameIn = $('#name'), codeIn = $('#code');
 /* 캐릭터는 Metaversal Studio(무지개 정원)에서만 쓴다 — 여기(Meta Project)는 따로다.
    이름 칸에는 포커에서 쓰던 이름, 처음이면 로그인한 아이디를 넣어 둔다. */
 const ACCOUNT = readAccount();
-nameIn.value = store.name || (ACCOUNT && ACCOUNT.user.id) || '';
+nameIn.value = store.name || '';
+/* 로그인했으면 이름은 **아이디로 고정** — 게임 안에서는 못 고친다. 아이디는 Metaversal Studio
+   메뉴의 '아이디 바꾸기' 에서만 바꾼다 (사용자 요청). 초대 링크로 온 손님만 이름을 적는다. */
+if (ACCOUNT){
+  nameIn.value = ACCOUNT.user.id;
+  nameIn.readOnly = true;
+  nameIn.classList.add('locked');
+  nameIn.title = '아이디는 Metaversal Studio 메뉴에서 바꿀 수 있어요';
+  const lbl = document.querySelector('label[for="name"]');
+  if (lbl) lbl.innerHTML = '내 아이디 <small class="lockNote">· 바꾸기는 Studio 메뉴에서</small>';
+}
 const fromLink = channelFromHash();
 if (fromLink && fromLink !== 'OPEN') codeIn.value = showChannel(fromLink);
 
 function enter(id){
   const name = nameIn.value.trim().slice(0, 12);
   if (!name){ nameIn.focus(); $('#lobbyMsg').textContent = '이름을 먼저 적어 주세요.'; return; }
-  store.name = name; save();
+  if (!ACCOUNT){ store.name = name; save(); }   // 아이디는 손님 이름으로 기억하지 않는다
   me.name = name; me.at = serverNow();   // 들어온 순서(방장)는 서버 시각으로 — 폰 시계가 틀려도 같은 순서
   roomComm = me.comm = store.comm;   // 내가 방장이면 이 장수로 판을 돌린다
   roomId = id;
