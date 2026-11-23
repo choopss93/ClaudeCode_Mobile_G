@@ -62,6 +62,7 @@ let sentAc = -1;         // 올리기/패스를 보낸 seq
 let seenSeq = -1;
 let shownOver = 0, shownDraw = 0;
 let sheetFor = null;
+let shownPicks = '';     // 모두의 박스 창을 띄운 세트
 let boomZone = null;
 
 const isHost = () => net && net.order()[0].id === me.id;
@@ -254,7 +255,9 @@ function adopt(s, el, st){
     flash(`${s.game}판 시작 — 카드 · 칩을 새로 받았어요 · 탑은 그대로`, 2800);
   // 새로 올라온 박스 · 무너짐을 한 번 알린다
   // 모두 고른 순간 — 모두의 박스가 공개된다
-  if (!fresh && prevStep === 'choose' && s.step === 'turn') flash('모두의 박스 공개! — 보고 확정 · 패스를 정해요', 2200);
+  // 창으로 띄워 모두가 모두의 색 · 숫자를 크게 본다 (사용자 요청) — 세트마다 한 번
+  if (s.step === 'turn' && shownPicks !== setOf(s) && !drawing()){ shownPicks = setOf(s); sheetFor = 'picks'; $('#sheet').hidden = false; }
+  if (s.step === 'choose' && sheetFor === 'picks') closeSheet();
   if (s.seq !== seenSeq && s.last){
     seenSeq = s.seq;
     const L = s.last;
@@ -361,6 +364,7 @@ $('#actions').addEventListener('click', e => {
   else if (a === 'ready') toggleReady();
   else if (a === 'g+' || a === 'g-') setGames(a === 'g+' ? 1 : -1);
   else if (a === 'result') openSheet('result');
+  else if (a === 'picks') openSheet('picks');
 });
 
 /* ─────────── 올라오는 창 ─────────── */
@@ -375,6 +379,8 @@ sheet.addEventListener('click', e => {
   if (b.dataset.act === 'close'){ closeSheet(); render(); }
   else if (b.dataset.act === 'ready') toggleReady();
   else if (b.dataset.act === 'start') startGame();
+  else if (b.dataset.act === 'put' || b.dataset.act === 'pass') sendAct(b.dataset.act);
+  else if (b.dataset.act === 'picks') openSheet('picks');
 });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden){ closeSheet(); render(); } });
 
@@ -404,6 +410,24 @@ function drawSheet(){
     Sub.textContent = `뽑은 카드가 작은 사람부터 해요. ${gamesOf(S)}판 내내 이 순서예요.`;
     B.innerHTML = '<ul class="order">' + S.order.map(id => `<li><span class="card">${S.draw[id]}</span><span class="nm">${esc(nameOf(id))}${id === me.id ? ' (나)' : ''}</span></li>`).join('') + '</ul>';
     F.innerHTML = '<button class="btn" data-act="close" type="button">확인</button>';
+    return;
+  }
+  if (sheetFor === 'picks'){
+    const cur = turnOf(S);
+    T.textContent = '모두의 박스 공개';
+    Sub.textContent = `${where(S)} · 모두 골랐어요. 보고 순서대로 확정 또는 패스`;
+    B.innerHTML = `<ul id="picks" class="${S.order.length > 5 ? 'tight' : ''}">` + S.order.map((id, i) => {
+      const p = S.picks[id], d = S.done[id];
+      const st = id === cur ? '▶ 차례' : d === 'pass' ? '패스' : d === 'put' ? '✓ 확정' : S.step === 'turn' ? '기다림' : '';
+      return `<li class="${id === cur ? 'cur' : ''}"><span class="no">${i + 1}</span><span class="nm">${esc(nameOf(id))}${id === me.id ? ' (나)' : ''}</span>
+        ${p ? `<span class="bx" data-z="${p.zone}" ${CHIPS[p.chip] === 'w' ? 'data-w' : ''}>${p.card}</span><span class="zn">${ZONE_NAME[p.zone]}${CHIPS[p.chip] === 'w' ? '·무지개' : ''}</span>` : '<span class="bx"></span><span class="zn"></span>'}
+        <span class="st">${st}</span></li>`;
+    }).join('') + '</ul>';
+    const mine = cur === me.id && S.step === 'turn';
+    const busy = sentAc === S.seq;
+    F.innerHTML = mine
+      ? `<button class="btn" data-act="pass" type="button" ${busy ? 'disabled' : ''}>패스</button><button class="btn primary" data-act="put" type="button" ${busy ? 'disabled' : ''}>${busy ? '보내는 중…' : '올리기 확정'}</button>`
+      : '<button class="btn" data-act="close" type="button">판 보기</button>';
     return;
   }
   if (sheetFor === 'result'){
@@ -535,8 +559,8 @@ function render(){
     if (cur === me.id){
       const busy = sentAc === S.seq;
       act = `<button class="btn" data-act="pass" type="button" ${busy ? 'disabled' : ''}>패스</button><button class="btn primary" data-act="put" type="button" ${busy ? 'disabled' : ''}>${busy ? '보내는 중…' : '올리기 확정'}</button>`;
-    } else act = `<span class="wait">${inGame() ? `${esc(nameOf(cur))} 님이 정하는 중` : '지켜보는 중'}</span>`;
-  } else if (ph === 'resolve') act = '<span class="wait">확정은 순서대로 · 패스는 거꾸로 쌓는 중</span>';
+    } else act = `<span class="wait">${inGame() ? `${esc(nameOf(cur))} 님이 정하는 중` : '지켜보는 중'}</span><button class="btn" data-act="picks" type="button" style="flex:none">모두의 박스</button>`;
+  } else if (ph === 'resolve') act = '<span class="wait">확정은 순서대로 · 패스는 거꾸로 쌓는 중</span><button class="btn" data-act="picks" type="button" style="flex:none">모두의 박스</button>';
   else if (ph === 'over') act = '<button class="btn" data-act="result" type="button">결과 보기</button>' + readyButton();
   const A = $('#actions');
   if (A.dataset.html !== act){ A.innerHTML = act; A.dataset.html = act; }
