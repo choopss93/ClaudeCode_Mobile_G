@@ -1,5 +1,5 @@
 import { ROUNDS, LIMIT, CARDS, CHIPS, ZONES, ZONE_NAME, MAX_SEATS, sumOf, canPut, newGame,
-         canChoose, choose, turnOf, act, resolveStep, autoPick, ranking } from './rules.js?v=2';
+         canChoose, choose, turnOf, act, resolveStep, autoPick, ranking } from './rules.js?v=3';
 import { joinRoom, makeId } from '../../poker/js/room.js?v=11';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
@@ -13,7 +13,8 @@ import { serverNow } from '../../../js/clock.js?v=k1';
  * 자기 고르기('ch')와 올리기/패스('ac')를 방장에게 보낸다. 방장이 나가면 다음 사람이
  * 마지막 상태로 이어 간다.
  *
- * 한 판 = 고르기(모두 동시에, 몰래) → 차례(올리기 · 패스) → 패스 정리(역순으로 자동).
+ * 한 판 = 고르기(모두 동시에, 몰래) → 차례(올리기 확정 · 패스, 박스는 숨긴 채) → 공개
+ * (확정한 박스는 순서대로, 패스한 박스는 역순으로 자동).
  * 고른 박스는 판 상태에 들어 있지만 **화면에는 내 것만** 그린다. 공개 브로커라 마음먹고
  * 들여다보면 보이므로, 정말 숨겨야 할 내용은 아니라는 것을 기억할 것.
  *
@@ -26,7 +27,7 @@ import { serverNow } from '../../../js/clock.js?v=k1';
 const CHOOSE_T = 30000;      // 고르기 30초 — 못 고른 사람은 방장이 덜 위험한 박스로
 const TURN = 30000;          // 한 차례 30초 — 넘기면 올리기로
 const AWAY = 2500;           // 나가 있는 사람은 이만큼 기다렸다 대신
-const RESOLVE_MS = 1400;     // 패스한 박스를 하나씩 쌓는 간격 (보는 사람이 따라가게)
+const RESOLVE_MS = 1400;     // 공개하며 하나씩 쌓는 간격 (보는 사람이 따라가게)
 const DRAW_SHOW = 4000;      // 순서 뽑기를 보여 주는 시간
 const RESEND = 1500;
 
@@ -293,8 +294,8 @@ addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden){ clo
 const HOW = `<ol class="how">
   <li>각자 <b>숫자 카드 0~6</b> 일곱 장과 <b>칩 일곱 개</b>(빨강 · 초록 · 파랑 둘씩, 무지개 하나). 시작할 때 카드를 뽑아 <b>순서</b>를 정해요.</li>
   <li>판이 시작하면 <b>모두 동시에</b> 이번 판의 박스(카드 + 칩)를 몰래 골라요. <b>무지개</b>는 올릴 색까지.</li>
-  <li>순서대로 내 차례에 <b>올리기</b>(박스를 공개하며 쌓기) 또는 <b>패스</b>.</li>
-  <li>판 끝에 패스한 박스들이 <b>거꾸로</b> — 마지막에 패스한 사람부터 — 자동으로 쌓여요.</li>
+  <li>순서대로 한 사람씩 <b>올리기 확정</b> 또는 <b>패스</b>. 모두 정하기 전까지 내 박스는 남에게 안 보여요.</li>
+  <li>모두 정하면 공개 — 확정한 박스는 <b>순서대로</b>, 패스한 박스는 <b>거꾸로</b>(마지막에 패스한 사람부터) 쌓여요.</li>
   <li>쌓은 뒤 그 탑이 <b>13 이상</b>이면 와르르 — 그 박스 주인이 탑의 박스를 <b>전부</b> 가져오고 <b>하나에 −1점</b>. 탑은 비어요.</li>
   <li><b>7판</b>이면 끝. 점수가 높을수록 위. 고르기 · 차례는 <b>30초</b>, 넘기면 대신 정해져요.</li>
 </ol>`;
@@ -359,8 +360,8 @@ function render(){
     else if (ph === 'choose') right = S.picks[id] ? '✓ 고름' : '고르는 중';
     else if (ph === 'turn'){
       const d = S.done[id];
-      right = id === cur ? '▶ 차례' : d === 'pass' ? '패스' : d === 'put' ? '올림' : `${S.order.indexOf(id) + 1}번`;
-    } else if (ph === 'resolve') right = S.done[id] === 'pass' ? (pending.includes(id) ? '패스 · 대기' : '패스 · 쌓임') : '올림';
+      right = id === cur ? '▶ 차례' : d === 'pass' ? '패스' : d === 'put' ? '✓ 확정' : `${S.order.indexOf(id) + 1}번`;
+    } else if (ph === 'resolve') right = (S.done[id] === 'pass' ? '패스' : '확정') + (pending.includes(id) ? ' · 대기' : ' · 쌓임');
     return `<li class="${id === me.id ? 'me' : ''} ${id === cur || pending[0] === id ? 'turn' : ''} ${rd ? 'rd' : ''} ${!between && !net.present(id) ? 'out' : ''}">
       <span class="nm">${id === host ? '<em>★</em>' : ''}${esc(nameOf(id))}</span>
       <span class="sc ${sc < 0 ? 'down' : ''}">${has ? sc : ''}</span><span class="pk ${rd ? 'up' : ''}">${right}</span></li>`;
@@ -374,7 +375,7 @@ function render(){
   $('#board').innerHTML = ZONES.map(z => {
     const boxes = zones[z];
     const sum = sumOf(boxes);
-    const newest = S && S.last && !S.last.pass && S.last.zone === z && !S.last.boom && boxes.length ? boxes.length - 1 : -1;
+    const newest = S && S.last && S.last.card != null && S.last.zone === z && !S.last.boom && boxes.length ? boxes.length - 1 : -1;
     const bang = boomZone && boomZone.z === z && now() - boomZone.at < 1600 ? `<div class="bang">💥 −${boomZone.n}</div>` : '';
     return `<button class="zone ${canZ(z) ? 'can' : ''} ${target === z ? 'pick' : ''} ${bang ? 'boom' : ''}" data-z="${z}" type="button" aria-label="${ZONE_NAME[z]} 탑 합 ${sum}">
       <div class="head"><span class="nmz">${ZONE_NAME[z]}</span><span class="sum">${sum}<small>/${LIMIT}</small></span></div>
@@ -415,14 +416,14 @@ function render(){
         : !pick.zone ? '무지개 칩 — 올릴 탑을 눌러요' : `${boxText(pick)} · 정하기를 눌러요`;
     } else sub = mineP ? `내 박스 ${boxText(mineP)} · 다른 사람 기다리는 중 ${n}/${S.order.length}` : `고르는 중 ${n}/${S.order.length}`;
   } else if (ph === 'turn'){
-    head = `${S.round}/${ROUNDS}판 · ` + (cur === me.id ? '내 차례 — 올릴까, 패스할까' : `${nameOf(cur)} 님 차례`);
+    head = `${S.round}/${ROUNDS}판 · ` + (cur === me.id ? '내 차례 — 확정할까, 패스할까' : `${nameOf(cur)} 님 차례`);
     if (cur === me.id && mineP){
-      const after = sumOf(S.zones[mineP.zone]) + mineP.card;
-      sub = `내 박스 ${boxText(mineP)} → 지금 올리면 합 ${after}${after >= LIMIT ? ' · 와르르!' : ''}`;
+      const puts = S.order.filter(id => S.done[id] === 'put').length;
+      sub = `내 박스 ${boxText(mineP)} · 지금 보이는 합 ${sumOf(S.zones[mineP.zone])}` + (puts ? ` · 앞에서 ${puts}명 확정` : '');
     } else sub = lastLine();
   } else if (ph === 'resolve'){
-    head = `${S.round}/${ROUNDS}판 · 패스한 박스 쌓는 중`;
-    sub = (pending.length ? `거꾸로 — 다음은 ${nameOf(pending[0])} 님 (${pending.length} 남음) · ` : '') + lastLine();
+    head = `${S.round}/${ROUNDS}판 · 공개하며 쌓는 중`;
+    sub = (pending.length ? `다음 ${nameOf(pending[0])} 님 (${S.done[pending[0]] === 'pass' ? '패스 · 거꾸로' : '확정'}) · ${pending.length} 남음 · ` : '') + lastLine();
   } else if (ph === 'over'){
     const r = ranking(S).find(x => x.id === me.id);
     head = '7판 끝!';
@@ -443,9 +444,9 @@ function render(){
   } else if (ph === 'turn'){
     if (cur === me.id){
       const busy = sentAc === S.seq;
-      act = `<button class="btn" data-act="pass" type="button" ${busy ? 'disabled' : ''}>패스</button><button class="btn primary" data-act="put" type="button" ${busy ? 'disabled' : ''}>${busy ? '보내는 중…' : '올리기'}</button>`;
+      act = `<button class="btn" data-act="pass" type="button" ${busy ? 'disabled' : ''}>패스</button><button class="btn primary" data-act="put" type="button" ${busy ? 'disabled' : ''}>${busy ? '보내는 중…' : '올리기 확정'}</button>`;
     } else act = `<span class="wait">${inGame() ? `${esc(nameOf(cur))} 님이 정하는 중` : '지켜보는 중'}</span>`;
-  } else if (ph === 'resolve') act = '<span class="wait">패스한 박스를 거꾸로 쌓는 중</span>';
+  } else if (ph === 'resolve') act = '<span class="wait">확정은 순서대로 · 패스는 거꾸로 쌓는 중</span>';
   else if (ph === 'over') act = '<button class="btn" data-act="result" type="button">결과 보기</button>' + readyButton();
   const A = $('#actions');
   if (A.dataset.html !== act){ A.innerHTML = act; A.dataset.html = act; }
@@ -459,8 +460,8 @@ function lastLine(){
   const L = S && S.last;
   if (!L) return '첫 박스를 기다려요';
   const who = L.id === me.id ? '내가' : `${nameOf(L.id)} 님이`;
-  if (L.pass) return `${who} 패스 — 판 끝에 거꾸로 쌓여요`;
-  const how = L.auto ? '(패스) ' : '';
+  if (L.decide) return `${who} ${L.decide === 'pass' ? '패스' : '올리기 확정'} — 박스는 모두 정한 뒤 공개돼요`;
+  const how = L.how === 'pass' ? '(패스) ' : '';
   return L.boom ? `${how}${who} ${ZONE_NAME[L.zone]}에 ${L.card} → ${L.sum} 💥 −${L.boom}점`
                 : `${how}${who} ${ZONE_NAME[L.zone]}에 ${L.card}${L.chip === 'w' ? ' (무지개)' : ''} → 합 ${L.sum}`;
 }

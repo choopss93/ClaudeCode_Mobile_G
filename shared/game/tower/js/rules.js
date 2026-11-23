@@ -6,10 +6,11 @@
  *   한 판은 세 단계다 (사용자가 정함):
  *     1. 고르기  — 판이 시작하면 **모두가 동시에** 이번 판의 박스(카드 한 장 + 칩 하나,
  *                  무지개면 올릴 색까지)를 몰래 고른다. 다 고르면 다음으로.
- *     2. 차례    — 정해진 순서대로 자기 차례에 **올리기**(고른 박스를 공개하며 쌓기)
- *                  또는 **패스**.
- *     3. 패스 정리 — 패스한 사람들의 박스를 **역순으로**(마지막에 패스한 사람부터 처음
- *                  패스한 사람까지) 하나씩 자동으로 쌓는다.
+ *     2. 차례    — 정해진 순서대로 한 사람씩 **올리기 확정** 또는 **패스**. 이때는 박스를
+ *                  공개하지 않는다 — 모두 정하기 전까지 남은 내가 무엇을 골랐는지 모른다.
+ *     3. 공개    — 모두 정하면 확정한 박스를 **순서대로** 공개하며 쌓고, 이어서 패스한
+ *                  박스를 **역순으로**(마지막에 패스한 사람부터 처음 패스한 사람까지)
+ *                  쌓는다. 하나씩 차례로 (`queue`).
  *   박스를 올린 뒤 그 탑이 13 이상이면, 그 박스의 주인이 탑의 박스를 **방금 것까지
  *   전부** 가져오고 하나에 −1점. 탑은 빈다. 일곱 판이면 끝, 점수가 높을수록 위.
  */
@@ -39,7 +40,7 @@ export function newGame(g, ids, names){
   const used = {}, scores = {}, took = {};
   for (const id of order){ used[id] = { c: [], h: [] }; scores[id] = 0; took[id] = 0; }
   return { g, seq: 0, order, names: { ...names }, draw: Object.fromEntries(pairs),
-           round: 1, step: 'choose', turn: 0, picks: {}, done: {}, passed: [], queue: [],
+           round: 1, step: 'choose', turn: 0, picks: {}, done: {}, puts: [], passed: [], queue: [],
            zones: { r: [], g: [], b: [] }, scores, took, used, last: null, over: false };
 }
 
@@ -62,29 +63,26 @@ export function choose(s, id, card, chip, zone){
 export const turnOf = s => (s && !s.over && s.step === 'turn' ? s.order[s.turn] : null);
 export function act(s, id, what){
   const n = structuredClone(s);
-  if (what === 'pass'){
-    n.passed.push(id);
-    n.done[id] = 'pass';
-    n.last = { id, pass: true, round: n.round };
-  } else {
-    place(n, id);
-    n.done[id] = 'put';
-  }
+  const pass = what === 'pass';
+  (pass ? n.passed : n.puts).push(id);
+  n.done[id] = pass ? 'pass' : 'put';
+  n.last = { id, decide: pass ? 'pass' : 'put', round: n.round };   // 박스는 아직 숨긴 채
   n.seq++;
   n.turn++;
   if (n.turn >= n.order.length){
     n.step = 'resolve';
-    n.queue = n.passed.slice().reverse();     // 마지막에 패스한 사람부터
+    // 확정한 박스는 순서대로, 그다음 패스한 박스는 마지막에 패스한 사람부터
+    n.queue = [...n.puts, ...n.passed.slice().reverse()];
     if (!n.queue.length) endRound(n);
   }
   return n;
 }
 
-/* ── 3. 패스 정리 — 한 번에 하나씩 (보는 사람이 따라갈 수 있게) ── */
+/* ── 3. 공개 — 한 번에 하나씩 (보는 사람이 따라갈 수 있게) ── */
 export function resolveStep(s){
   const n = structuredClone(s);
   const id = n.queue.shift();
-  if (id){ place(n, id); n.last.auto = true; }
+  if (id){ place(n, id); n.last.how = n.done[id]; }
   n.seq++;
   if (!n.queue.length) endRound(n);
   return n;
@@ -108,7 +106,7 @@ function place(n, id){
 }
 function endRound(n){
   n.round++;
-  n.picks = {}; n.done = {}; n.passed = []; n.queue = [];
+  n.picks = {}; n.done = {}; n.puts = []; n.passed = []; n.queue = [];
   n.turn = 0; n.step = 'choose';
   if (n.round > ROUNDS){ n.over = true; n.round = ROUNDS; n.step = 'over'; }
 }
