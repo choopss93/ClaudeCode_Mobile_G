@@ -108,7 +108,11 @@ function show(name){
   // 첫 화면 · 캐릭터 없는 메뉴에는 로고, 그 밖에는 캐릭터
   showLogo = name === 'intro' || ((name === 'menu' || name === 'cat') && !charOf(account));
   const slot = $('#' + name + ' [data-stage]');
-  if (slot){ slot.appendChild(canvas); requestAnimationFrame(fit); }
+  // 1차 · 2차 목록(메뉴 · 갈래)에는 로고를 띄우지 않는다 (사용자 요청) — 캐릭터가 있으면 캐릭터만
+  const bare = showLogo && name !== 'intro';
+  $('#' + name).classList.toggle('nostage', bare);
+  if (slot) slot.hidden = bare;
+  if (slot && !bare){ slot.appendChild(canvas); requestAnimationFrame(fit); }
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-go]');

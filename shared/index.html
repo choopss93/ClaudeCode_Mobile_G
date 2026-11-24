@@ -48,6 +48,8 @@
   /* 3D 캐릭터가 서는 자리 — 화면마다 이 자리로 캔버스를 옮겨 단다 */
   .stage{flex:1;min-height:120px;position:relative;border-radius:20px;overflow:hidden;
     background:radial-gradient(120% 90% at 50% 100%, #3a2a12 0%, #17120a 45%, #000 80%)}
+  .stage[hidden]{display:none}
+  .screen.nostage > .menu{margin-block:auto}
   .stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
   .stage .hint{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:11px;color:var(--faint);pointer-events:none}
 
@@ -313,6 +315,6 @@
     <div class="btns"><button class="btn" type="button" data-close>그만두기</button><button class="btn primary" id="idSave" type="submit">바꾸기</button></div>
   </form>
 </div>
-<script type="module" src="js/studio.js?v=s10"></script>
+<script type="module" src="js/studio.js?v=s11"></script>
 </body>
 </html>
