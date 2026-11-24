@@ -255,8 +255,7 @@ function adopt(s, el, st){
     flash(`${s.game}판 시작 — 카드 · 칩을 새로 받았어요 · 탑은 그대로`, 2800);
   // 새로 올라온 박스 · 무너짐을 한 번 알린다
   // 모두 고른 순간 — 모두의 박스가 공개된다
-  // 창으로 띄워 모두가 모두의 색 · 숫자를 크게 본다 (사용자 요청) — 세트마다 한 번
-  if (s.step === 'turn' && shownPicks !== setOf(s) && !drawing()){ shownPicks = setOf(s); sheetFor = 'picks'; $('#sheet').hidden = false; }
+  // '모두의 박스' 창은 저절로 띄우지 않는다 (사용자 요청) — 자리 칸에 보이고, 단추로만 연다
   if (s.step === 'choose' && sheetFor === 'picks') closeSheet();
   if (s.seq !== seenSeq && s.last){
     seenSeq = s.seq;
