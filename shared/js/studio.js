@@ -553,7 +553,7 @@ function goMy(view, filter){
   reloadMy();        // 들어올 때마다 새로 받는다
 }
 /* 한 장에 몇 줄 — 창 안에 다 들어갈 만큼만 (넘겨 보지 않는다). 큰 데서 줄여 간다.
-   rows 는 위에서 아래로 그릴 차례 — 최근 것이 위, 먼저 것이 아래 (아래에서부터 쌓인다) */
+   rows 는 위에서 아래로 그릴 차례 — 최근 것이 맨 위. 목록은 위에서부터 채운다 (사용자 요청) */
 function drawRows(B, rows, empty, row){
   const wide = matchMedia('(orientation:landscape) and (max-height:520px)').matches;
   for (let per = 8; per >= 2; per -= wide ? 2 : 1){

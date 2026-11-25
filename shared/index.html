@@ -161,7 +161,7 @@
   .tiles button span{font-size:12.5px;color:var(--muted);font-weight:600}
   .tiles button.all b{color:var(--accent)} .tiles button.game b{color:#6CCB8A} .tiles button.wait b{color:#8FB7F0}
   .tiles button:focus-visible{outline:2px solid var(--accent)}
-  .onl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;justify-content:flex-end;gap:5px}
+  .onl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;justify-content:flex-start;gap:5px}
   /* 한 줄 45px 로 못 박는다 — 몇 줄이 들어가는지 studio.js 가 이 값(ROW)으로 잰다 */
   .onl li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 10px;align-items:center;height:45px;box-sizing:border-box;
     padding:4px 12px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);flex:none}
@@ -180,7 +180,7 @@
   .pager{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px;font-size:12.5px;color:var(--muted)}
   .pager button{min-height:36px;min-width:44px}
   @media (orientation:landscape) and (max-height:520px){
-    .onl{display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:end}
+    .onl{display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start}
     .tiles button{min-height:70px} .tiles button b{font-size:24px}
   }
   .menu{display:flex;flex-direction:column;gap:10px;flex:none}
@@ -428,6 +428,6 @@
     <div class="btns" id="myBtns"></div>
   </div>
 </div>
-<script type="module" src="js/studio.js?v=s16"></script>
+<script type="module" src="js/studio.js?v=s17"></script>
 </body>
 </html>
