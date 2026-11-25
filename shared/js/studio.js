@@ -107,11 +107,12 @@ requestAnimationFrame(frame);
 /* ─────────── 화면 바꾸기 ─────────── */
 function show(name){
   for (const s of screens) $('#' + s).hidden = s !== name;
-  // 첫 화면 · 캐릭터 없는 메뉴에는 로고, 그 밖에는 캐릭터
-  showLogo = name === 'intro' || ((name === 'menu' || name === 'cat') && !charOf(account));
+  // 로고는 첫 화면에만 (사용자 요청). 메뉴는 캐릭터가 있으면 캐릭터, 없으면 자리를 비운다.
+  // META WORLD 목록에는 늘 내 캐릭터 — 아직 없으면 만들 캐릭터를 미리 보여 준다 (사용자 요청).
+  // META PROJECT 목록에는 캐릭터를 쓰지 않으므로 자리를 비운다.
+  showLogo = name === 'intro';
   const slot = $('#' + name + ' [data-stage]');
-  // 1차 · 2차 목록(메뉴 · 갈래)에는 로고를 띄우지 않는다 (사용자 요청) — 캐릭터가 있으면 캐릭터만
-  const bare = showLogo && name !== 'intro';
+  const bare = (name === 'menu' && !charOf(account)) || (name === 'cat' && catKey !== 'world');
   $('#' + name).classList.toggle('nostage', bare);
   if (slot) slot.hidden = bare;
   if (slot && !bare){ slot.appendChild(canvas); requestAnimationFrame(fit); }
@@ -312,7 +313,7 @@ $('#editBtn').onclick = () => { draft = charOf(account) || randomChar(); makerFr
 function toWorld(e){
   if (charOf(account)) return;            // 있으면 링크 그대로 들어간다
   e && e.preventDefault();
-  draft = randomChar(); makerFrom = 'world'; openMaker();
+  makerFrom = 'world'; openMaker();       // 목록에서 미리 보여 준 그 캐릭터로 시작한다
 }
 
 /* ─────────── 갈래 목록 ───────────
@@ -329,11 +330,17 @@ const CATS = {
   ] }
 };
 const escH = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let catKey = '';
 function openCat(key){
   const c = CATS[key];
   if (!c || !account) return;
+  catKey = key;
+  zoomTo = 0;
+  spin = 0.25;                                   // 앞을 보고 시작한다 (꾸미기의 front 와 같은 값) — 돌다 뒷모습으로 잡히지 않게
   const ch = charOf(account);
   if (ch) wear(ch);
+  else if (key === 'world') wear(draft);          // 아직 없으면 만들 캐릭터를 미리 보여 준다
+  $('#catMake').hidden = !(key === 'world' && !ch);
   $('#catCrumb').innerHTML = `Metaversal Studio › <b>${c.label}</b>`;
   $('#catTitle').textContent = c.name;
   $('#catSub').textContent = c.sub;
@@ -348,6 +355,8 @@ document.querySelector('#menu .menu').addEventListener('click', e => {
   const a = e.target.closest('[data-cat]');
   if (a){ e.preventDefault(); openCat(a.dataset.cat); }
 });
+/* 미리 보여 준 그 캐릭터로 꾸미기를 시작한다 — 마치면 곧장 무지개 정원으로 */
+$('#catMake').onclick = () => { makerFrom = 'world'; openMaker(); };
 $('#catList').addEventListener('click', e => {
   const a = e.target.closest('a[href="game/world/"]');
   if (a) toWorld(e);
