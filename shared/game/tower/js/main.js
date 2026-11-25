@@ -3,6 +3,7 @@ import { SETS, GAMES, MAX_GAMES, gamesOf, LIMIT, CARDS, CHIPS, ZONES, ZONE_NAME,
 import { joinRoom, makeId } from '../../poker/js/room.js?v=12';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
+import { trackPresence } from '../../../js/presence.js?v=p1';
 import { serverNow } from '../../../js/clock.js?v=k1';
 import { isBot, botName, withBots } from '../../../js/bots.js?v=b1';
 
@@ -451,7 +452,10 @@ function phaseNow(){
 }
 const boxText = p => `${ZONE_NAME[p.zone]} ${p.card}${CHIPS[p.chip] === 'w' ? ' (무지개)' : ''}`;
 
+/* 접속 알림 (마스터의 '접속자') — 게임에 앉아 있는 동안이 게임 중 */
+var pres = trackPresence(() => ({ state: net && inGame() ? 'game' : 'wait', place: 'Tower 13' }));
 function render(){
+  pres && pres.update();
   if (!net) return;
   const ph = phaseNow();
   const host = net.order()[0].id;

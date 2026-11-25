@@ -10,3 +10,4 @@ api.js
 wrangler.jsonc
 functions
 _routes.json
+/presence.js

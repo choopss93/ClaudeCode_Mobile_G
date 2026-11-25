@@ -109,6 +109,37 @@
   .hello{flex:none;margin:2px 0 0}
   .hello h2{margin:0;font-size:20px;font-weight:700}
   .hello p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+  #menu .hello{position:relative}
+  #menu .hello:has(.mybtn:not([hidden])) h2{padding-right:96px}
+  .mybtn{position:absolute;top:0;right:0;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--accent);
+    background:var(--accent-soft);color:var(--accent);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+  /* 마이페이지 창 */
+  .mylist{display:flex;flex-direction:column;gap:8px}
+  .mylist button{all:unset;cursor:pointer;display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;border-radius:14px;
+    background:var(--surface-2);border:1px solid var(--line);font-weight:700;font-size:15.5px}
+  .mylist button span{flex:1} .mylist button small{color:var(--muted);font-weight:500;font-size:12.5px}
+  .mylist button:focus-visible{outline:2px solid var(--accent)}
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .tiles button{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:96px;
+    border-radius:14px;background:var(--surface-2);border:1px solid var(--line);text-align:center}
+  .tiles button b{font-size:30px;font-variant-numeric:tabular-nums;line-height:1.1}
+  .tiles button span{font-size:12.5px;color:var(--muted);font-weight:600}
+  .tiles button.all b{color:var(--accent)} .tiles button.game b{color:#6CCB8A} .tiles button.wait b{color:#8FB7F0}
+  .tiles button:focus-visible{outline:2px solid var(--accent)}
+  .onl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+  .onl li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:7px 12px;border-radius:10px;
+    background:var(--surface-2);border:1px solid var(--line)}
+  .onl .id{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .onl .st{font-size:12px;font-weight:700;white-space:nowrap} .onl .st.game{color:#6CCB8A} .onl .st.wait{color:#8FB7F0}
+  .onl .pl{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .onl .tm{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .onl .none{display:block;text-align:center;color:var(--muted);background:none;border-style:dashed}
+  .pager{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px;font-size:12.5px;color:var(--muted)}
+  .pager button{min-height:36px;min-width:44px}
+  @media (orientation:landscape) and (max-height:520px){
+    .onl{display:grid;grid-template-columns:1fr 1fr;gap:4px} .onl li{padding:4px 10px}
+    .tiles button{min-height:70px} .tiles button b{font-size:24px}
+  }
   .menu{display:flex;flex-direction:column;gap:10px;flex:none}
   .menu a{display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;background:var(--surface);
     border:1px solid var(--line);border-radius:16px;padding:14px 16px;min-height:76px}
@@ -275,7 +306,9 @@
 
   <!-- 4. 메뉴 -->
   <section class="screen" id="menu" hidden>
-    <div class="hello"><h2 id="helloName">안녕하세요</h2><p id="helloId"></p></div>
+    <div class="hello"><h2 id="helloName">안녕하세요</h2><p id="helloId"></p>
+      <!-- 마스터 계정만 (사용자 요청) -->
+      <button class="mybtn" id="myBtn" type="button" hidden>마이페이지</button></div>
     <div class="stage" data-stage></div>
     <!-- 갈래 둘 — 누르면 그 갈래의 목록 화면(#cat)이 열린다 (사용자 요청) -->
     <nav class="menu">
@@ -315,6 +348,16 @@
     <div class="btns"><button class="btn" type="button" data-close>그만두기</button><button class="btn primary" id="idSave" type="submit">바꾸기</button></div>
   </form>
 </div>
-<script type="module" src="js/studio.js?v=s11"></script>
+<!-- 마이페이지 — 마스터 계정만. 목록 → 접속자(접속 · 게임 중 · 대기 중) → 그 사람들 -->
+<div class="sheet" id="mySheet" hidden role="dialog" aria-modal="true" aria-labelledby="mySheetT">
+  <div class="card2">
+    <div class="grip"></div>
+    <header><button class="x" type="button" id="myBack" aria-label="뒤로" hidden>‹</button><h2 id="mySheetT">마이페이지</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+    <p class="sub2" id="mySub"></p>
+    <div class="body" id="myBody"></div>
+    <div class="btns" id="myBtns"></div>
+  </div>
+</div>
+<script type="module" src="js/studio.js?v=s12"></script>
 </body>
 </html>

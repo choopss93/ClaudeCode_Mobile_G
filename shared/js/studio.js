@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s5';
 import { GENDERS, SKIN, PARTS, hex, cleanChar, randomChar } from './character.js?v=c3';
 import { readAccount, refresh, signup, login, logout, saveChar, recover, newRecovery, checkId, renameId } from './account.js?v=s8';
+import { trackPresence } from './presence.js?v=p1';
 import { createLogo } from './logo.js?v=l2';
 
 /*
@@ -302,6 +303,7 @@ function openMenu(){
   $('#helloName').textContent = `안녕하세요, ${nameOf(account)} 님`;
   $('#helloId').textContent = c ? `@${account.user.id} · 어디로 갈까요?` : `@${account.user.id} · 캐릭터는 무지개 정원에 들어갈 때 만들어요`;
   $('#editBtn').hidden = !c;               // 만들기 전에는 고칠 것이 없다
+  $('#myBtn').hidden = !isAdmin();         // 마이페이지는 마스터 계정만 (사용자 요청)
   if (c) wear(c);
   show('menu');
 }
@@ -461,3 +463,91 @@ if (account && location.hash === '#make'){
 } else show('intro');
 // 다른 기기에서 캐릭터를 바꿨을 수 있으니 서버에서 다시 받아 둔다
 refresh().then(a => { account = a; if (!$('#intro').hidden) paintIntro(); });
+
+/* ─────────── 마이페이지 (마스터 계정만 — 사용자 요청) ───────────
+   목록 → [접속자] → 접속 · 게임 중 · 대기 중 몇 명 → 누르면 그 사람들의 아이디와 수정일시.
+   수정일시 = 그 사람의 상태(게임 중 · 대기 중 · 있는 곳)가 마지막으로 바뀐 때, 한국 시간.
+   서버도 마스터가 아니면 목록을 주지 않는다 (api.js 의 ADMINS). */
+function isAdmin(){ return !!(account && ['MASTER'].includes(account.user.id)); }   // 함수로 — 위에서 먼저 불린다
+const mySheet = $('#mySheet');
+const PAGE = 6;
+let myView = 'menu', myFilter = 'all', myPage = 0, online = null, onlineErr = '', myTimer = 0;
+const KST = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+function when(t){
+  const p = Object.fromEntries(KST.formatToParts(new Date(t)).map(x => [x.type, x.value]));
+  return `${p.month}-${p.day} ${p.hour === '24' ? '00' : p.hour}:${p.minute}:${p.second}`;
+}
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const KIND = { all: '접속자', game: '게임 중', wait: '대기 중' };
+
+async function loadOnline(){
+  try {
+    const r = await fetch('/api/online', { headers: { 'X-Session': account.token } });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || '불러오지 못했어요');
+    online = d; onlineErr = '';
+  } catch (e){ onlineErr = e.message || '서버에 닿지 못했어요'; }
+  drawMy();
+}
+function openMy(){
+  if (!isAdmin()) return;
+  myView = 'menu'; mySheet.hidden = false; drawMy();
+}
+function closeMy(){ mySheet.hidden = true; clearInterval(myTimer); myTimer = 0; $('#myBtn').focus(); }
+function goMy(view, filter){
+  myView = view; if (filter) myFilter = filter; myPage = 0;
+  if (view !== 'menu' && !myTimer){ loadOnline(); myTimer = setInterval(loadOnline, 10000); }
+  if (view === 'menu'){ clearInterval(myTimer); myTimer = 0; }
+  drawMy();
+}
+function drawMy(){
+  const T = $('#mySheetT'), Sub = $('#mySub'), B = $('#myBody'), F = $('#myBtns');
+  $('#myBack').hidden = myView === 'menu';
+  const list = online ? online.list : [];
+  const count = k => (k === 'all' ? list.length : list.filter(r => r.state === k).length);
+  if (myView === 'menu'){
+    T.textContent = '마이페이지';
+    Sub.textContent = `@${account.user.id} · 관리 메뉴`;
+    B.innerHTML = '<div class="mylist"><button type="button" data-my="online"><span>접속자</span><small>지금 누가 있는지</small> ›</button></div>';
+    F.innerHTML = '<button class="btn" type="button" data-close>닫기</button>';
+    return;
+  }
+  const stamp = online ? `${when(online.now)} 기준 · 10초마다 새로` : '불러오는 중…';
+  if (myView === 'online'){
+    T.textContent = '접속자';
+    Sub.textContent = onlineErr || stamp + ' · 로그인한 사람만 세요';
+    B.innerHTML = '<div class="tiles">' + ['all', 'game', 'wait'].map(k =>
+      `<button type="button" class="${k}" data-my="list" data-f="${k}"><b>${online ? count(k) : '–'}</b><span>${k === 'all' ? '접속자' : KIND[k]}</span></button>`).join('') + '</div>';
+    F.innerHTML = '<button class="btn" type="button" data-my="reload">새로고침</button><button class="btn" type="button" data-close>닫기</button>';
+    return;
+  }
+  // 그 사람들 — 아이디 · 상태 · 있는 곳 · 수정일시
+  const rows = myFilter === 'all' ? list : list.filter(r => r.state === myFilter);
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE));
+  myPage = Math.min(myPage, pages - 1);
+  T.textContent = `${KIND[myFilter]} ${online ? rows.length : '–'}명`;
+  Sub.textContent = onlineErr || stamp;
+  B.innerHTML = '<ul class="onl">' + (rows.length ? rows.slice(myPage * PAGE, myPage * PAGE + PAGE).map(r =>
+    `<li><span class="id">${esc(r.id)}</span><span class="st ${r.state}">${KIND[r.state]}</span>
+       <span class="pl">${esc(r.place || '')}</span><span class="tm">수정 ${when(r.since)}</span></li>`).join('')
+    : `<li class="none">${online ? '아무도 없어요' : '불러오는 중…'}</li>`) + '</ul>'
+    + (pages > 1 ? `<div class="pager"><button class="btn" type="button" data-my="prev" ${myPage ? '' : 'disabled'}>‹</button>${myPage + 1} / ${pages}<button class="btn" type="button" data-my="next" ${myPage < pages - 1 ? '' : 'disabled'}>›</button></div>` : '');
+  F.innerHTML = '<button class="btn" type="button" data-my="reload">새로고침</button><button class="btn" type="button" data-close>닫기</button>';
+}
+$('#myBtn').onclick = openMy;
+$('#myBack').onclick = () => goMy(myView === 'list' ? 'online' : 'menu');
+mySheet.addEventListener('click', e => {
+  if (e.target === mySheet || e.target.closest('[data-close]')) return closeMy();
+  const b = e.target.closest('[data-my]');
+  if (!b) return;
+  const a = b.dataset.my;
+  if (a === 'online') goMy('online');
+  else if (a === 'list') goMy('list', b.dataset.f);
+  else if (a === 'reload') loadOnline();
+  else if (a === 'prev'){ myPage--; drawMy(); }
+  else if (a === 'next'){ myPage++; drawMy(); }
+});
+addEventListener('keydown', e => { if (e.key === 'Escape' && !mySheet.hidden) closeMy(); });
+
+/* 접속 알림 — Studio 에 있는 동안은 대기 중 */
+trackPresence(() => ({ state: 'wait', place: 'Studio' }));

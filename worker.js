@@ -4,6 +4,7 @@
 // wrangler.jsonc 의 run_worker_first 덕분에 모든 요청이 먼저 여기로 온다.
 import { guard } from './lock.js';
 import { handleApi } from './api.js';
+export { Presence } from './presence.js';   // 접속자 (Durable Object)
 
 export default {
   fetch(request, env){

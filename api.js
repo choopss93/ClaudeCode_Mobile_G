@@ -161,6 +161,10 @@ function cleanChar(c){
 }
 const publicUser = u => ({ id: u.id, char: u.char || null });   // 열쇠 · 해시는 절대 내보내지 않는다
 
+/* 마이페이지(접속자)를 볼 수 있는 계정 */
+const ADMINS = ['MASTER'];
+const presence = env => env.PRESENCE.get(env.PRESENCE.idFromName('all'));
+
 async function body(request){
   try { return await request.json(); } catch (_){ return {}; }
 }
@@ -235,6 +239,26 @@ export async function handleApi(request, env){
     const recovery = await setRecovery(user);  // 쓴 코드는 버리고 새 코드를 준다
     await saveUser(env, user);
     return json({ token: await makeToken(env, user), user: publicUser(user), recovery });
+  }
+
+  /* 접속자 — 로그인한 사람의 창이 40초마다 · 상태가 바뀔 때 알린다 (shared/js/presence.js).
+     목록은 마스터 계정만 본다 (사용자 요청 — 마이페이지의 '접속자'). */
+  if (path === '/api/ping' && method === 'POST'){
+    if (!env.PRESENCE) return json({ ok: false });
+    const user = await readToken(env, request.headers.get('X-Session'));
+    if (!user) return fail('다시 로그인해 주세요', 401);
+    const b = await body(request);
+    const rec = { id: user.id, tab: String(b.tab || '').slice(0, 24), gone: !!b.gone,
+                  state: b.state === 'game' ? 'game' : 'wait', place: String(b.place || '').slice(0, 24) };
+    await presence(env).fetch('https://presence/ping', { method: 'POST', body: JSON.stringify(rec) });
+    return json({ ok: true });
+  }
+  if (path === '/api/online' && method === 'GET'){
+    const user = await readToken(env, request.headers.get('X-Session'));
+    if (!user) return fail('다시 로그인해 주세요', 401);
+    if (!ADMINS.includes(user.id)) return fail('볼 수 없어요', 403);
+    if (!env.PRESENCE) return fail('접속자 서버가 아직 준비되지 않았어요', 503);
+    return presence(env).fetch('https://presence/list');
   }
 
   if (path === '/api/me' || path === '/api/logout-all' || path === '/api/recovery-new' || path === '/api/rename'){

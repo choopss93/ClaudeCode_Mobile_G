@@ -265,6 +265,19 @@
     그대로다 (기기 안에서만 재는 길이라 시계가 틀려도 상관없다).
   - 검사: 폰 시계를 `Date.now` 덮어쓰기로 틀어 놓고, `/api/time` 을 `page.route` 로
     물려 서버 시각을 정해 준 뒤, HUD 의 시간대 · 포커 방장 별을 본다.
+- **마이페이지 — 마스터 계정만** (사용자 요청). 메뉴(1차 목록) 오른쪽 위 `#myBtn` → 창 `#mySheet`
+  목록 → **[접속자]** → 접속자 · 게임 중 · 대기 중 몇 명 → 누르면 그 사람들의 아이디 · 있는 곳 ·
+  **수정일시**(상태가 마지막으로 바뀐 때, 한국 시간). 열어 둔 동안 10초마다 새로 받는다. 한 장에 여섯 명씩.
+  - 누가 마스터인지는 `api.js` 의 `ADMINS` 와 `studio.js` 의 `isAdmin` (둘 다 `MASTER`). 서버가
+    마스터가 아니면 목록을 주지 않는다 (`GET /api/online` 403).
+  - 접속은 **로그인한 사람만** 센다. 창마다 `shared/js/presence.js` 의 `trackPresence` 가 40초마다,
+    그리고 상태가 바뀔 때 `POST /api/ping` 으로 알린다 (`{tab, state:'game'|'wait', place}`).
+    창을 가리면(다른 앱) 나간 것으로 알린다. Studio · 게임 첫 화면 · 판 사이는 대기 중, 판에 앉아
+    도는 동안(Memory Poker · Tower 13) · 정원에 들어선 뒤가 게임 중이다.
+  - 모으는 것은 **Durable Object `Presence`**(뿌리의 `presence.js`, `wrangler.jsonc` 의 `PRESENCE`).
+    **기억에만** 둔다 — KV 는 하루 쓰기 1000번이라 인사를 적을 수 없다. 100초 소식이 없으면 뺀다.
+  - `.assetsignore` 에는 **`/presence.js`** 처럼 앞에 `/` 를 붙일 것. 그냥 `presence.js` 라고 적었다가
+    `shared/js/presence.js` 까지 빠져서 게임 화면이 통째로 안 떴다.
 - `shared/game/` (옛 게임 목록)은 Studio 로 넘겨 준다. 게임의 '뒤로' 도 Studio.
 - 검사: `wrangler dev` 에 `.dev.vars`(SITE_PASSWORD · SESSION_SECRET)를 두고
   띄우면 KV 도 흉내 낸다. 가입 → 꾸미기 → 메뉴 → 게임까지 브라우저로 눌러 본다.

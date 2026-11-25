@@ -2,6 +2,7 @@ import { shuffled, evaluate, compare, label, isRed, SUITS, suitOf, cellName } fr
 import { joinRoom, makeId, MAX_SEATS } from './room.js?v=10';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
+import { trackPresence } from '../../../js/presence.js?v=p1';
 import { serverNow } from '../../../js/clock.js?v=k1';
 import { isBot, botName, withBots } from '../../../js/bots.js?v=b1';
 
@@ -508,7 +509,10 @@ function face(c, extra = ''){
   return `<span class="face ${isRed(c) ? 'red' : ''} ${extra}"><b>${label(c)}</b><i>${SUITS[suitOf(c)]}</i></span>`;
 }
 
+/* 접속 알림 (마스터의 '접속자') — 판에 앉아 도는 동안이 게임 중 */
+var pres = trackPresence(() => ({ state: net && round && amIn() && ['show', 'pick', 'wait'].includes(phase()) ? 'game' : 'wait', place: 'Memory Poker' }));
 function render(){
+  pres && pres.update();
   if (!net) return;
   const ph = phase();
   const order = net.order();
