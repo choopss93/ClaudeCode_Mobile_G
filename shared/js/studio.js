@@ -302,7 +302,6 @@ function openMenu(){
   zoomTo = 0;
   const c = charOf(account);
   $('#helloName').textContent = `안녕하세요, ${nameOf(account)} 님`;
-  $('#helloId').textContent = c ? `@${account.user.id} · 어디로 갈까요?` : `@${account.user.id} · 캐릭터는 무지개 정원에 들어갈 때 만들어요`;
   $('#editBtn').hidden = !c;               // 만들기 전에는 고칠 것이 없다
   if (c) wear(c);
   show('menu');
@@ -447,7 +446,6 @@ $('#idForm').onsubmit = async e => {
     account = await renameId(id, pw);
     idSheet.hidden = true;
     openMenu();
-    $('#helloId').textContent = `@${account.user.id} · 아이디를 바꿨어요`;
   } catch (err){ msg.textContent = err.message; }
   finally { btn.disabled = false; }
 };
