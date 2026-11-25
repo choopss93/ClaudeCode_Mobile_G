@@ -480,7 +480,9 @@ function when(t){
 }
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const KIND = { all: '접속자', game: '게임 중', wait: '대기 중' };
-const EV = { in: '들어옴', change: '바뀜', out: '나감' };
+/* 기록 한 줄의 이름 — 로그인 · 대기중 · 게임중(어디) · 로그아웃 (사용자 요청) */
+const evName = r => (r.ev === 'in' ? '로그인' : r.ev === 'out' ? '로그아웃' : r.state === 'game' ? `게임중(${r.place || '?'})` : '대기중');
+const evKind = r => (r.ev === 'in' ? 'in' : r.ev === 'out' ? 'out' : r.state === 'game' ? 'game' : 'wait');
 /* 몇 분 전 — 서버 시각에 견준다 (폰 시계가 틀려도 같게) */
 function ago(t, now){
   const s = Math.max(0, Math.floor((now - t) / 1000));
@@ -544,7 +546,7 @@ function drawMy(){
     T.textContent = '마이페이지';
     Sub.textContent = `@${account.user.id} · 관리 메뉴`;
     B.innerHTML = '<div class="mylist"><button type="button" data-my="online"><span>접속자</span><small>지금 누가 있는지</small> ›</button>'
-      + '<button type="button" data-my="log"><span>접속 기록</span><small>들어옴 · 바뀜 · 나감</small> ›</button></div>';
+      + '<button type="button" data-my="log"><span>접속 기록</span><small>로그인 · 대기중 · 게임중 · 로그아웃</small> ›</button></div>';
     return;
   }
   const src = myView === 'log' ? logs : online;
@@ -563,8 +565,8 @@ function drawMy(){
     T.textContent = `접속 기록 ${logs ? logs.total : '–'}건`;
     Sub.textContent = stamp + (logs && logs.total > rows.length ? ` · 최근 ${rows.length}건` : '');
     drawRows(B, rows, logs ? '기록이 없어요' : '불러오는 중…', r =>
-      `<li><span class="id">${esc(r.id)} <i class="ev ${r.ev}">${EV[r.ev] || ''}</i></span><b class="ago">${ago(r.at, logs.now)}</b>
-         <span class="pl"><i class="st ${r.state}">${KIND[r.state] || ''}</i> · ${esc(r.place || '')}</span><span class="tm">${when(r.at)}</span></li>`);
+      `<li><span class="id">${esc(r.id)}</span><b class="ago">${ago(r.at, logs.now)}</b>
+         <span class="pl"><i class="ev ${evKind(r)}">${esc(evName(r))}</i></span><span class="tm">${when(r.at)}</span></li>`);
     return;
   }
   // 그 사람들 — 아이디 · 몇 분 전 / 상태 · 있는 곳 · 수정일시. 최근에 바뀐 사람이 위
