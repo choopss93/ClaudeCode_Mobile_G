@@ -31,6 +31,8 @@ export function trackPresence(get){
   document.addEventListener('visibilitychange', () => send(document.visibilityState !== 'visible'));
   addEventListener('pagehide', () => send(true));
   return {
+    /** 지금 나간다 — 로그아웃하기 전에 부른다 (표가 지워지면 알릴 수 없다) */
+    bye(){ send(true); last = ''; },
     /** 상태가 바뀌었을 수 있다 — 바뀌었으면 바로 알린다 */
     update(){
       let s = {};

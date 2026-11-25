@@ -11,6 +11,9 @@
  *   cur(k, data)  지금 있는 창 하나 = 한 줄. data = 잠근 {id, tab, state, place, since, seen}
  *   두 표의 열쇠(k)도 아이디를 그대로 쓰지 않고 비밀을 섞은 해시로 둔다 (hk) — 열쇠에 아이디를
  *   그대로 두었다가 저장소에 평문이 남은 것을 한 번 찾아냈다.
+ *   day(k, data)  하루치 셈 (한국 날짜). data = 잠근 {d, join, in, out, del, ids:[해시]} — 마스터의
+ *                 '기간별' (일 · 월 · 년 · 기간설정): 가입 · 로그인 · 활동(그날 있었던 사람 수) · 로그아웃 · 탈퇴.
+ *                 ids 는 아이디를 비밀 섞은 해시로 줄인 것이라 여러 날을 합쳐도 사람을 한 번만 센다.
  *   usr(k, data)  사람 단위로 마지막에 적은 모습과 '창이 다 닫힌 때'. data = 잠근 {id, last, leaving}
  *                 (객체가 잠들었다 깨어나도 로그아웃을 빠뜨리지 않게 — 기억에만 두었다가 한 번 놓쳤다)
  *   log(n, data)  들어옴 · 바뀜 · 나감 기록. n 이 차례(시각도 잠가 두었다). data = 잠근 {id, ev, state, place, at}
@@ -29,6 +32,7 @@ const LOG_MAX = 200000;
 const LEAVE_GRACE = 15 * 1000;    // 창이 모두 닫혀도 이만큼은 페이지를 옮기는 중으로 본다
 
 const enc = new TextEncoder(), dec = new TextDecoder();
+const kstDay = t => new Date(t + 9 * 3600 * 1000).toISOString().slice(0, 10);   // 한국 날짜
 const b64 = u => btoa(String.fromCharCode(...u));
 const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 
@@ -42,6 +46,8 @@ export class Presence extends DurableObject {
       this.sql.exec('CREATE TABLE IF NOT EXISTS cur (k TEXT PRIMARY KEY, data TEXT NOT NULL)');
       this.sql.exec('CREATE TABLE IF NOT EXISTS log (n INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL)');
       this.sql.exec('CREATE TABLE IF NOT EXISTS usr (k TEXT PRIMARY KEY, data TEXT NOT NULL)');
+      this.sql.exec('CREATE TABLE IF NOT EXISTS day (k TEXT PRIMARY KEY, data TEXT NOT NULL)');
+      this.days = new Map();        // 'YYYY-MM-DD' → 하루치 셈 (읽은 것만)
       this.key = await this.makeKey(env.SESSION_SECRET || '');
       for (const row of this.sql.exec('SELECT k, data FROM cur').toArray()){
         const r = await this.open(row.data);
@@ -81,8 +87,28 @@ export class Presence extends DurableObject {
     const tab = k.slice(id.length + 1);
     this.sql.exec('INSERT OR REPLACE INTO cur (k, data) VALUES (?, ?)', await this.hk('c:' + k), await this.seal({ id, tab, state, place, since, seen }));
   }
+  /* 하루치 셈 — 한국 날짜로 묶는다 */
+  async day(d){
+    if (this.days.has(d)) return this.days.get(d);
+    const row = this.sql.exec('SELECT data FROM day WHERE k = ?', await this.hk('d:' + d)).toArray()[0];
+    const v = (row && await this.open(row.data)) || { d, join: 0, in: 0, out: 0, del: 0, ids: [] };
+    this.days.set(d, v);
+    return v;
+  }
+  async bump(at, field, id){
+    const d = kstDay(at);
+    const v = await this.day(d);
+    let changed = false;
+    if (field){ v[field] = (v[field] || 0) + 1; changed = true; }
+    if (id){
+      const h = (await this.hk('a:' + id)).slice(0, 12);
+      if (!v.ids.includes(h)){ v.ids.push(h); changed = true; }
+    }
+    if (changed) this.sql.exec('INSERT OR REPLACE INTO day (k, data) VALUES (?, ?)', await this.hk('d:' + d), await this.seal(v));
+  }
   async addLog(r, ev, at){
     this.sql.exec('INSERT INTO log (data) VALUES (?)', await this.seal({ id: r.id, ev, state: r.state, place: r.place, at }));
+    await this.bump(at, { in: 'in', out: 'out', join: 'join', del: 'del' }[ev] || null, ev === 'del' ? null : r.id);
     if (Math.random() < 0.01) this.sql.exec('DELETE FROM log WHERE n <= (SELECT MAX(n) FROM log) - ?', LOG_MAX);
   }
   async saveUser(id){
@@ -162,10 +188,44 @@ export class Presence extends DurableObject {
         Object.assign(prev, { state: b.state, place: b.place, since: now, seen: now });
         await this.saveCur(k, prev); await this.settle(b.id, now);
       } else {
+        // 날이 바뀌어도 계속 있는 사람을 그날의 '활동' 에 넣는다 (하루 한 번만 적는다)
+        if (kstDay(prev.seen) !== kstDay(now)) await this.bump(now, null, b.id);
         prev.seen = now;
         if (now - prev.saved > SEEN_SAVE) await this.saveCur(k, prev);
       }
       return new Response('ok');
+    }
+
+    /* 가입 · 탈퇴 — api.js 가 알려 준다 */
+    if (url.pathname === '/event' && request.method === 'POST'){
+      const b = await request.json().catch(() => ({}));
+      if (b.ev !== 'join' && b.ev !== 'del') return new Response('bad', { status: 400 });
+      await this.addLog({ id: b.id, state: '', place: '' }, b.ev, now);
+      if (b.ev === 'del'){                       // 지운 계정은 접속자에서도 바로 뺀다 (로그아웃은 따로 적지 않는다)
+        for (const [k, r] of [...this.tabs]) if (r.id === b.id){
+          this.tabs.delete(k);
+          this.sql.exec('DELETE FROM cur WHERE k = ?', await this.hk('c:' + k));
+        }
+        if (this.users.delete(b.id)) await this.saveUser(b.id);
+      }
+      return new Response('ok');
+    }
+
+    /* 기간별 셈 — from · to 는 한국 날짜 (YYYY-MM-DD), 두 끝을 모두 넣는다 */
+    if (url.pathname === '/stats'){
+      const from = url.searchParams.get('from'), to = url.searchParams.get('to');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(to || '') || from > to)
+        return Response.json({ error: '날짜를 확인해 주세요' }, { status: 400 });
+      const sum = { join: 0, in: 0, out: 0, del: 0 }, ids = new Set();
+      let n = 0;
+      for (let t = Date.parse(from + 'T00:00:00Z'); n < 1200; t += 86400000, n++){
+        const d = new Date(t).toISOString().slice(0, 10);
+        if (d > to) break;
+        const v = await this.day(d);
+        for (const f in sum) sum[f] += v[f] || 0;
+        for (const h of v.ids) ids.add(h);
+      }
+      return Response.json({ now, from, to, days: n, ...sum, active: ids.size });
     }
 
     if (url.pathname === '/log'){

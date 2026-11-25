@@ -75,3 +75,16 @@ export async function saveChar(char){
   const d = await call('me', { method: 'PUT', token: a.token, body: { char } });
   return keep({ token: a.token, user: d.user });
 }
+/** 모든 기기에서 로그아웃 — 계정열쇠를 바꿔 어디서 받은 표든 다 무효로 만든다. */
+export async function logoutAll(){
+  const a = readAccount();
+  if (a) await call('logout-all', { token: a.token }).catch(() => {});
+  return keep(null);
+}
+/** 계정 삭제(탈퇴) — 지금 비밀번호를 한 번 더 받는다. 되돌릴 수 없다. */
+export async function deleteAccount(pw){
+  const a = readAccount();
+  if (!a) throw new Error('다시 로그인해 주세요');
+  await call('delete', { token: a.token, body: { pw } });
+  return keep(null);
+}

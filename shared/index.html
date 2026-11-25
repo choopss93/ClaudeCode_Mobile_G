@@ -115,6 +115,41 @@
     background:var(--accent-soft);color:var(--accent);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
   /* 마이페이지 창 */
   .mylist{display:flex;flex-direction:column;gap:8px}
+  .mylist .grp{font-size:11.5px;color:var(--faint);font-weight:700;letter-spacing:.04em;margin:4px 2px -2px}
+  .mylist button.del span{color:#F08A6A}
+  .mygrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .mygrid button{justify-content:center;text-align:center;padding:0 10px}
+  .mygrid button span{flex:none}
+  .mylist button{min-height:50px}
+  .chk{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;cursor:pointer}
+  .chk input{width:20px;height:20px;accent-color:var(--accent);margin:0}
+  .warn{color:#F08A6A}
+  .btn.danger{background:#C9553B;border-color:#C9553B;color:#fff}
+  .btn.danger:disabled{opacity:.45}
+  /* 접속자 — 지금 · 기간별 */
+  .dash{display:flex;flex-direction:column;gap:8px}
+  .dash .tiles button{min-height:72px} .dash .tiles button b{font-size:26px}
+  .seg4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:3px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line)}
+  .seg4 button{all:unset;cursor:pointer;text-align:center;min-height:34px;line-height:34px;border-radius:9px;font-size:13.5px;font-weight:700;color:var(--muted)}
+  .seg4 button[aria-selected="true"]{background:var(--accent);color:#1a1206}
+  .seg4 button:focus-visible{outline:2px solid var(--accent)}
+  .per{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:40px}
+  .per b{font-size:15px;font-variant-numeric:tabular-nums;text-align:center;flex:1}
+  .per .btn{min-height:40px;min-width:44px;padding:0 10px}
+  .per input{font-size:16px;min-height:40px;flex:1;min-width:0;padding:0 6px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);color-scheme:dark}
+  .per span{color:var(--muted)}
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+  .stats div{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:58px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line)}
+  .stats b{font-size:20px;font-variant-numeric:tabular-nums;line-height:1.15}
+  .stats span{font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap}
+  @media (max-height:600px){ .dash .tiles button{min-height:60px} .dash .tiles button b{font-size:22px} .stats div{min-height:50px} }
+  @media (orientation:landscape) and (max-height:520px){
+    .dash{display:grid;grid-template-columns:1fr 1.25fr;grid-template-rows:auto auto 1fr;column-gap:12px;row-gap:6px}
+    .dash .tiles{grid-row:1 / -1;grid-template-columns:1fr;gap:5px}
+    .dash .tiles button{min-height:0;flex-direction:row;gap:10px} .dash .tiles button b{font-size:20px}
+    .seg4 button{min-height:30px;line-height:30px} .per{min-height:36px} .per .btn,.per input{min-height:36px}
+    .stats div{min-height:48px}
+  }
   .mylist button{all:unset;cursor:pointer;display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;border-radius:14px;
     background:var(--surface-2);border:1px solid var(--line);font-weight:700;font-size:15.5px}
   .mylist button span{flex:1} .mylist button small{color:var(--muted);font-weight:500;font-size:12.5px}
@@ -136,7 +171,7 @@
   .onl .st{font-style:normal;font-weight:700} .onl .st.game{color:#6CCB8A} .onl .st.wait{color:#8FB7F0}
   .onl .tm{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
   .onl .ev{font-style:normal;font-size:12px;font-weight:700}
-  .onl .ev.in{color:var(--accent)} .onl .ev.out{color:#F08A6A} .onl .ev.game{color:#6CCB8A} .onl .ev.wait{color:#8FB7F0}
+  .onl .ev.in,.onl .ev.join{color:var(--accent)} .onl .ev.out{color:#F08A6A} .onl .ev.game{color:#6CCB8A} .onl .ev.wait{color:#8FB7F0}
   #myReload{font-size:21px;font-weight:700}
   #myReload.spin{animation:myspin .8s linear infinite}
   @keyframes myspin{to{transform:rotate(360deg)}}
@@ -160,7 +195,7 @@
   .menu .go{color:var(--faint);font-size:18px}
   .crumb{margin:0 0 2px;font-size:11.5px;color:var(--faint);letter-spacing:.02em}
   .crumb b{color:var(--accent);font-weight:700}
-  .links{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:none}
+  .links{display:grid;grid-template-columns:1fr;gap:8px;flex:none}
   .links .btn{min-height:44px}
 
   /* 가로로 눕힌 낮은 화면 — 두 칸으로 나눈다. 왼쪽은 그림 · 제목, 오른쪽은 칸 · 단추.
@@ -315,8 +350,8 @@
   <!-- 4. 메뉴 -->
   <section class="screen" id="menu" hidden>
     <div class="hello"><h2 id="helloName">안녕하세요</h2><p id="helloId"></p>
-      <!-- 마스터 계정만 (사용자 요청) -->
-      <button class="mybtn" id="myBtn" type="button" hidden>마이페이지</button></div>
+      <!-- 누구에게나 — 마스터 계정이면 접속자 · 접속 기록이 더 보인다 (사용자 요청) -->
+      <button class="mybtn" id="myBtn" type="button">마이페이지</button></div>
     <div class="stage" data-stage></div>
     <!-- 갈래 둘 — 누르면 그 갈래의 목록 화면(#cat)이 열린다 (사용자 요청) -->
     <nav class="menu">
@@ -331,11 +366,9 @@
         <span class="go">›</span>
       </a>
     </nav>
+    <!-- 아이디 바꾸기 · 복구 코드 · 로그아웃 · 계정 삭제는 오른쪽 위 '마이페이지' 로 옮겼다 (사용자 요청) -->
     <div class="links">
       <button class="btn" id="editBtn" type="button">캐릭터 꾸미기</button>
-      <button class="btn" id="idBtn" type="button">아이디 바꾸기</button>
-      <button class="btn" id="recNewBtn" type="button">복구 코드</button>
-      <button class="btn ghost" id="logoutBtn" type="button">로그아웃</button>
     </div>
   </section>
 
@@ -356,7 +389,36 @@
     <div class="btns"><button class="btn" type="button" data-close>그만두기</button><button class="btn primary" id="idSave" type="submit">바꾸기</button></div>
   </form>
 </div>
-<!-- 마이페이지 — 마스터 계정만. 목록 → 접속자(접속 · 게임 중 · 대기 중) → 그 사람들 -->
+<!-- 로그아웃 창 -->
+<div class="sheet" id="outSheet" hidden role="dialog" aria-modal="true" aria-labelledby="outSheetT">
+  <div class="card2">
+    <div class="grip"></div>
+    <header><h2 id="outSheetT">로그아웃</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+    <p class="sub2"><b id="outId"></b> 계정에서 로그아웃할까요?</p>
+    <div class="body form">
+      <label class="chk"><input type="checkbox" id="outAll"> 다른 기기에서도 모두 로그아웃</label>
+      <p class="msg" id="outMsg" role="alert"></p>
+    </div>
+    <div class="btns"><button class="btn" type="button" data-close>그만두기</button><button class="btn primary" id="outGo" type="button">로그아웃</button></div>
+  </div>
+</div>
+
+<!-- 계정 삭제 창 — 되돌릴 수 없다 -->
+<div class="sheet" id="delSheet" hidden role="dialog" aria-modal="true" aria-labelledby="delSheetT">
+  <form class="card2" id="delForm" autocomplete="off">
+    <div class="grip"></div>
+    <header><h2 id="delSheetT">계정 삭제</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+    <p class="sub2"><b id="delId"></b> 계정과 캐릭터가 지워지고 <b class="warn">되돌릴 수 없어요.</b> 같은 아이디는 다른 사람이 쓸 수 있게 돼요.</p>
+    <div class="body form">
+      <input class="field" id="delPw" type="password" autocomplete="current-password" maxlength="64" aria-label="지금 비밀번호" placeholder="지금 비밀번호">
+      <label class="chk"><input type="checkbox" id="delOk"> 되돌릴 수 없다는 것을 알아요</label>
+      <p class="msg" id="delMsg" role="alert"></p>
+    </div>
+    <div class="btns"><button class="btn" type="button" data-close>그만두기</button><button class="btn danger" id="delGo" type="submit" disabled>계정 삭제</button></div>
+  </form>
+</div>
+
+<!-- 마이페이지 — 누구에게나. 목록 → 접속자(접속 · 게임 중 · 대기 중) → 그 사람들 -->
 <div class="sheet" id="mySheet" hidden role="dialog" aria-modal="true" aria-labelledby="mySheetT">
   <div class="card2">
     <div class="grip"></div>
@@ -366,6 +428,6 @@
     <div class="btns" id="myBtns"></div>
   </div>
 </div>
-<script type="module" src="js/studio.js?v=s15"></script>
+<script type="module" src="js/studio.js?v=s16"></script>
 </body>
 </html>

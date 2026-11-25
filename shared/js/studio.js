@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s5';
 import { GENDERS, SKIN, PARTS, hex, cleanChar, randomChar } from './character.js?v=c3';
-import { readAccount, refresh, signup, login, logout, saveChar, recover, newRecovery, checkId, renameId } from './account.js?v=s8';
-import { trackPresence } from './presence.js?v=p1';
+import { readAccount, refresh, signup, login, logout, logoutAll, deleteAccount, saveChar, recover, newRecovery, checkId, renameId } from './account.js?v=s9';
+import { trackPresence } from './presence.js?v=p2';
+import { serverNow } from './clock.js?v=k1';
 import { createLogo } from './logo.js?v=l2';
 
 /*
@@ -303,7 +304,6 @@ function openMenu(){
   $('#helloName').textContent = `안녕하세요, ${nameOf(account)} 님`;
   $('#helloId').textContent = c ? `@${account.user.id} · 어디로 갈까요?` : `@${account.user.id} · 캐릭터는 무지개 정원에 들어갈 때 만들어요`;
   $('#editBtn').hidden = !c;               // 만들기 전에는 고칠 것이 없다
-  $('#myBtn').hidden = !isAdmin();         // 마이페이지는 마스터 계정만 (사용자 요청)
   if (c) wear(c);
   show('menu');
 }
@@ -354,11 +354,13 @@ $('#catList').addEventListener('click', e => {
   if (a) toWorld(e);
 });
 $('#catBack').onclick = () => { history.replaceState(null, '', location.pathname); openMenu(); };
-$('#logoutBtn').onclick = () => {
-  logout(); account = null; draft = randomChar();
+/* 로그아웃 · 계정 삭제 뒤 — 첫 화면으로 */
+function signedOut(){
+  pres.bye();                     // 접속 기록 — 바로 로그아웃으로 (안 알리면 100초 넘게 접속 중으로 남는다)
+  account = null; draft = randomChar();
   $('#idIn').value = ''; mode = 'login'; paintMode();
   paintIntro(); show('intro');
-};
+}
 
 /* ─────────── 복구 코드 ───────────
    가입할 때, 비밀번호를 되찾았을 때, 새로 만들었을 때 — 한 번만 보여 준다.
@@ -415,7 +417,7 @@ $('#recForm').onsubmit = async e => {
   finally { btn.disabled = false; }
 };
 
-$('#recNewBtn').onclick = async () => {
+async function newCode(){
   if (!confirm('복구 코드를 새로 만들까요?\n예전 복구 코드는 더 이상 쓸 수 없어요.')) return;
   try { showCode(await newRecovery(), 'new'); }
   catch (err){ alert(err.message); }
@@ -431,8 +433,7 @@ function openIdSheet(){
   $('#newId').value = ''; $('#idPw').value = ''; $('#newIdMatch').textContent = ''; $('#idMsg').textContent = '';
   idSheet.hidden = false; $('#newId').focus();
 }
-const closeIdSheet = () => { idSheet.hidden = true; $('#idBtn').focus(); };
-$('#idBtn').onclick = openIdSheet;
+const closeIdSheet = () => { idSheet.hidden = true; $('#myBtn').focus(); };
 idSheet.addEventListener('click', e => { if (e.target === idSheet || e.target.closest('[data-close]')) closeIdSheet(); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !idSheet.hidden) closeIdSheet(); });
 $('#idForm').onsubmit = async e => {
@@ -464,8 +465,11 @@ if (account && location.hash === '#make'){
 // 다른 기기에서 캐릭터를 바꿨을 수 있으니 서버에서 다시 받아 둔다
 refresh().then(a => { account = a; if (!$('#intro').hidden) paintIntro(); });
 
-/* ─────────── 마이페이지 (마스터 계정만 — 사용자 요청) ───────────
-   목록 → [접속자] → 접속 · 게임 중 · 대기 중 몇 명 → 누르면 그 사람들의 아이디와 수정일시.
+/* ─────────── 마이페이지 (누구에게나 — 사용자 요청) ───────────
+   내 계정: 아이디 변경 · 복구 코드 · 로그아웃 · 계정 삭제 — 하나씩 창(모달)으로 연다.
+   마스터 계정이면 '관리' 가 더 보인다: 
+   [접속자] → 지금 접속 · 게임 중 · 대기 중 몇 명 (누르면 그 사람들) + 기간별(일 · 월 · 년 · 기간설정)
+             가입 · 로그인 · 활동(그 기간에 있었던 사람 수) · 로그아웃 · 탈퇴 수.
         → [접속 기록] → 들어옴 · 바뀜 · 나감을 계속 저장해 둔 것 (서버에 암호화해 둔다, presence.js).
    수정일시 = 그 사람의 상태(게임 중 · 대기 중 · 있는 곳)가 마지막으로 바뀐 때, 한국 시간.
    새로 받는 때 = 그 화면에 들어올 때와 머리의 ↻ 를 누를 때 (사용자 요청).
@@ -473,6 +477,34 @@ refresh().then(a => { account = a; if (!$('#intro').hidden) paintIntro(); });
 function isAdmin(){ return !!(account && ['MASTER'].includes(account.user.id)); }   // 함수로 — 위에서 먼저 불린다
 const mySheet = $('#mySheet');
 let myView = 'menu', myFilter = 'all', myPage = 0, online = null, onlineErr = '', logs = null, myBusy = false;
+/* 기간별 — unit: day · month · year · range. anchor 는 그 단위의 한 날(한국 날짜) */
+const kstDay = t => new Date(t + 9 * 3600 * 1000).toISOString().slice(0, 10);
+let stUnit = 'day', stAnchor = '', stFrom = '', stTo = '', stats = null;
+function stRange(){
+  const [y, m] = stAnchor.split('-').map(Number);
+  if (stUnit === 'day') return [stAnchor, stAnchor];
+  if (stUnit === 'month') return [`${y}-${String(m).padStart(2, '0')}-01`, kstDay(Date.UTC(y, m, 0) - 9 * 3600 * 1000)];
+  if (stUnit === 'year') return [`${y}-01-01`, `${y}-12-31`];
+  return [stFrom, stTo];
+}
+function stLabel(){
+  const [y, m] = stAnchor.split('-');
+  return stUnit === 'day' ? stAnchor : stUnit === 'month' ? `${y}년 ${+m}월` : `${y}년`;
+}
+function stShift(dir){            // ‹ › — 그 단위만큼 옮긴다
+  const [y, m, d] = stAnchor.split('-').map(Number);
+  const t = stUnit === 'day' ? Date.UTC(y, m - 1, d + dir) : stUnit === 'month' ? Date.UTC(y, m - 1 + dir, 1) : Date.UTC(y + dir, 0, 1);
+  stAnchor = new Date(t).toISOString().slice(0, 10);
+  loadStats();
+}
+async function loadStats(){
+  const [a, b] = stRange();
+  if (!a || !b || a > b){ stats = { error: '시작 날이 끝 날보다 앞이어야 해요' }; return drawMy(); }
+  stats = null; drawMy();
+  try { stats = await getJson(`/api/online-stats?from=${a}&to=${b}`); }
+  catch (e){ stats = { error: e.message }; }
+  drawMy();
+}
 const KST = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 function when(t){
   const p = Object.fromEntries(KST.formatToParts(new Date(t)).map(x => [x.type, x.value]));
@@ -481,8 +513,8 @@ function when(t){
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const KIND = { all: '접속자', game: '게임 중', wait: '대기 중' };
 /* 기록 한 줄의 이름 — 로그인 · 대기중 · 게임중(어디) · 로그아웃 (사용자 요청) */
-const evName = r => (r.ev === 'in' ? '로그인' : r.ev === 'out' ? '로그아웃' : r.state === 'game' ? `게임중(${r.place || '?'})` : '대기중');
-const evKind = r => (r.ev === 'in' ? 'in' : r.ev === 'out' ? 'out' : r.state === 'game' ? 'game' : 'wait');
+const evName = r => ({ in: '로그인', out: '로그아웃', join: '가입', del: '탈퇴' }[r.ev] || (r.state === 'game' ? `게임중(${r.place || '?'})` : '대기중'));
+const evKind = r => ({ in: 'in', out: 'out', join: 'join', del: 'out' }[r.ev] || (r.state === 'game' ? 'game' : 'wait'));
 /* 몇 분 전 — 서버 시각에 견준다 (폰 시계가 틀려도 같게) */
 function ago(t, now){
   const s = Math.max(0, Math.floor((now - t) / 1000));
@@ -505,12 +537,13 @@ async function reloadMy(){
   try {
     if (myView === 'log') logs = await getJson('/api/online-log?limit=300');
     else online = await getJson('/api/online');
+    if (myView === 'online') loadStats();
     onlineErr = '';
   } catch (e){ onlineErr = e.message || '서버에 닿지 못했어요'; }
   myBusy = false; drawMy();
 }
 function openMy(){
-  if (!isAdmin()) return;
+  if (!account) return;
   myView = 'menu'; mySheet.hidden = false; drawMy();
 }
 function closeMy(){ mySheet.hidden = true; $('#myBtn').focus(); }
@@ -544,9 +577,15 @@ function drawMy(){
   F.innerHTML = '<button class="btn" type="button" data-close>닫기</button>';
   if (myView === 'menu'){
     T.textContent = '마이페이지';
-    Sub.textContent = `@${account.user.id} · 관리 메뉴`;
-    B.innerHTML = '<div class="mylist"><button type="button" data-my="online"><span>접속자</span><small>지금 누가 있는지</small> ›</button>'
-      + '<button type="button" data-my="log"><span>접속 기록</span><small>로그인 · 대기중 · 게임중 · 로그아웃</small> ›</button></div>';
+    Sub.textContent = `@${account.user.id}`;
+    B.innerHTML = '<div class="mylist">'
+      + (isAdmin() ? '<p class="grp">관리</p><div class="mygrid"><button type="button" data-my="online"><span>접속자</span> ›</button><button type="button" data-my="log"><span>접속 기록</span> ›</button></div>' : '')
+      + '<p class="grp">내 계정</p><div class="mygrid">'
+      + '<button type="button" data-my="idchg"><span>아이디 변경</span></button>'
+      + '<button type="button" data-my="rec"><span>복구 코드</span></button>'
+      + '<button type="button" data-my="out"><span>로그아웃</span></button>'
+      + (isAdmin() ? '' : '<button type="button" class="del" data-my="del"><span>계정 삭제</span></button>')
+      + '</div></div>';
     return;
   }
   const src = myView === 'log' ? logs : online;
@@ -556,8 +595,19 @@ function drawMy(){
     const count = k => (k === 'all' ? list.length : list.filter(r => r.state === k).length);
     T.textContent = '접속자';
     Sub.textContent = stamp + (onlineErr ? '' : ' · 로그인한 사람만');
-    B.innerHTML = '<div class="tiles">' + ['all', 'game', 'wait'].map(k =>
-      `<button type="button" class="${k}" data-my="list" data-f="${k}"><b>${online ? count(k) : '–'}</b><span>${KIND[k]}</span></button>`).join('') + '</div>';
+    const units = { day: '일', month: '월', year: '년', range: '기간' };
+    const [a, b] = stRange();
+    const num = k => (stats && !stats.error ? stats[k] : '–');
+    B.innerHTML = '<div class="dash"><div class="tiles">' + ['all', 'game', 'wait'].map(k =>
+      `<button type="button" class="${k}" data-my="list" data-f="${k}"><b>${online ? count(k) : '–'}</b><span>${k === 'all' ? '지금 접속자' : KIND[k]}</span></button>`).join('') + '</div>'
+      + '<div class="seg4" role="tablist" aria-label="기간 단위">' + Object.entries(units).map(([u, t]) =>
+        `<button type="button" role="tab" data-my="unit" data-u="${u}" aria-selected="${stUnit === u}">${t}</button>`).join('') + '</div>'
+      + (stUnit === 'range'
+        ? `<div class="per"><input type="date" id="stFrom" value="${a}" aria-label="시작 날"><span>~</span><input type="date" id="stTo" value="${b}" aria-label="끝 날"></div>`
+        : `<div class="per"><button class="btn" type="button" data-my="sprev" aria-label="앞으로">‹</button><b>${stLabel()}</b><button class="btn" type="button" data-my="snext" aria-label="뒤로">›</button></div>`)
+      + '<div class="stats">' + [['join', '가입'], ['in', '로그인'], ['active', '활동'], ['out', '로그아웃'], ['del', '탈퇴']].map(([k, t]) =>
+        `<div><b>${num(k)}</b><span>${t}</span></div>`).join('') + '</div>'
+      + (stats && stats.error ? `<p class="msg">${esc(stats.error)}</p>` : '') + '</div>';
     return;
   }
   if (myView === 'log'){
@@ -587,13 +637,59 @@ mySheet.addEventListener('click', e => {
   const b = e.target.closest('[data-my]');
   if (!b) return;
   const a = b.dataset.my;
-  if (a === 'online' || a === 'log') goMy(a);
+  if (a === 'online' || a === 'log'){
+    if (a === 'online' && !stAnchor){ stAnchor = kstDay(serverNow()); stFrom = stTo = stAnchor; }
+    goMy(a);
+  }
+  else if (a === 'unit'){ stUnit = b.dataset.u; loadStats(); }
+  else if (a === 'sprev') stShift(-1);
+  else if (a === 'snext') stShift(1);
+  else if (a === 'idchg'){ closeMy(); openIdSheet(); }
+  else if (a === 'rec'){ closeMy(); newCode(); }
+  else if (a === 'out'){ closeMy(); openOut(); }
+  else if (a === 'del'){ closeMy(); openDel(); }
   else if (a === 'list') goMy('list', b.dataset.f);
   else if (a === 'prev'){ myPage--; drawMy(); }
   else if (a === 'next'){ myPage++; drawMy(); }
 });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !mySheet.hidden) closeMy(); });
 addEventListener('resize', () => { if (!mySheet.hidden) drawMy(); });   // 몇 줄 들어가는지 다시 잰다
+// 기간설정 — 날짜를 고르면 바로 다시 센다
+mySheet.addEventListener('change', e => {
+  if (e.target.id === 'stFrom') stFrom = e.target.value;
+  else if (e.target.id === 'stTo') stTo = e.target.value;
+  else return;
+  loadStats();
+});
+
+/* 로그아웃 창 — 이 기기만, 또는 다른 기기까지 모두 */
+const outSheet = $('#outSheet');
+function openOut(){ $('#outId').textContent = account.user.id; $('#outAll').checked = false; $('#outMsg').textContent = ''; outSheet.hidden = false; }
+outSheet.addEventListener('click', e => { if (e.target === outSheet || e.target.closest('[data-close]')) outSheet.hidden = true; });
+$('#outGo').onclick = async () => {
+  $('#outGo').disabled = true;
+  pres.bye();                     // 표가 지워지기 전에 알린다
+  if ($('#outAll').checked) await logoutAll(); else logout();
+  $('#outGo').disabled = false; outSheet.hidden = true;
+  signedOut();
+};
+
+/* 계정 삭제 창 — 비밀번호 + '되돌릴 수 없다' 확인. 마스터 계정은 지우지 못한다 (서버도 막는다) */
+const delSheet = $('#delSheet');
+function openDel(){
+  $('#delId').textContent = account.user.id; $('#delPw').value = ''; $('#delOk').checked = false;
+  $('#delGo').disabled = true; $('#delMsg').textContent = ''; delSheet.hidden = false; $('#delPw').focus();
+}
+delSheet.addEventListener('click', e => { if (e.target === delSheet || e.target.closest('[data-close]')) delSheet.hidden = true; });
+const delReady = () => { $('#delGo').disabled = !($('#delOk').checked && $('#delPw').value.length >= 6); };
+$('#delOk').onchange = delReady; $('#delPw').oninput = delReady;
+$('#delForm').onsubmit = async e => {
+  e.preventDefault();
+  const btn = $('#delGo'); btn.disabled = true;
+  try { await deleteAccount($('#delPw').value); delSheet.hidden = true; signedOut(); }
+  catch (err){ $('#delMsg').textContent = err.message; delReady(); }
+};
+addEventListener('keydown', e => { if (e.key === 'Escape'){ outSheet.hidden = true; delSheet.hidden = true; } });
 
 /* 접속 알림 — Studio 에 있는 동안은 대기 중 */
-trackPresence(() => ({ state: 'wait', place: 'Studio' }));
+var pres = trackPresence(() => ({ state: 'wait', place: 'Studio' }));

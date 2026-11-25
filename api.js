@@ -164,6 +164,11 @@ const publicUser = u => ({ id: u.id, char: u.char || null });   // 열쇠 · 해
 /* 마이페이지(접속자)를 볼 수 있는 계정 */
 const ADMINS = ['MASTER'];
 const presence = env => env.PRESENCE.get(env.PRESENCE.idFromName('all'));
+/* 가입 · 탈퇴를 접속자 기록에 알린다 — 실패해도 계정 일은 그대로 마친다 */
+async function tell(env, id, ev){
+  if (!env.PRESENCE) return;
+  try { await presence(env).fetch('https://presence/event', { method: 'POST', body: JSON.stringify({ id, ev }) }); } catch (_){}
+}
 
 async function body(request){
   try { return await request.json(); } catch (_){ return {}; }
@@ -202,6 +207,7 @@ export async function handleApi(request, env){
                    key: newKey(), char, created: Date.now() };
     const recovery = await setRecovery(user);
     await saveUser(env, user);
+    await tell(env, id, 'join');            // 마스터의 기간별 '가입 수'
     // 복구 코드는 이때 한 번만 내보낸다 — 서버에는 해시만 남는다
     return json({ token: await makeToken(env, user), user: publicUser(user), recovery }, 201);
   }
@@ -253,16 +259,35 @@ export async function handleApi(request, env){
     await presence(env).fetch('https://presence/ping', { method: 'POST', body: JSON.stringify(rec) });
     return json({ ok: true });
   }
-  if ((path === '/api/online' || path === '/api/online-log') && method === 'GET'){
+  if ((path === '/api/online' || path === '/api/online-log' || path === '/api/online-stats') && method === 'GET'){
     const user = await readToken(env, request.headers.get('X-Session'));
     if (!user) return fail('다시 로그인해 주세요', 401);
     if (!ADMINS.includes(user.id)) return fail('볼 수 없어요', 403);
     if (!env.PRESENCE) return fail('접속자 서버가 아직 준비되지 않았어요', 503);
+    if (path === '/api/online-stats'){
+      const q = new URL(request.url).searchParams;
+      return presence(env).fetch(`https://presence/stats?from=${encodeURIComponent(q.get('from') || '')}&to=${encodeURIComponent(q.get('to') || '')}`);
+    }
     if (path === '/api/online-log'){
       const q = new URL(request.url).searchParams;
       return presence(env).fetch(`https://presence/log?limit=${+q.get('limit') || 200}&before=${+q.get('before') || ''}`);
     }
     return presence(env).fetch('https://presence/list');
+  }
+
+  /* 계정 삭제(탈퇴) — 지금 비밀번호를 한 번 더 받는다. 되돌릴 수 없다. 마스터 계정은 지우지 못한다. */
+  if (path === '/api/delete' && method === 'POST'){
+    const user = await readToken(env, request.headers.get('X-Session'));
+    if (!user) return fail('다시 로그인해 주세요', 401);
+    if (tooMany(ip) || tooMany('del:' + user.id, 10)) return fail('잠시 뒤에 다시 해 주세요', 429);
+    if (ADMINS.includes(user.id)) return fail('마스터 계정은 삭제할 수 없어요', 403);
+    const b = await body(request);
+    if (!sameBytes(fromB64u(user.hash), await hashPw(String(b.pw || ''), fromB64u(user.salt), user.iter || ITER)))
+      return fail('비밀번호가 맞지 않아요', 401);
+    await env.ACCOUNTS.delete('user:' + user.id);
+    await env.ACCOUNTS.delete('user:' + user.id.toLowerCase());   // 대문자로 옮기기 전 자리가 남았을 수 있다
+    await tell(env, user.id, 'del');         // 마스터의 기간별 '탈퇴 수'
+    return json({ ok: true });
   }
 
   if (path === '/api/me' || path === '/api/logout-all' || path === '/api/recovery-new' || path === '/api/rename'){

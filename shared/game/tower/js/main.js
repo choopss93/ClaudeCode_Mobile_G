@@ -3,7 +3,7 @@ import { SETS, GAMES, MAX_GAMES, gamesOf, LIMIT, CARDS, CHIPS, ZONES, ZONE_NAME,
 import { joinRoom, makeId } from '../../poker/js/room.js?v=12';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
-import { trackPresence } from '../../../js/presence.js?v=p1';
+import { trackPresence } from '../../../js/presence.js?v=p2';
 import { serverNow } from '../../../js/clock.js?v=k1';
 import { isBot, botName, withBots } from '../../../js/bots.js?v=b1';
 
