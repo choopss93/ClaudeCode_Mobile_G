@@ -466,12 +466,13 @@ refresh().then(a => { account = a; if (!$('#intro').hidden) paintIntro(); });
 
 /* ─────────── 마이페이지 (마스터 계정만 — 사용자 요청) ───────────
    목록 → [접속자] → 접속 · 게임 중 · 대기 중 몇 명 → 누르면 그 사람들의 아이디와 수정일시.
+        → [접속 기록] → 들어옴 · 바뀜 · 나감을 계속 저장해 둔 것 (서버에 암호화해 둔다, presence.js).
    수정일시 = 그 사람의 상태(게임 중 · 대기 중 · 있는 곳)가 마지막으로 바뀐 때, 한국 시간.
+   새로 받는 때 = 그 화면에 들어올 때와 머리의 ↻ 를 누를 때 (사용자 요청).
    서버도 마스터가 아니면 목록을 주지 않는다 (api.js 의 ADMINS). */
 function isAdmin(){ return !!(account && ['MASTER'].includes(account.user.id)); }   // 함수로 — 위에서 먼저 불린다
 const mySheet = $('#mySheet');
-const PAGE = 6;
-let myView = 'menu', myFilter = 'all', myPage = 0, online = null, onlineErr = '', myTimer = 0;
+let myView = 'menu', myFilter = 'all', myPage = 0, online = null, onlineErr = '', logs = null, myBusy = false;
 const KST = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 function when(t){
   const p = Object.fromEntries(KST.formatToParts(new Date(t)).map(x => [x.type, x.value]));
@@ -479,6 +480,7 @@ function when(t){
 }
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const KIND = { all: '접속자', game: '게임 중', wait: '대기 중' };
+const EV = { in: '들어옴', change: '바뀜', out: '나감' };
 /* 몇 분 전 — 서버 시각에 견준다 (폰 시계가 틀려도 같게) */
 function ago(t, now){
   const s = Math.max(0, Math.floor((now - t) / 1000));
@@ -488,81 +490,103 @@ function ago(t, now){
   return `${Math.floor(s / 86400)}일 전`;
 }
 
-async function loadOnline(){
+async function getJson(path){
+  const r = await fetch(path, { headers: { 'X-Session': account.token } });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || '불러오지 못했어요');
+  return d;
+}
+/* 지금 화면에 맞는 것을 새로 받는다 — 들어올 때 · ↻ 를 누를 때 */
+async function reloadMy(){
+  if (myView === 'menu') return;
+  myBusy = true; drawMy();
   try {
-    const r = await fetch('/api/online', { headers: { 'X-Session': account.token } });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(d.error || '불러오지 못했어요');
-    online = d; onlineErr = '';
+    if (myView === 'log') logs = await getJson('/api/online-log?limit=300');
+    else online = await getJson('/api/online');
+    onlineErr = '';
   } catch (e){ onlineErr = e.message || '서버에 닿지 못했어요'; }
-  drawMy();
+  myBusy = false; drawMy();
 }
 function openMy(){
   if (!isAdmin()) return;
   myView = 'menu'; mySheet.hidden = false; drawMy();
 }
-function closeMy(){ mySheet.hidden = true; clearInterval(myTimer); myTimer = 0; $('#myBtn').focus(); }
+function closeMy(){ mySheet.hidden = true; $('#myBtn').focus(); }
 function goMy(view, filter){
   myView = view; if (filter) myFilter = filter; myPage = 0;
-  if (view !== 'menu' && !myTimer){ loadOnline(); myTimer = setInterval(loadOnline, 10000); }
-  if (view === 'menu'){ clearInterval(myTimer); myTimer = 0; }
   drawMy();
+  reloadMy();        // 들어올 때마다 새로 받는다
 }
-function drawMy(){
-  const T = $('#mySheetT'), Sub = $('#mySub'), B = $('#myBody'), F = $('#myBtns');
-  $('#myBack').hidden = myView === 'menu';
-  const list = online ? online.list : [];
-  const count = k => (k === 'all' ? list.length : list.filter(r => r.state === k).length);
-  if (myView === 'menu'){
-    T.textContent = '마이페이지';
-    Sub.textContent = `@${account.user.id} · 관리 메뉴`;
-    B.innerHTML = '<div class="mylist"><button type="button" data-my="online"><span>접속자</span><small>지금 누가 있는지</small> ›</button></div>';
-    F.innerHTML = '<button class="btn" type="button" data-close>닫기</button>';
-    return;
-  }
-  const stamp = online ? `${when(online.now)} 기준 · 10초마다 새로` : '불러오는 중…';
-  if (myView === 'online'){
-    T.textContent = '접속자';
-    Sub.textContent = onlineErr || stamp + ' · 로그인한 사람만 세요';
-    B.innerHTML = '<div class="tiles">' + ['all', 'game', 'wait'].map(k =>
-      `<button type="button" class="${k}" data-my="list" data-f="${k}"><b>${online ? count(k) : '–'}</b><span>${k === 'all' ? '접속자' : KIND[k]}</span></button>`).join('') + '</div>';
-    F.innerHTML = '<button class="btn" type="button" data-my="reload">새로고침</button><button class="btn" type="button" data-close>닫기</button>';
-    return;
-  }
-  // 그 사람들 — 아이디 · 몇 분 전 / 상태 · 있는 곳 · 수정일시
-  // 순서대로 아래에서부터 쌓는다 (사용자 요청) — 먼저 바뀐 사람이 맨 아래, 최근일수록 위
-  const rows = (myFilter === 'all' ? list : list.filter(r => r.state === myFilter)).slice().sort((a, b) => a.since - b.since);
-  T.textContent = `${KIND[myFilter]} ${online ? rows.length : '–'}명`;
-  Sub.textContent = onlineErr || stamp;
-  F.innerHTML = '<button class="btn" type="button" data-my="reload">새로고침</button><button class="btn" type="button" data-close>닫기</button>';
-  // 한 장에 몇 줄 — 창 안에 다 들어갈 만큼만 (넘겨 보지 않는다). 큰 데서 줄여 간다
+/* 한 장에 몇 줄 — 창 안에 다 들어갈 만큼만 (넘겨 보지 않는다). 큰 데서 줄여 간다.
+   rows 는 위에서 아래로 그릴 차례 — 최근 것이 위, 먼저 것이 아래 (아래에서부터 쌓인다) */
+function drawRows(B, rows, empty, row){
   const wide = matchMedia('(orientation:landscape) and (max-height:520px)').matches;
-  for (let per = wide ? 8 : 8; per >= (wide ? 2 : 2); per -= wide ? 2 : 1){
+  for (let per = 8; per >= 2; per -= wide ? 2 : 1){
     const pages = Math.max(1, Math.ceil(rows.length / per));
     const pg = Math.min(myPage, pages - 1);
     const slots = wide ? Math.ceil(per / 2) : per;
-    B.innerHTML = `<ul class="onl" style="min-height:${slots * ROW - 5}px">` + (rows.length ? rows.slice(pg * per, pg * per + per).reverse().map(r =>
-      `<li><span class="id">${esc(r.id)}</span><b class="ago">${ago(r.since, online.now)}</b>
-         <span class="pl"><i class="st ${r.state}">${KIND[r.state]}</i> · ${esc(r.place || '')}</span><span class="tm">수정 ${when(r.since)}</span></li>`).join('')
-      : `<li class="none">${online ? '아무도 없어요' : '불러오는 중…'}</li>`) + '</ul>'
-      + (pages > 1 ? `<div class="pager"><button class="btn" type="button" data-my="prev" ${pg ? '' : 'disabled'}>‹</button>${pg + 1} / ${pages}<button class="btn" type="button" data-my="next" ${pg < pages - 1 ? '' : 'disabled'}>›</button></div>` : '');
+    B.innerHTML = `<ul class="onl" style="min-height:${slots * ROW - 5}px">` + (rows.length ? rows.slice(pg * per, pg * per + per).map(row).join('')
+      : `<li class="none">${empty}</li>`) + '</ul>'
+      + (pages > 1 ? `<div class="pager"><button class="btn" type="button" data-my="prev" ${pg ? '' : 'disabled'}>‹ 최근</button>${pg + 1} / ${pages}<button class="btn" type="button" data-my="next" ${pg < pages - 1 ? '' : 'disabled'}>이전 ›</button></div>` : '');
     myShown = pg;
     if (B.scrollHeight <= B.clientHeight + 1) break;
   }
   myPage = myShown;
 }
+function drawMy(){
+  const T = $('#mySheetT'), Sub = $('#mySub'), B = $('#myBody'), F = $('#myBtns');
+  $('#myBack').hidden = myView === 'menu';
+  const rl = $('#myReload');
+  rl.hidden = myView === 'menu';
+  rl.classList.toggle('spin', myBusy);
+  F.innerHTML = '<button class="btn" type="button" data-close>닫기</button>';
+  if (myView === 'menu'){
+    T.textContent = '마이페이지';
+    Sub.textContent = `@${account.user.id} · 관리 메뉴`;
+    B.innerHTML = '<div class="mylist"><button type="button" data-my="online"><span>접속자</span><small>지금 누가 있는지</small> ›</button>'
+      + '<button type="button" data-my="log"><span>접속 기록</span><small>들어옴 · 바뀜 · 나감</small> ›</button></div>';
+    return;
+  }
+  const src = myView === 'log' ? logs : online;
+  const stamp = onlineErr || (myBusy ? '새로 받는 중…' : src ? `${when(src.now)} 기준 · ↻ 로 새로고침` : '불러오는 중…');
+  const list = online ? online.list : [];
+  if (myView === 'online'){
+    const count = k => (k === 'all' ? list.length : list.filter(r => r.state === k).length);
+    T.textContent = '접속자';
+    Sub.textContent = stamp + (onlineErr ? '' : ' · 로그인한 사람만');
+    B.innerHTML = '<div class="tiles">' + ['all', 'game', 'wait'].map(k =>
+      `<button type="button" class="${k}" data-my="list" data-f="${k}"><b>${online ? count(k) : '–'}</b><span>${KIND[k]}</span></button>`).join('') + '</div>';
+    return;
+  }
+  if (myView === 'log'){
+    const rows = logs ? logs.list : [];      // 서버가 최근 것부터 준다
+    T.textContent = `접속 기록 ${logs ? logs.total : '–'}건`;
+    Sub.textContent = stamp + (logs && logs.total > rows.length ? ` · 최근 ${rows.length}건` : '');
+    drawRows(B, rows, logs ? '기록이 없어요' : '불러오는 중…', r =>
+      `<li><span class="id">${esc(r.id)} <i class="ev ${r.ev}">${EV[r.ev] || ''}</i></span><b class="ago">${ago(r.at, logs.now)}</b>
+         <span class="pl"><i class="st ${r.state}">${KIND[r.state] || ''}</i> · ${esc(r.place || '')}</span><span class="tm">${when(r.at)}</span></li>`);
+    return;
+  }
+  // 그 사람들 — 아이디 · 몇 분 전 / 상태 · 있는 곳 · 수정일시. 최근에 바뀐 사람이 위
+  const rows = (myFilter === 'all' ? list : list.filter(r => r.state === myFilter)).slice().sort((a, b) => b.since - a.since);
+  T.textContent = `${KIND[myFilter]} ${online ? rows.length : '–'}명`;
+  Sub.textContent = stamp;
+  drawRows(B, rows, online ? '아무도 없어요' : '불러오는 중…', r =>
+    `<li><span class="id">${esc(r.id)}</span><b class="ago">${ago(r.since, online.now)}</b>
+       <span class="pl"><i class="st ${r.state}">${KIND[r.state]}</i> · ${esc(r.place || '')}</span><span class="tm">수정 ${when(r.since)}</span></li>`);
+}
 let myShown = 0;
 const ROW = 50;   // 한 줄 45px + 사이 5px (index.html 의 .onl li)
 $('#myBtn').onclick = openMy;
 $('#myBack').onclick = () => goMy(myView === 'list' ? 'online' : 'menu');
+$('#myReload').onclick = () => { if (!myBusy) reloadMy(); };
 mySheet.addEventListener('click', e => {
   if (e.target === mySheet || e.target.closest('[data-close]')) return closeMy();
   const b = e.target.closest('[data-my]');
   if (!b) return;
   const a = b.dataset.my;
-  if (a === 'online') goMy('online');
+  if (a === 'online' || a === 'log') goMy(a);
   else if (a === 'list') goMy('list', b.dataset.f);
-  else if (a === 'reload') loadOnline();
   else if (a === 'prev'){ myPage--; drawMy(); }
   else if (a === 'next'){ myPage++; drawMy(); }
 });

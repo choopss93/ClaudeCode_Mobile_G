@@ -135,6 +135,12 @@
   .onl .pl{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .onl .st{font-style:normal;font-weight:700} .onl .st.game{color:#6CCB8A} .onl .st.wait{color:#8FB7F0}
   .onl .tm{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+  .onl .ev{font-style:normal;font-size:11.5px;font-weight:700;margin-left:4px;padding:1px 6px;border-radius:6px;background:var(--surface)}
+  .onl .ev.in{color:#6CCB8A} .onl .ev.out{color:#F08A6A} .onl .ev.change{color:#8FB7F0}
+  #myReload{font-size:21px;font-weight:700}
+  #myReload.spin{animation:myspin .8s linear infinite}
+  @keyframes myspin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){ #myReload.spin{animation:none;opacity:.5} }
   .onl .none{display:flex;align-items:center;justify-content:center;color:var(--muted);background:none;border-style:dashed}
   .pager{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px;font-size:12.5px;color:var(--muted)}
   .pager button{min-height:36px;min-width:44px}
@@ -354,12 +360,12 @@
 <div class="sheet" id="mySheet" hidden role="dialog" aria-modal="true" aria-labelledby="mySheetT">
   <div class="card2">
     <div class="grip"></div>
-    <header><button class="x" type="button" id="myBack" aria-label="뒤로" hidden>‹</button><h2 id="mySheetT">마이페이지</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+    <header><button class="x" type="button" id="myBack" aria-label="뒤로" hidden>‹</button><h2 id="mySheetT">마이페이지</h2><button class="x" type="button" id="myReload" aria-label="새로고침" hidden>↻</button><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
     <p class="sub2" id="mySub"></p>
     <div class="body" id="myBody"></div>
     <div class="btns" id="myBtns"></div>
   </div>
 </div>
-<script type="module" src="js/studio.js?v=s13"></script>
+<script type="module" src="js/studio.js?v=s14"></script>
 </body>
 </html>

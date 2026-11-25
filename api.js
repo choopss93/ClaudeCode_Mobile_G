@@ -253,11 +253,15 @@ export async function handleApi(request, env){
     await presence(env).fetch('https://presence/ping', { method: 'POST', body: JSON.stringify(rec) });
     return json({ ok: true });
   }
-  if (path === '/api/online' && method === 'GET'){
+  if ((path === '/api/online' || path === '/api/online-log') && method === 'GET'){
     const user = await readToken(env, request.headers.get('X-Session'));
     if (!user) return fail('다시 로그인해 주세요', 401);
     if (!ADMINS.includes(user.id)) return fail('볼 수 없어요', 403);
     if (!env.PRESENCE) return fail('접속자 서버가 아직 준비되지 않았어요', 503);
+    if (path === '/api/online-log'){
+      const q = new URL(request.url).searchParams;
+      return presence(env).fetch(`https://presence/log?limit=${+q.get('limit') || 200}&before=${+q.get('before') || ''}`);
+    }
     return presence(env).fetch('https://presence/list');
   }
 
