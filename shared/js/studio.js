@@ -693,3 +693,23 @@ addEventListener('keydown', e => { if (e.key === 'Escape'){ outSheet.hidden = tr
 
 /* 접속 알림 — Studio 에 있는 동안은 대기 중 */
 var pres = trackPresence(() => ({ state: 'wait', place: 'Studio' }));
+
+/* ─────────── 새 판 알아채기 ───────────
+   폰(특히 앱 안 브라우저 · 뒤로 가기로 돌아온 화면)은 예전 페이지를 그대로 꺼내 보여 줄 때가 있다.
+   한동안 바꾼 것이 '안 바뀌었다' 는 말을 여러 번 들었다. 화면이 다시 보일 때마다 첫 페이지를
+   캐시 없이 받아 studio.js 의 판(?v=)을 견주고, 다르면 다시 불러온다.
+   무언가 적고 있는 화면(가입 · 꾸미기 · 창)에서는 미뤘다가 다음에 한다. 30초 안에 두 번은 안 한다. */
+const MY_VER = new URL(import.meta.url).searchParams.get('v');
+async function checkNew(){
+  try {
+    const t = await (await fetch(location.pathname, { cache: 'no-store' })).text();
+    const v = (t.match(/studio\.js\?v=([\w-]+)/) || [])[1];
+    if (!v || v === MY_VER) return;
+    const calm = ['intro', 'menu', 'cat'].some(n => !$('#' + n).hidden) && [...document.querySelectorAll('.sheet')].every(s => s.hidden);
+    const last = +sessionStorage.getItem('studioReload') || 0;
+    if (calm && Date.now() - last > 30000){ sessionStorage.setItem('studioReload', Date.now()); location.reload(); }
+  } catch (_){}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkNew(); });
+addEventListener('pageshow', e => { if (e.persisted) checkNew(); });
+setTimeout(checkNew, 1500);

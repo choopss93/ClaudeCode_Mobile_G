@@ -312,6 +312,10 @@
     객체가 쉬었다 깨어나면 `cur` 를 풀어 다시 채운다.
   - `.assetsignore` 에는 **`/presence.js`** 처럼 앞에 `/` 를 붙일 것. 그냥 `presence.js` 라고 적었다가
     `shared/js/presence.js` 까지 빠져서 게임 화면이 통째로 안 떴다.
+- **새 판 알아채기** (`studio.js` 끝의 `checkNew`). 폰(앱 안 브라우저 · 뒤로 가기로 돌아온 화면)이
+  예전 페이지를 그대로 꺼내 보여 '고친 게 안 보인다' 를 여러 번 들었다. 화면이 다시 보일 때 첫 페이지를
+  캐시 없이 받아 `studio.js?v=` 를 견주고 다르면 다시 불러온다 — 그래서 **Studio 를 고치면 그 판 번호를
+  꼭 올릴 것.** 적는 중인 화면이나 창이 열려 있으면 미루고, 30초 안에 두 번은 안 한다.
 - `shared/game/` (옛 게임 목록)은 Studio 로 넘겨 준다. 게임의 '뒤로' 도 Studio.
 - 검사: `wrangler dev` 에 `.dev.vars`(SITE_PASSWORD · SESSION_SECRET)를 두고
   띄우면 KV 도 흉내 낸다. 가입 → 꾸미기 → 메뉴 → 게임까지 브라우저로 눌러 본다.
