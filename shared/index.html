@@ -126,18 +126,20 @@
   .tiles button span{font-size:12.5px;color:var(--muted);font-weight:600}
   .tiles button.all b{color:var(--accent)} .tiles button.game b{color:#6CCB8A} .tiles button.wait b{color:#8FB7F0}
   .tiles button:focus-visible{outline:2px solid var(--accent)}
-  .onl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
-  .onl li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:7px 12px;border-radius:10px;
-    background:var(--surface-2);border:1px solid var(--line)}
-  .onl .id{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .onl .st{font-size:12px;font-weight:700;white-space:nowrap} .onl .st.game{color:#6CCB8A} .onl .st.wait{color:#8FB7F0}
-  .onl .pl{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .onl .tm{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-  .onl .none{display:block;text-align:center;color:var(--muted);background:none;border-style:dashed}
+  .onl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;justify-content:flex-end;gap:5px}
+  /* 한 줄 45px 로 못 박는다 — 몇 줄이 들어가는지 studio.js 가 이 값(ROW)으로 잰다 */
+  .onl li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 10px;align-items:center;height:45px;box-sizing:border-box;
+    padding:4px 12px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);flex:none}
+  .onl .id{font-weight:700;font-size:14px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .onl .ago{font-size:12.5px;color:var(--accent);white-space:nowrap;text-align:right}
+  .onl .pl{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .onl .st{font-style:normal;font-weight:700} .onl .st.game{color:#6CCB8A} .onl .st.wait{color:#8FB7F0}
+  .onl .tm{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+  .onl .none{display:flex;align-items:center;justify-content:center;color:var(--muted);background:none;border-style:dashed}
   .pager{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px;font-size:12.5px;color:var(--muted)}
   .pager button{min-height:36px;min-width:44px}
   @media (orientation:landscape) and (max-height:520px){
-    .onl{display:grid;grid-template-columns:1fr 1fr;gap:4px} .onl li{padding:4px 10px}
+    .onl{display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:end}
     .tiles button{min-height:70px} .tiles button b{font-size:24px}
   }
   .menu{display:flex;flex-direction:column;gap:10px;flex:none}
@@ -358,6 +360,6 @@
     <div class="btns" id="myBtns"></div>
   </div>
 </div>
-<script type="module" src="js/studio.js?v=s12"></script>
+<script type="module" src="js/studio.js?v=s13"></script>
 </body>
 </html>

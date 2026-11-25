@@ -479,6 +479,14 @@ function when(t){
 }
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const KIND = { all: '접속자', game: '게임 중', wait: '대기 중' };
+/* 몇 분 전 — 서버 시각에 견준다 (폰 시계가 틀려도 같게) */
+function ago(t, now){
+  const s = Math.max(0, Math.floor((now - t) / 1000));
+  if (s < 60) return '방금';
+  if (s < 3600) return `${Math.floor(s / 60)}분 전`;
+  if (s < 86400) return `${Math.floor(s / 3600)}시간 전`;
+  return `${Math.floor(s / 86400)}일 전`;
+}
 
 async function loadOnline(){
   try {
@@ -521,19 +529,30 @@ function drawMy(){
     F.innerHTML = '<button class="btn" type="button" data-my="reload">새로고침</button><button class="btn" type="button" data-close>닫기</button>';
     return;
   }
-  // 그 사람들 — 아이디 · 상태 · 있는 곳 · 수정일시
-  const rows = myFilter === 'all' ? list : list.filter(r => r.state === myFilter);
-  const pages = Math.max(1, Math.ceil(rows.length / PAGE));
-  myPage = Math.min(myPage, pages - 1);
+  // 그 사람들 — 아이디 · 몇 분 전 / 상태 · 있는 곳 · 수정일시
+  // 순서대로 아래에서부터 쌓는다 (사용자 요청) — 먼저 바뀐 사람이 맨 아래, 최근일수록 위
+  const rows = (myFilter === 'all' ? list : list.filter(r => r.state === myFilter)).slice().sort((a, b) => a.since - b.since);
   T.textContent = `${KIND[myFilter]} ${online ? rows.length : '–'}명`;
   Sub.textContent = onlineErr || stamp;
-  B.innerHTML = '<ul class="onl">' + (rows.length ? rows.slice(myPage * PAGE, myPage * PAGE + PAGE).map(r =>
-    `<li><span class="id">${esc(r.id)}</span><span class="st ${r.state}">${KIND[r.state]}</span>
-       <span class="pl">${esc(r.place || '')}</span><span class="tm">수정 ${when(r.since)}</span></li>`).join('')
-    : `<li class="none">${online ? '아무도 없어요' : '불러오는 중…'}</li>`) + '</ul>'
-    + (pages > 1 ? `<div class="pager"><button class="btn" type="button" data-my="prev" ${myPage ? '' : 'disabled'}>‹</button>${myPage + 1} / ${pages}<button class="btn" type="button" data-my="next" ${myPage < pages - 1 ? '' : 'disabled'}>›</button></div>` : '');
   F.innerHTML = '<button class="btn" type="button" data-my="reload">새로고침</button><button class="btn" type="button" data-close>닫기</button>';
+  // 한 장에 몇 줄 — 창 안에 다 들어갈 만큼만 (넘겨 보지 않는다). 큰 데서 줄여 간다
+  const wide = matchMedia('(orientation:landscape) and (max-height:520px)').matches;
+  for (let per = wide ? 8 : 8; per >= (wide ? 2 : 2); per -= wide ? 2 : 1){
+    const pages = Math.max(1, Math.ceil(rows.length / per));
+    const pg = Math.min(myPage, pages - 1);
+    const slots = wide ? Math.ceil(per / 2) : per;
+    B.innerHTML = `<ul class="onl" style="min-height:${slots * ROW - 5}px">` + (rows.length ? rows.slice(pg * per, pg * per + per).reverse().map(r =>
+      `<li><span class="id">${esc(r.id)}</span><b class="ago">${ago(r.since, online.now)}</b>
+         <span class="pl"><i class="st ${r.state}">${KIND[r.state]}</i> · ${esc(r.place || '')}</span><span class="tm">수정 ${when(r.since)}</span></li>`).join('')
+      : `<li class="none">${online ? '아무도 없어요' : '불러오는 중…'}</li>`) + '</ul>'
+      + (pages > 1 ? `<div class="pager"><button class="btn" type="button" data-my="prev" ${pg ? '' : 'disabled'}>‹</button>${pg + 1} / ${pages}<button class="btn" type="button" data-my="next" ${pg < pages - 1 ? '' : 'disabled'}>›</button></div>` : '');
+    myShown = pg;
+    if (B.scrollHeight <= B.clientHeight + 1) break;
+  }
+  myPage = myShown;
 }
+let myShown = 0;
+const ROW = 50;   // 한 줄 45px + 사이 5px (index.html 의 .onl li)
 $('#myBtn').onclick = openMy;
 $('#myBack').onclick = () => goMy(myView === 'list' ? 'online' : 'menu');
 mySheet.addEventListener('click', e => {
@@ -548,6 +567,7 @@ mySheet.addEventListener('click', e => {
   else if (a === 'next'){ myPage++; drawMy(); }
 });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !mySheet.hidden) closeMy(); });
+addEventListener('resize', () => { if (!mySheet.hidden) drawMy(); });   // 몇 줄 들어가는지 다시 잰다
 
 /* 접속 알림 — Studio 에 있는 동안은 대기 중 */
 trackPresence(() => ({ state: 'wait', place: 'Studio' }));
