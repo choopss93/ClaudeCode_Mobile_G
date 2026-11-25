@@ -129,7 +129,7 @@ let account = readAccount();
 const charOf = a => (a && a.user && a.user.char ? cleanChar(a.user.char) : null);
 const nameOf = a => (charOf(a) ? charOf(a).nick : a.user.id);
 let draft = charOf(account) || randomChar();   // 꾸미는 중인 캐릭터
-let makerFrom = 'menu';  // 꾸미기를 마치면 어디로 — 'world' 면 저장하고 무지개 정원으로, 'menu' 면 메뉴로
+let makerFrom = 'menu';  // 꾸미기를 마치면 어디로 — 'world' 면 저장하고 무지개 정원으로, 'cat' 이면 META WORLD 목록으로, 'menu' 면 메뉴로
 
 function paintIntro(){
   zoomTo = 0;
@@ -282,7 +282,7 @@ function openMaker(){
   paintMaker();
   show('maker');
 }
-$('#makerBack').onclick = () => (makerFrom === 'world' ? openCat('world') : openMenu());
+$('#makerBack').onclick = () => (makerFrom === 'world' || makerFrom === 'cat' ? openCat('world') : openMenu());
 
 $('#makerBtn').onclick = async () => {
   const msg = $('#makerMsg'), btn = $('#makerBtn');
@@ -292,6 +292,7 @@ $('#makerBtn').onclick = async () => {
   try {
     account = await saveChar(cleanChar(draft));
     if (makerFrom === 'world'){ location.href = 'game/world/'; return; }
+    if (makerFrom === 'cat'){ openCat('world'); return; }
     openMenu();
   } catch (err){
     msg.textContent = err.message;
@@ -340,7 +341,8 @@ function openCat(key){
   const ch = charOf(account);
   if (ch) wear(ch);
   else if (key === 'world') wear(draft);          // 아직 없으면 만들 캐릭터를 미리 보여 준다
-  $('#catMake').hidden = !(key === 'world' && !ch);
+  $('#catMake').hidden = key !== 'world';
+  $('#catMake').textContent = ch ? '캐릭터 수정 ›' : '이 캐릭터로 만들기 ›';
   $('#catCrumb').innerHTML = `Metaversal Studio › <b>${c.label}</b>`;
   $('#catTitle').textContent = c.name;
   $('#catSub').textContent = c.sub;
@@ -356,7 +358,12 @@ document.querySelector('#menu .menu').addEventListener('click', e => {
   if (a){ e.preventDefault(); openCat(a.dataset.cat); }
 });
 /* 미리 보여 준 그 캐릭터로 꾸미기를 시작한다 — 마치면 곧장 무지개 정원으로 */
-$('#catMake').onclick = () => { makerFrom = 'world'; openMaker(); };
+/* 이미 있으면 '캐릭터 수정' — 저장하면 이 목록으로 돌아온다 (사용자 요청) */
+$('#catMake').onclick = () => {
+  const ch = charOf(account);
+  if (ch){ draft = { ...ch }; makerFrom = 'cat'; } else makerFrom = 'world';
+  openMaker();
+};
 $('#catList').addEventListener('click', e => {
   const a = e.target.closest('a[href="game/world/"]');
   if (a) toWorld(e);
