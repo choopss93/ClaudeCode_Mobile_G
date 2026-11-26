@@ -326,7 +326,8 @@ const CATS = {
   ] },
   project: { label: 'META PROJECT', name: '메타 프로젝트', sub: '친구와 · META BOT 과 겨루는 게임', items: [
     { href: 'game/poker/', ic: '♠', icStyle: 'background:#DCA94E;color:#1a1206', name: 'Memory Poker', desc: '16장을 외우고 두 칸을 골라 겨뤄요' },
-    { href: 'game/tower/', ic: '13', icStyle: 'background:linear-gradient(180deg,#F0767A 0 33%,#6CCB8A 33% 66%,#6FA8F5 66%);color:#141414;font-weight:800;font-size:17px', name: 'Tower 13', desc: '박스를 쌓다가 13을 넘기면 와르르' }
+    { href: 'game/tower/', ic: '13', icStyle: 'background:linear-gradient(180deg,#F0767A 0 33%,#6CCB8A 33% 66%,#6FA8F5 66%);color:#141414;font-weight:800;font-size:17px', name: 'Tower 13', desc: '박스를 쌓다가 13을 넘기면 와르르' },
+    { href: 'game/sunday/', ic: '✋', icStyle: 'background:linear-gradient(135deg,#FFE9B8,#DCA94E 55%,#F0A080);color:#1a1206', name: '어메이징 선데이', desc: '초성 · 줄임말로 영화 · 웹툰 제목 맞히기' }
   ] }
 };
 const escH = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
