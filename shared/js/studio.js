@@ -127,7 +127,7 @@ let account = readAccount();
 /* 캐릭터는 가입 때가 아니라 **무지개 정원에 처음 들어가기 직전**에 만든다 (사용자 요청).
    그래서 계정에 캐릭터가 없을 수 있다 (user.char === null). */
 const charOf = a => (a && a.user && a.user.char ? cleanChar(a.user.char) : null);
-const nameOf = a => (charOf(a) ? charOf(a).nick : a.user.id);
+const nameOf = a => a.user.id;   // 화면에 쓰는 이름은 늘 로그인 아이디 (사용자 요청)
 let draft = charOf(account) || randomChar();   // 꾸미는 중인 캐릭터
 let makerFrom = 'menu';  // 꾸미기를 마치면 어디로 — 'world' 면 저장하고 무지개 정원으로, 'cat' 이면 META WORLD 목록으로, 'menu' 면 메뉴로
 
@@ -276,7 +276,7 @@ function paintMaker(){
 }
 
 function openMaker(){
-  $('#nickIn').value = draft.nick || '';
+  $('#nickIn').value = account ? account.user.id : '';     // 캐릭터 이름 = 로그인 아이디 (고칠 수 없다)
   $('#makerMsg').textContent = '';
   $('#makerBtn').textContent = makerFrom === 'world' ? '완료 · 무지개 정원으로' : '저장';
   paintMaker();
@@ -286,8 +286,7 @@ $('#makerBack').onclick = () => (makerFrom === 'world' || makerFrom === 'cat' ? 
 
 $('#makerBtn').onclick = async () => {
   const msg = $('#makerMsg'), btn = $('#makerBtn');
-  draft.nick = $('#nickIn').value.trim().slice(0, 12);
-  if (!draft.nick){ msg.textContent = '캐릭터 이름을 적어 주세요'; $('#nickIn').focus(); return; }
+  draft.nick = account.user.id;           // 서버도 아이디로 덮어 적는다
   btn.disabled = true;
   try {
     account = await saveChar(cleanChar(draft));

@@ -53,6 +53,7 @@
   .screen.nostage > .menu{margin-top:8px}
   .screen.nostage > .links{margin-top:auto}
   .stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  .field.locked{color:var(--muted);background:var(--surface-2);cursor:default;font-weight:700;letter-spacing:.02em}
   .stagecta{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:1;min-height:40px;padding:0 18px;border-radius:999px;
     border:1px solid var(--accent);background:rgba(20,14,4,.75);color:var(--accent);font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap}
   .stage .hint{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:11px;color:var(--faint);pointer-events:none}
@@ -335,7 +336,8 @@
     <div class="top"><button class="back" id="makerBack" type="button">← 뒤로</button><span class="spacer"></span></div>
     <div class="stage" data-stage></div>
     <div class="row">
-      <input class="field" id="nickIn" maxlength="12" placeholder="캐릭터 이름" aria-label="캐릭터 이름" style="flex:1;min-width:0">
+      <!-- 캐릭터 이름은 로그인 아이디 그대로 — 고칠 수 없다 (사용자 요청). 아이디는 마이페이지에서 바꾼다 -->
+      <input class="field locked" id="nickIn" readonly tabindex="-1" aria-label="캐릭터 이름 (로그인 아이디)" title="캐릭터 이름은 로그인 아이디예요 · 바꾸기는 마이페이지에서" style="flex:1;min-width:0">
       <div class="seg gender" id="genderSeg" style="flex:none;width:132px"></div>
     </div>
     <div class="row"><div class="seg tabs5" id="partSeg"></div></div>
@@ -434,6 +436,6 @@
     <div class="btns" id="myBtns"></div>
   </div>
 </div>
-<script type="module" src="js/studio.js?v=s22"></script>
+<script type="module" src="js/studio.js?v=s23"></script>
 </body>
 </html>

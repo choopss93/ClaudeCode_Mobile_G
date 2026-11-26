@@ -159,7 +159,9 @@ function cleanChar(c){
   return { nick, gender, face: n(c.face, 31), expr: n(c.expr, 31), hair: n(c.hair, 31),
            top: n(Number.isInteger(c.top) ? c.top : c.cloth, 31), bottom: n(c.bottom, 31), skin: n(c.skin, 7) };
 }
-const publicUser = u => ({ id: u.id, char: u.char || null });   // 열쇠 · 해시는 절대 내보내지 않는다
+/* 열쇠 · 해시는 절대 내보내지 않는다. 캐릭터 이름은 **늘 로그인 아이디**다 (사용자 요청 —
+   '로그인 아이디와 사용 아이디가 일치해야' 한다). 예전에 따로 지은 이름이 남아 있어도 아이디로 덮어 내보낸다. */
+const publicUser = u => ({ id: u.id, char: u.char ? { ...u.char, nick: u.id } : null });
 
 /* 마이페이지(접속자)를 볼 수 있는 계정 */
 const ADMINS = ['MASTER'];
@@ -318,6 +320,7 @@ export async function handleApi(request, env){
       const oldId = user.id;
       user.recId = user.recId || oldId;
       user.id = id;
+      if (user.char) user.char.nick = id;  // 캐릭터 이름도 새 아이디로
       user.key = newKey();
       await saveUser(env, user);
       await env.ACCOUNTS.delete('user:' + oldId);
@@ -326,8 +329,8 @@ export async function handleApi(request, env){
     const id = user.id;
     if (method === 'GET') return json({ user: publicUser(user) });
     if (method === 'PUT'){
-      const char = cleanChar((await body(request)).char);
-      if (!char) return fail('캐릭터 이름을 적어 주세요');
+      const char = cleanChar({ ...((await body(request)).char || {}), nick: user.id });   // 이름은 아이디
+      if (!char) return fail('캐릭터를 다시 골라 주세요');
       user.char = char;
       await saveUser(env, user);
       return json({ user: publicUser(user) });
