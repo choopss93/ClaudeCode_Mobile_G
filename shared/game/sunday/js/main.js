@@ -1,6 +1,6 @@
 import { ROUND_MS, ANSWER_MS, REVEAL_MS, BUZZ_WINDOW, ROUND_CHOICES, MAX_SEATS, newGame, canBuzz, buzz, submit, timeUp, next,
-         ranking, questionOf, titleOf, poolSize, hintOf, HINT_MS, HINT_MAX } from './rules.js?v=2';
-import { CAT_NAME, MODE_NAME } from './data.js?v=1';
+         ranking, questionOf, titleOf, poolSize, hintOf, HINT_MS, HINT_MAX } from './rules.js?v=3';
+import { CAT_NAME, MODE_NAME } from './data.js?v=2';
 import { joinRoom, makeId } from '../../poker/js/room.js?v=12';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
@@ -387,8 +387,8 @@ function hintLine(){
   const lv = S && S.phase !== 'reveal' ? hintLevel() : 0;
   shownHint = lv;
   const h = lv ? hintOf(S, lv) : '';
-  if (!lv) return `<p class="hintln none">💡 힌트 1 · 1:00 지나면</p>`;
-  return `<p class="hintln"><span>💡 힌트 ${lv}</span><b>${esc(h || '없어요')}</b></p>`;
+  if (!lv) return `<p class="hintln none">💡 힌트 1 (장르) · 1:00 지나면</p>`;
+  return `<p class="hintln${lv === 1 ? ' genre' : ''}"><span>💡 힌트 ${lv}${lv === 1 ? ' · 장르' : ''}</span><b>${esc(h || '없어요')}</b></p>`;
 }
 function render(){
   pres && pres.update();

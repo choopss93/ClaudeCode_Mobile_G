@@ -15,7 +15,7 @@
  *     order:[id], names, scores, right, wrong, dead:{id:1}, buzzer, k(손 든 차례 번호), guesses:[{id,text,ok}],
  *     last:{…}, over }
  */
-import { BANK } from './data.js?v=1';
+import { BANK, GENRE } from './data.js?v=2';
 
 export const ROUND_MS = 180 * 1000;     // 한 판 최대 3분
 export const ANSWER_MS = 20 * 1000;     // 손 든 사람이 적는 시간
@@ -57,19 +57,21 @@ function reveal(title, show){
   return out;
 }
 /**
- * 힌트 — level 1 (1분), 2 (2분). 늘 정답을 다 보여 주지는 않는다.
- *   초성: 1 = 첫 글자, 2 = 한 글자 건너 하나씩(첫 글자부터) · 두 글자면 둘째 글자의 받침 뺀 모양
- *   줄임말: 1 = 원래 제목의 초성, 2 = 거기에 첫 글자
+ * 힌트 — level 1 (1분) = 장르 (사용자 요청), 2 (2분) = 글자 힌트. 늘 정답을 다 보여 주지는 않는다.
+ *   글자 힌트 — 초성: 한 글자 건너 하나씩(첫 글자부터) · 두 글자면 첫 글자 + 둘째 글자의 받침 뺀 모양
+ *               줄임말: 원래 제목의 초성에 첫 글자
  */
 export function hintOf(s, level, i = s.n){
   if (!level) return '';
   const t = titleOf(s, i);
+  if (level === 1 && GENRE[t]) return GENRE[t];
+  if (level === 1) level = 0;                     // 장르를 못 찾으면 — 예전처럼 첫 글자
   const n = [...t].filter(ch => ch >= '가' && ch <= '힣').length;
   if (!n) return '';
   const first = new Set([0]);
-  if (s.mode === 'abbr') return level === 1 ? chosung(t) : reveal(t, first);
+  if (s.mode === 'abbr') return reveal(t, first);
   if (n < 2) return '';
-  if (level === 1) return reveal(t, first);
+  if (level === 0) return reveal(t, first);
   if (n === 2){                                   // 두 글자 — 둘째 글자는 받침만 빼고 보인다
     let i = -1, out = '';
     for (const ch of t){
