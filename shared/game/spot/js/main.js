@@ -1,5 +1,5 @@
-import { LOOK_MS, FIND_MS, RES_MS, ROUND_CHOICES, MAX_SEATS, SPOTS, newGame, addFound, toFind, toRes, nextRound, allDone, ranking } from './rules.js?v=1';
-import { W, HH, makeDiffs, drawScene, hitDiff, KIND_NAME } from './scene.js?v=1';
+import { LOOK_MS, FIND_MS, RES_MS, ROUND_CHOICES, MAX_SEATS, SPOTS, newGame, addFound, toFind, toRes, nextRound, allDone, ranking } from './rules.js?v=2';
+import { W, HH, makeDiffs, drawScene, hitDiff, KIND_NAME, THEME_NAME, themeOf } from './scene.js?v=2';
 import { joinRoom, makeId } from '../../poker/js/room.js?v=12';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
@@ -276,6 +276,7 @@ const HOW = `<ol class="how">
   <li>시작 전에 방장이 <b>3 · 5 · 7 라운드</b> 중에 골라요.</li>
   <li>그림이 <b>3분</b> 동안 나와요. 구석구석 잘 봐 두세요.</li>
   <li>그림이 사라지고 <b>조금 바뀐 그림</b>이 나와요. <b>1분</b> 안에 틀린 곳 <b>다섯</b>을 눌러요.</li>
+  <li>그림은 <b>산 · 바다 · 정원 · 들판 · 연못 · 하늘 · 물속</b> — 라운드마다 다른 곳이에요.</li>
   <li>틀린 곳은 <b>색상 · 모양 · 사물 · 그림자 · 형태</b> 중에서 나와요.</li>
   <li>한 곳에 <b>1점</b>. 틀린 데를 누르면 <b>2초</b> 동안 못 눌러요.</li>
   <li>라운드가 끝날 때마다 모두의 점수와 정답 자리를 봐요. 합이 높을수록 위.</li>
@@ -392,7 +393,7 @@ function render(){
     const svg = showB ? p.svgB.replace('</svg>', mk + '</svg>') : p.svgA;
     const dots = Array.from({ length: SPOTS }, (_, i) => `<i class="${i < mine.size ? 'on' : ''}"></i>`).join('');
     html = `<div class="pcard ph-${ph}">
-      <div class="ptop"><span class="pk2">${ph === 'look' ? '👀 외우는 중' : ph === 'find' ? '🔍 바뀐 그림' : '정답 자리'}</span>
+      <div class="ptop"><span class="pk2">${THEME_NAME[themeOf(S.seeds[S.r])]} · ${ph === 'look' ? '외우는 중' : ph === 'find' ? '바뀐 그림' : '정답 자리'}</span>
         <span class="spots">${ph === 'look' ? '' : dots}</span><span class="clock ${ph}" id="clock">${fmt(left())}</span></div>
       <div class="pwrap"><div id="pic" class="${ph === 'find' && now() - wrongAt < WRONG_LOCK ? 'locked' : ''}">${svg}</div></div></div>`;
     sig = `${S.g}|${S.r}|${ph}|${[...mine].join(',')}|${ph === 'find' && now() - wrongAt < WRONG_LOCK ? wrongAt : 0}`;
