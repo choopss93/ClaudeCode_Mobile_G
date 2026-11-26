@@ -1,5 +1,5 @@
 import { LOOK_MS, FIND_MS, RES_MS, ROUND_CHOICES, MAX_SEATS, SPOTS, newGame, addFound, toFind, toRes, nextRound, allDone, ranking } from './rules.js?v=2';
-import { W, HH, makeDiffs, drawScene, hitDiff, KIND_NAME, THEME_NAME, themeOf } from './scene.js?v=2';
+import { W, HH, makeDiffs, drawScene, hitDiff, KIND_NAME, THEME_NAME, themeOf } from './scene.js?v=3';
 import { joinRoom, makeId } from '../../poker/js/room.js?v=12';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';

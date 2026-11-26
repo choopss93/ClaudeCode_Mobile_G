@@ -73,37 +73,45 @@ const T = {
       + `<g clip-path="url(#hc${o.id})">` + (o.shape ? R(-24, -12, 48, 10, o.c2) : R(-6, -30, 12, 50, o.c2)) + '</g>';
       return env + Pa('M-15 10L-7 26H7L15 10Z', o.c, ' opacity=".9"') + L('M-9 22L-7 28M9 22L7 28', '#6b4a33', 1.2) + R(-8, 28, 16, 9, '#B07A4E', 2) + HL(-8, -14, 5, 8); } },
   house: { layer: 2, lb: () => [-32, -74, 32, 2], shapes: 2, sw: 56,
-    parts: { roof: [-32, -74, 32, -43], wall: [-28, -44, 28, 0], door: [-8, -24, 8, 0] },
+    parts: { roof: [-32, -74, 32, -43], wall: [-28, -44, 28, 0], door: [-8, -24, 8, 0] }, dets: { pot: [-26, -21, -8, -13], lamp: [10, -34, 16, -24] },
     art: o => { const win = (x, y) => o.shape ? C(x, y, 7, '#BFE6FF', ' stroke="#fff" stroke-width="2"') : R(x - 7, y - 7, 14, 14, '#BFE6FF', 0, ' stroke="#fff" stroke-width="2"');
-      return (o.chim ? R(10, -70, 8, 18, o.roof) : '') + R(-28, -44, 56, 44, o.wall) + Pa('M-32 -43L0 -74L32 -43Z', o.roof) + R(-8, -24, 16, 24, o.door, 3) + C(4, -12, 1.4, '#fff') + win(-17, -26) + win(17, -26); } },
-  cabin: { layer: 2, lb: () => [-30, -56, 30, 2], colors: P.wood, shapes: 2, sw: 54, parts: { roof: [-30, -56, 30, -30] },
+      return (o.chim ? R(10, -70, 8, 18, o.roof) : '') + R(-28, -44, 56, 44, o.wall) + Pa('M-32 -43L0 -74L32 -43Z', o.roof)
+        + L('M-26 -50H26M-20 -56H20M-13 -63H13', '#00000018', 1.2) + R(-8, -24, 16, 24, o.door, 3) + C(4, -12, 1.4, '#fff') + R(-5, -21, 10, 6, '#ffffff55', 2) + win(-17, -26) + win(17, -26)
+        + R(-28, -2, 56, 2, '#00000014')
+        + (o.pot ? R(-25, -18, 16, 5, '#B07A4E', 1) + C(-22, -19, 2.4, '#FF7A8A') + C(-17, -20, 2.4, '#FFD34E') + C(-12, -19, 2.4, '#FF7A8A') : '')
+        + (o.lamp ? R(12, -31, 3, 6, '#3E4A5C') + C(13.5, -26, 2.6, '#FFE680') : ''); } },
+  cabin: { layer: 2, lb: () => [-30, -56, 34, 2], colors: P.wood, shapes: 2, sw: 54, parts: { roof: [-30, -56, 30, -30] }, dets: { wood: [20, -10, 34, 1], smoke: [8, -74, 22, -54] },
     art: o => R(-26, -32, 52, 32, o.c) + [0, 1, 2, 3].map(i => L(`M-26 ${-26 + i * 7}H26`, '#00000022', 1.2)).join('') + Pa('M-30 -30L0 -56L30 -30Z', o.roof)
-      + R(-6, -20, 12, 20, '#5a3b26', 2) + (o.shape ? C(15, -18, 6, '#FFE9A8', ' stroke="#6E4A33" stroke-width="2"') : R(9, -24, 12, 11, '#FFE9A8', 0, ' stroke="#6E4A33" stroke-width="2"')) },
-  tent: { layer: 2, lb: o => o.shape ? [-26, -30, 26, 2] : [-26, -40, 26, 2], colors: P.pop, shapes: 2, sw: 48, rm: true,
+      + R(-6, -20, 12, 20, '#5a3b26', 2) + (o.shape ? C(15, -18, 6, '#FFE9A8', ' stroke="#6E4A33" stroke-width="2"') : R(9, -24, 12, 11, '#FFE9A8', 0, ' stroke="#6E4A33" stroke-width="2"'))
+      + R(10, -52, 7, 12, '#6E4A33') + (o.smoke ? C(14, -58, 3.5, '#E8E8E8') + C(17, -65, 4.5, '#EFEFEF') + C(15, -72, 3, '#F5F5F5') : '')
+      + (o.wood ? [[22, -2.5], [29, -2.5], [25.5, -7.5]].map(([x, y]) => C(x, y, 3, '#B07A4E') + C(x, y, 1.4, '#E8C99A')).join('') : '') },
+  tent: { layer: 2, lb: o => o.shape ? [-26, -30, 26, 2] : [-26, -40, 26, 2], colors: P.pop, shapes: 2, sw: 48, rm: true, dets: { flag: [-1, -42, 10, -33] },
     art: o => o.shape ? Pa('M-26 0Q-26 -30 0 -30Q26 -30 26 0Z', o.c) + Pa('M-7 0Q0 -18 7 0Z', '#3E4A5C')
-      : Pa('M-26 0L0 -34L26 0Z', o.c) + Pa('M-8 0L0 -24L8 0Z', '#3E4A5C') + L('M0 -34V-40', '#555', 1.5) + Pa('M0 -40L8 -37L0 -34Z', '#FFC93C') },
-  tree: { layer: 2, lb: () => [-22, -64, 22, 2], colors: P.leaf, shapes: 2, sw: 30, scales: true,
-    art: o => R(-4, -24, 8, 24, '#9A6A45', 2) + (o.shape ? Pa('M0 -64L16 -38H10L21 -18H-21L-10 -38H-16Z', o.c) : C(0, -42, 20, o.c) + HL(-7, -48, 6, 6)) },
-  palm: { layer: 2, lb: () => [-28, -66, 28, 2], colors: P.leaf, flips: true, sw: 30, scales: true,
+      : Pa('M-26 0L0 -34L26 0Z', o.c) + Pa('M-8 0L0 -24L8 0Z', '#3E4A5C') + (o.flag ? L('M0 -34V-40', '#555', 1.5) + Pa('M0 -40L8 -37L0 -34Z', '#FFC93C') : '') },
+  tree: { layer: 2, lb: () => [-22, -64, 22, 2], colors: P.leaf, shapes: 2, sw: 30, scales: true, dets: { fruit: [-16, -58, 16, -28] },
+    art: o => R(-4, -24, 8, 24, '#9A6A45', 2) + L('M-2 -10L-5 -14M2 -16L5 -19', '#00000022', 1)
+      + (o.shape ? Pa('M0 -64L16 -38H10L21 -18H-21L-10 -38H-16Z', o.c) + L('M-8 -40L0 -37L8 -40M-12 -22L0 -19L12 -22', '#00000018', 1.4)
+        : C(0, -42, 20, o.c) + C(-11, -36, 9, o.c) + C(11, -36, 9, o.c) + HL(-7, -48, 6, 6) + (o.fruit ? [[-9, -46], [7, -50], [10, -38], [-4, -34], [1, -44]].map(([x, y]) => C(x, y, 2.6, o.fc || '#FF5D6C')).join('') : '')) },
+  palm: { layer: 2, lb: () => [-28, -66, 28, 2], colors: P.leaf, flips: true, sw: 30, scales: true, dets: { nuts: [-1, -57, 13, -47] },
     art: o => L('M0 0Q-2 -30 6 -56', '#B07A4E', 6) + [[-26, -50], [-20, -66], [10, -68], [28, -54], [24, -42], [-14, -40]].map(([x, y]) => Pa(`M6 -56Q${f1((x + 6) / 2)} ${f1(y - 8)} ${x} ${y}Q${f1((x + 6) / 2)} ${f1(y + 2)} 6 -56Z`, o.c)).join('')
-      + C(3, -52, 3.2, '#8A5A3C') + C(9, -52, 3.2, '#8A5A3C') },
+      + (o.nuts ? C(3, -52, 3.2, '#8A5A3C') + C(9, -52, 3.2, '#8A5A3C') : '') },
   flower: { layer: 2, lb: () => [-9, -27, 9, 2], colors: P.bloom, shapes: 2, rm: true,
     art: o => L('M0 0V-18', '#4FA466', 1.8) + E(3, -7, 3.5, 1.6, '#4FA466')
       + (o.shape ? Pa('M-7 -26L-3.5 -22L0 -27L3.5 -22L7 -26L6 -16Q0 -12 -6 -16Z', o.c)
         : [0, 1, 2, 3, 4].map(i => { const a = i / 5 * Math.PI * 2; return C(Math.cos(a) * 5, -20 + Math.sin(a) * 5, 3.6, o.c); }).join('') + C(0, -20, 2.6, '#FFD34E')) },
   mushroom: { layer: 2, lb: o => o.shape ? [-12, -24, 12, 2] : [-13, -20, 13, 2], colors: ['#FF5D6C', '#FF8A3C', '#C98B5A', '#9B6BFF'], shapes: 2, sw: 18, rm: true,
     art: o => R(-4, -10, 8, 10, '#F5EBDD', 3) + (o.shape ? Pa('M-12 -9Q0 -34 12 -9Z', o.c) : Pa('M-13 -9Q-13 -21 0 -21Q13 -21 13 -9Z', o.c)) + C(-5, -14, 2, '#fff') + C(4, -16, 2.4, '#fff') },
-  rock: { layer: 2, lb: () => [-18, -16, 18, 2], colors: P.stone, sw: 32, scales: true, rm: true,
+  rock: { layer: 2, lb: () => [-18, -16, 18, 2], colors: P.stone, nocolor: true, sw: 32, scales: true, rm: true,
     art: o => Pa('M-18 0L-14 -10L-5 -16L8 -14L17 -6L18 0Z', o.c) + Pa('M-5 -16L8 -14L4 -8L-8 -9Z', '#fff', ' opacity=".22"') },
-  pet: { layer: 2, lb: () => [-22, -35, 22, 2], colors: P.fur, shapes: 2, flips: true, sw: 34, rm: true,
+  pet: { layer: 2, lb: () => [-22, -35, 22, 2], colors: P.fur, shapes: 2, flips: true, sw: 34, rm: true, dets: { collar: [4, -17, 20, -10] },
     art: o => { const ears = o.shape ? E(4, -21, 3.6, 7, o.c2) + E(20, -21, 3.6, 7, o.c2) : Pa('M3 -25L6 -36L11 -29Z M21 -25L18 -36L13 -29Z', o.c);
       return L('M-14 -12q-12 -6 -8 -20', o.c, 4) + E(0, -10, 16, 10, o.c) + R(-11, -6, 4, 6, o.c) + R(7, -6, 4, 6, o.c) + (o.shape ? '' : ears) + C(12, -22, 10, o.c) + (o.shape ? ears : '')
-        + C(8.5, -23, 1.5, '#222') + C(15.5, -23, 1.5, '#222') + C(13, -19, 1.6, '#E0707A'); } },
+        + C(8.5, -23, 1.5, '#222') + C(15.5, -23, 1.5, '#222') + C(13, -19, 1.6, '#E0707A') + (o.collar ? R(5, -14.5, 14, 3, '#FF5D6C', 1.5) + C(12, -11.5, 1.8, '#FFC93C') : ''); } },
   car: { layer: 2, lb: () => [-30, -27, 30, 2], colors: ['#E8574F', '#3F7FD9', '#F2C14E', '#47B08A', '#9B6BFF'], flips: true, sw: 52,
     art: o => Pa('M-28 -6V-14Q-28 -16 -24 -16H28V-6Z', o.c) + Pa('M-16 -16L-9 -26H10L18 -16Z', o.c) + Pa('M-12 -17L-7.5 -23.5H0.5V-17Z M2.5 -17V-23.5H9L13.5 -17Z', '#DFF1FF')
       + C(26, -12, 2, '#FFE680') + C(-16, -5, 6, '#333') + C(16, -5, 6, '#333') + C(-16, -5, 2.4, '#ccc') + C(16, -5, 2.4, '#ccc') },
-  mailbox: { layer: 2, lb: () => [-14, -41, 22, 2], colors: ['#E8574F', '#3F7FD9', '#47B08A', '#F2C14E'], flips: true, sw: 20, rm: true,
-    art: o => R(-2.5, -24, 5, 24, '#9A6A45') + Pa('M-12 -24V-34A12 6 0 0 1 12 -34V-24Z', o.c) + R(12, -40, 2, 12, '#555') + R(14, -40, 6, 5, '#FF5D6C') },
+  mailbox: { layer: 2, lb: () => [-14, -41, 22, 2], colors: ['#E8574F', '#3F7FD9', '#47B08A', '#F2C14E'], flips: true, sw: 20, rm: true, dets: { flag: [11, -42, 21, -27] },
+    art: o => R(-2.5, -24, 5, 24, '#9A6A45') + Pa('M-12 -24V-34A12 6 0 0 1 12 -34V-24Z', o.c) + L('M-12 -30H12', '#00000022', 1) + (o.flag ? R(12, -40, 2, 12, '#555') + R(14, -40, 6, 5, '#FF5D6C') : '') },
   bench: { layer: 2, lb: () => [-24, -24, 24, 2], colors: P.wood, sw: 46, scales: true, rm: true,
     art: o => R(-22, -14, 44, 5, o.c, 1) + R(-22, -24, 44, 4, o.c, 1) + R(-22, -19, 44, 3, o.c, 1) + R(-20, -9, 3, 9, '#555') + R(17, -9, 3, 9, '#555') },
   can: { layer: 2, lb: () => [-18, -22, 20, 2], colors: ['#4E9BFF', '#3CC48A', '#FF8A3C', '#9AA3AD'], flips: true, sw: 26, rm: true,
@@ -111,15 +119,17 @@ const T = {
   butterfly: { layer: 1, lb: () => [-13, -11, 13, 11], colors: P.bloom.slice(0, 5), shapes: 2, rm: true, rots: true,
     art: o => (o.shape ? Pa('M0 0L-12 -9L-10 2Z M0 0L12 -9L10 2Z', o.c) + Pa('M0 1L-8 9L-4 1Z M0 1L8 9L4 1Z', o.c2)
       : E(-6, -4, 6, 6, o.c) + E(6, -4, 6, 6, o.c) + E(-4.5, 5, 4, 4, o.c2) + E(4.5, 5, 4, 4, o.c2)) + R(-1, -7, 2, 15, '#3E4A5C', 1) },
-  boat: { layer: 2, lb: o => [-28, -50, 28, 6], colors: ['#E8574F', '#3F7FD9', '#F2C14E', '#3E4A5C'], shapes: 2, flips: true, rm: true,
-    art: o => Pa('M-28 -6H28L20 6H-20Z', o.c) + R(-1, -48, 2, 42, '#6E4A33') + Pa('M1 -46L22 -10H1Z', '#fff') + (o.shape ? Pa('M-1 -40L-18 -10H-1Z', o.c2) : '') + Pa('M-1 -48L-12 -44L-1 -41Z', '#FF5D6C') },
+  boat: { layer: 2, lb: o => [-28, -50, 28, 6], colors: ['#E8574F', '#3F7FD9', '#F2C14E', '#3E4A5C'], shapes: 2, flips: true, rm: true, dets: { flag: [-14, -50, 0, -39] },
+    art: o => Pa('M-28 -6H28L20 6H-20Z', o.c) + L('M-24 -1H24', '#ffffff66', 1.4) + C(-12, 0, 1.8, '#DFF1FF') + C(-4, 0, 1.8, '#DFF1FF') + R(-1, -48, 2, 42, '#6E4A33') + Pa('M1 -46L22 -10H1Z', '#fff')
+      + (o.shape ? Pa('M-1 -40L-18 -10H-1Z', o.c2) : '') + (o.flag ? Pa('M-1 -48L-12 -44L-1 -41Z', '#FF5D6C') : '') },
   umbrella: { layer: 2, lb: () => [-25, -48, 25, 2], colors: P.pop, sw: 44, rm: true,
     art: o => L('M0 0V-36', '#777', 2) + Pa('M-25 -34Q0 -60 25 -34Z', o.c) + Pa('M-9 -34Q0 -58 9 -34Z', o.c2) },
   ball: { layer: 2, lb: () => [-10, -21, 10, 2], colors: P.pop, sw: 18, rm: true,
     art: o => C(0, -10, 10, '#fff') + Pa('M0 -20A10 10 0 0 1 9 -14L0 -10Z', o.c) + Pa('M9 -6A10 10 0 0 1 -3 0L0 -10Z', o.c2) + Pa('M-9 -6A10 10 0 0 1 -6 -18L0 -10Z', o.c) },
-  castle: { layer: 2, lb: o => [-24, -38, 24, 2], colors: ['#E8C98A', '#F0D9A8', '#D9B676'], shapes: 2, sw: 42, rm: true,
+  castle: { layer: 2, lb: o => [-24, -38, 24, 2], colors: ['#E8C98A', '#F0D9A8', '#D9B676'], shapes: 2, sw: 42, rm: true, dets: { flag: [15, -40, 25, -30] },
     art: o => { const tw = x => R(x - 6, -26, 12, 26, o.c) + R(x - 7, -30, 4, 4, o.c) + R(x - 2, -30, 4, 4, o.c) + R(x + 3, -30, 4, 4, o.c);
-      return R(-18, -16, 36, 16, o.c) + tw(-16) + tw(16) + (o.shape ? tw(0) : '') + R(-4, -9, 8, 9, '#B08A55', 3) + L('M16 -30V-38', '#777', 1.2) + Pa('M16 -38L23 -35L16 -32Z', o.c2 || '#FF5D6C'); } },
+      return R(-18, -16, 36, 16, o.c) + tw(-16) + tw(16) + (o.shape ? tw(0) : '') + R(-4, -9, 8, 9, '#B08A55', 3) + C(-10, -8, 1.6, '#F4B9C4') + C(10, -6, 1.6, '#fff')
+        + (o.flag ? L('M16 -30V-38', '#777', 1.2) + Pa('M16 -38L23 -35L16 -32Z', o.c2 || '#FF5D6C') : ''); } },
   crab: { layer: 2, lb: () => [-19, -20, 19, 2], colors: ['#FF5D6C', '#FF8A3C', '#C78BFF'], sw: 30, rm: true,
     art: o => L('M-10 -6L-16 0M-6 -5L-10 1M10 -6L16 0M6 -5L10 1', o.c, 2) + L('M-10 -10L-15 -16M10 -10L15 -16', o.c, 2.5) + C(-15, -17, 4, o.c) + C(15, -17, 4, o.c)
       + E(0, -8, 12, 8, o.c) + L('M-3 -14V-18M3 -14V-18', '#333', 1.2) + C(-3, -19, 1.6, '#222') + C(3, -19, 1.6, '#222') },
@@ -161,7 +171,36 @@ const T = {
       : Pa('M-18 -16Q0 -32 18 -16Z', '#6E4A33')) + R(-18, -9, 36, 3, '#FFC93C') + R(-3, -14, 6, 8, '#FFC93C', 1) },
   turtle: { layer: 1, lb: () => [-25, -16, 25, 9], colors: ['#5DBB63', '#3F8F5A', '#C9A35A'], flips: true, rm: true,
     art: o => E(-14, 5, 6, 3, '#9BD27F') + E(10, 6, 7, 3, '#9BD27F') + C(20, -3, 6, '#9BD27F') + C(22, -4, 1.2, '#222') + Pa('M-18 2Q-16 -16 0 -16Q16 -16 18 2Z', o.c)
-      + L('M-8 -12L0 -6L8 -12M0 -6V2', '#00000033', 1.4) }
+      + L('M-8 -12L0 -6L8 -12M0 -6V2', '#00000033', 1.4) },
+  bush: { layer: 2, lb: () => [-21, -25, 21, 2], colors: P.green, sw: 38, scales: true, rm: true, dets: { berry: [-15, -21, 15, -5] },
+    art: o => C(-10, -9, 10, o.c) + C(10, -9, 10, o.c) + C(0, -15, 12, o.c) + HL(-4, -20, 5, 3)
+      + (o.berry ? [[-11, -12], [-3, -18], [6, -13], [11, -6], [-6, -6]].map(([x, y]) => C(x, y, 2.2, o.fc || '#FF5D6C')).join('') : '') },
+  fence: { layer: 2, lb: () => [-25, -24, 25, 2], colors: ['#FFFFFF', '#C99566', '#F4B9C4', '#BFD9FF'], shapes: 2, rm: true,
+    art: o => R(-24, -16, 48, 3, o.c) + R(-24, -8, 48, 3, o.c) + [-20, -8, 4, 16].map(x => o.shape ? R(x - 3, -20, 6, 20, o.c, 3) : Pa(`M${x - 3} 0V-18L${x} -23L${x + 3} -18V0Z`, o.c)).join('') + L('M-24 0H24', '#00000022', 1) },
+  sign: { layer: 2, lb: () => [-16, -38, 20, 2], colors: P.wood, flips: true, sw: 16, rm: true,
+    art: o => R(-2, -28, 4, 28, '#8A5A3C') + Pa('M-14 -36H12L19 -30L12 -24H-14Z', o.c) + L('M-10 -30H8', '#ffffff99', 1.6) },
+  lamp: { layer: 2, lb: () => [-9, -60, 9, 2], colors: ['#3E4A5C', '#2E5E3E', '#8A5A3C'], shapes: 2, sw: 12, rm: true,
+    art: o => R(-1.6, -46, 3.2, 46, o.c) + R(-4, -3, 8, 3, o.c) + (o.shape ? R(-6, -56, 12, 11, '#FFE680', 2, ` stroke="${o.c}" stroke-width="2"`) + Pa('M-8 -56L0 -61L8 -56Z', o.c) : C(0, -52, 7, '#FFE680') + R(-3, -46, 6, 2, o.c)) },
+  tuft: { layer: 2, lb: () => [-9, -11, 9, 1],     // 꾸밈만 — 너무 작아 틀린 곳으로는 쓰지 않는다
+    art: o => L('M-6 0Q-7 -6 -9 -9M-2 0Q-2 -8 -1 -11M2 0Q3 -6 6 -9M5 0Q7 -4 9 -5', o.g || '#4FA466', 1.6) },
+  snail: { layer: 2, lb: () => [-13, -15, 13, 1], colors: ['#C98B5A', '#F4B9C4', '#FFC93C', '#9B6BFF'], flips: true, rm: true,
+    art: o => Pa('M-12 0Q-12 -3 -6 -3H10Q13 -3 13 0Z', '#E8D29C') + L('M9 -3L11 -10M11 -3L13 -9', '#C9B06E', 1.2) + C(0, -8, 7, o.c) + L('M0 -8m-4 0a4 4 0 1 1 4 4a2 2 0 1 1 -2 -2', '#00000033', 1.2) },
+  bee: { layer: 1, lb: () => [-10, -9, 10, 7], rots: true, rm: true,
+    art: () => E(-2, -6, 4, 3, '#E8F6FF', ' opacity=".9"') + E(3, -6, 4, 3, '#E8F6FF', ' opacity=".9"') + E(0, 0, 8, 5, '#FFC93C') + L('M-3 -4.5V4.5M1 -5V5', '#3E4A5C', 1.8) + C(7, -1, 1, '#222') },
+  surfboard: { layer: 2, lb: () => [-8, -42, 8, 2], colors: P.pop, rots: true, sw: 14, rm: true,
+    art: o => Pa('M0 -42Q8 -28 6 -6Q4 2 0 2Q-4 2 -6 -6Q-8 -28 0 -42Z', o.c) + L('M0 -38V-2', o.c2, 2) },
+  anchor: { layer: 2, lb: () => [-14, -32, 14, 2], rots: true, rm: true, colors: ['#7F8790', '#B07A4E', '#5C7ACF'],
+    art: o => C(0, -27, 3.5, 'none', ` stroke="${o.c}" stroke-width="2.4"`) + L('M0 -23V-2M-7 -17H7M-12 -8Q-10 1 0 -1Q10 1 12 -8', o.c, 3) },
+  seahorse: { layer: 1, lb: () => [-10, -22, 10, 20], colors: ['#FFC93C', '#FF8A3C', '#C78BFF', '#FF7A8A'], flips: true, rm: true,
+    art: o => Pa('M2 -20Q10 -20 9 -13L4 -12Q7 -4 4 4Q2 10 4 14Q6 18 2 19Q-3 18 0 12Q-2 4 -4 -2Q-6 -10 -2 -16Q0 -20 2 -20Z', o.c) + Pa('M9 -16L13 -15L9 -13Z', o.c) + C(4, -16, 1.2, '#222') + L('M-4 -6L-8 -4M-4 0L-8 2', o.c, 2) },
+  parachute: { layer: 1, lb: () => [-23, -24, 23, 30], colors: P.pop, shapes: 2, rm: true,
+    art: o => Pa('M-22 -6Q-22 -24 0 -24Q22 -24 22 -6Z', o.c) + (o.shape ? Pa('M-8 -6Q-7 -24 0 -24Q7 -24 8 -6Z', o.c2) : Pa('M-22 -6Q-15 -10 -8 -6Q0 -10 8 -6Q15 -10 22 -6Z', '#00000020'))
+      + L('M-22 -6L-3 18M22 -6L3 18M-8 -6L-1 18M8 -6L1 18', '#6b6b6b', 0.8) + C(0, 20, 3, '#F2C7A5') + R(-3, 22, 6, 7, o.c2, 2) },
+  campfire: { layer: 2, lb: o => [-14, o.shape ? -32 : -22, 14, 2], shapes: 2, sw: 26, rm: true, colors: ['#FF8A3C', '#FF5D6C', '#FFC93C'],
+    art: o => L('M-12 -2L10 -6M-10 -6L12 -2', '#8A5A3C', 4) + (o.shape ? Pa('M0 -32Q10 -18 7 -8Q4 -2 0 -2Q-4 -2 -7 -8Q-10 -18 0 -32Z', o.c) + Pa('M0 -20Q5 -12 3 -6H-3Q-5 -12 0 -20Z', '#FFE680')
+      : Pa('M0 -22Q7 -12 5 -6Q3 -2 0 -2Q-3 -2 -5 -6Q-7 -12 0 -22Z', o.c) + Pa('M0 -13Q3 -8 2 -5H-2Q-3 -8 0 -13Z', '#FFE680')) },
+  pebbles: { layer: 2, lb: () => [-13, -7, 13, 1], colors: P.stone, nocolor: true, rm: true,
+    art: o => E(-7, -3, 5, 3.5, o.c) + E(3, -2.5, 4, 3, o.c) + E(9, -4, 3.5, 3, '#ffffff', ' opacity=".55"') + E(-2, -5, 3, 2, '#00000014') }
 };
 
 /* ─────────── 자리 ─────────── */
@@ -187,8 +226,9 @@ const TH = {
     bg(r){ const sky = pick(r, SKIES), g = pick(r, [['#9BD27F', '#7CBF66'], ['#A8D98A', '#86C470'], ['#B5DE8A', '#92C96B']]); const path = r() < 0.6;
       const hills = Array.from({ length: 3 }, (_, i) => E(40 + i * 150 + r() * 60, 168, 65 + r() * 45, 40 + r() * 35, pick(r, ['#8FC7A0', '#A5CFB0', '#9DB8D9', '#B7C9A5']))).join('');
       return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'), front: hills + grad('gr', ...g) + R(0, 162, W, 138, 'url(#gr)') + (path ? Pa('M150 300C180 250 230 215 250 162L262 162C250 215 215 260 205 300Z', '#EBD9B4', ' opacity=".85"') : '') }; },
-    items: [['sun', 1, [40, 360], [32, 52]], ['cloud', [2, 3], [40, 360], [30, 95]], ['bird', [2, 3], [30, 370], [30, 110]], ['balloon', [1, 2], [30, 370], [50, 110]], ['kite', 1, [40, 360], [45, 95]],
-      ['house', [2, 3], [45, 355], [190, 222]], ['tree', [3, 4], [25, 375], [182, 270]], ['pet', [1, 2], [40, 360], [245, 290]], ['car', 1, [50, 350], [262, 292]], ['mailbox', 1, [30, 370], [225, 280]], ['flower', [5, 8], [16, 384], [232, 296]]]
+    items: [['sun', 1, [40, 360], [32, 52]], ['cloud', [2, 4], [30, 370], [25, 95]], ['bird', [3, 5], [25, 375], [25, 115]], ['balloon', [1, 2], [30, 370], [50, 110]], ['kite', 1, [40, 360], [45, 95]], ['butterfly', [1, 2], [30, 370], [130, 200]],
+      ['house', [2, 3], [45, 355], [190, 222]], ['tree', [3, 5], [20, 380], [182, 272]], ['bush', [2, 3], [20, 380], [200, 285]], ['fence', [1, 2], [30, 370], [205, 270]], ['sign', [0, 1], [20, 380], [215, 280]], ['lamp', [0, 1], [20, 380], [210, 275]],
+      ['pet', [1, 2], [40, 360], [245, 290]], ['car', 1, [50, 350], [262, 292]], ['mailbox', 1, [30, 370], [225, 280]], ['flower', [6, 9], [12, 388], [228, 298]], ['tuft', [5, 8], [10, 390], [175, 298]], ['pebbles', [1, 2], [16, 384], [240, 298]]]
   },
   mountain: {
     bg(r){ const sky = pick(r, SKIES.slice(0, 3)); let m = '';
@@ -196,18 +236,19 @@ const TH = {
         m += Pa(`M${f1(x - w)} 200L${f1(x)} ${f1(200 - h)}L${f1(x + w)} 200Z`, c) + Pa(`M${f1(x - w * .24)} ${f1(200 - h * .76)}L${f1(x)} ${f1(200 - h)}L${f1(x + w * .24)} ${f1(200 - h * .76)}L${f1(x + w * .1)} ${f1(200 - h * .7)}L${f1(x)} ${f1(200 - h * .78)}L${f1(x - w * .1)} ${f1(200 - h * .7)}Z`, '#fff'); }
       const hill = Pa(`M0 210Q100 ${f1(170 + r() * 20)} 200 200T400 ${f1(190 + r() * 15)}V300H0Z`, '#7FBF6A');
       return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'), front: m + Pa('M0 200H400V300H0Z', '#8CC976') + hill }; },
-    items: [['sun', 1, [40, 360], [30, 48]], ['cloud', [2, 3], [30, 370], [25, 80]], ['bird', [2, 4], [30, 370], [30, 100]],
-      ['cabin', 1, [60, 340], [225, 255]], ['tent', [1, 2], [40, 360], [235, 285]], ['tree', [4, 6], [20, 380], [205, 290], () => ({ shape: 1 })], ['rock', [2, 3], [20, 380], [240, 296]],
-      ['mushroom', [2, 3], [20, 380], [255, 296]], ['flower', [2, 4], [16, 384], [250, 296]], ['pet', [0, 1], [40, 360], [255, 292]]]
+    items: [['sun', 1, [40, 360], [30, 48]], ['cloud', [2, 4], [30, 370], [22, 85]], ['bird', [3, 5], [25, 375], [25, 105]],
+      ['cabin', 1, [60, 340], [225, 255]], ['tent', [1, 2], [40, 360], [235, 285]], ['campfire', [0, 1], [30, 370], [255, 292]], ['tree', [5, 8], [15, 385], [205, 292], () => ({ shape: 1 })], ['bush', [1, 3], [20, 380], [215, 292]],
+      ['rock', [2, 4], [18, 382], [235, 297]], ['sign', [0, 1], [20, 380], [230, 290]], ['mushroom', [2, 4], [15, 385], [250, 297]], ['flower', [3, 5], [14, 386], [248, 298]], ['pet', [0, 1], [40, 360], [255, 292]],
+      ['tuft', [5, 8], [10, 390], [212, 298]], ['pebbles', [1, 3], [14, 386], [245, 298]], ['snail', [0, 1], [20, 380], [270, 298]]]
   },
   sea: {
     bg(r){ const sky = pick(r, SKIES); const hz = 125 + Math.floor(r() * 15); let waves = '';
       for (let i = 0; i < 14; i++){ const x = 15 + ((i * 53) % 380), y = hz + 12 + ((i * 29) % 60); waves += L(`M${x} ${y}q5 -4 10 0q5 4 10 0`, '#fff', 1.6, ' opacity=".55"'); }
       return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'),
         front: grad('se', '#5AB6E8', '#2E86C9') + R(0, hz, W, 300 - hz, 'url(#se)') + waves + Pa(`M0 ${hz + 85}Q120 ${hz + 70} 220 ${hz + 82}T400 ${hz + 76}V300H0Z`, '#F2DDA9') + Pa(`M0 ${hz + 85}Q120 ${hz + 70} 220 ${hz + 82}T400 ${hz + 76}`, 'none', ' stroke="#fff" stroke-width="3" opacity=".8"') }; },
-    items: [['sun', 1, [40, 360], [30, 50]], ['cloud', [2, 3], [30, 370], [25, 80]], ['bird', [2, 4], [30, 370], [30, 100], () => ({ c: '#5a6472' })],
-      ['boat', [1, 2], [40, 360], [158, 190]], ['lighthouse', [0, 1], [20, 60], [218, 222]], ['palm', [1, 2], [20, 380], [235, 260]], ['umbrella', 1, [50, 350], [245, 275]],
-      ['ball', 1, [30, 370], [255, 292]], ['castle', 1, [50, 350], [262, 292]], ['crab', [1, 2], [30, 370], [260, 296]], ['star', [1, 2], [20, 380], [262, 298]], ['shell', [2, 3], [16, 384], [258, 298]]]
+    items: [['sun', 1, [40, 360], [30, 50]], ['cloud', [2, 4], [30, 370], [22, 85]], ['bird', [3, 5], [25, 375], [25, 105], () => ({ c: '#5a6472' })],
+      ['boat', [1, 3], [35, 365], [156, 192]], ['lighthouse', [0, 1], [20, 60], [218, 222]], ['palm', [1, 3], [18, 382], [235, 262]], ['umbrella', [1, 2], [40, 360], [242, 278]], ['surfboard', [1, 2], [20, 380], [248, 290]],
+      ['ball', 1, [30, 370], [255, 292]], ['castle', 1, [50, 350], [262, 292]], ['crab', [1, 3], [25, 375], [258, 297]], ['star', [2, 3], [16, 384], [258, 298]], ['shell', [3, 5], [14, 386], [252, 298]], ['pebbles', [1, 3], [14, 386], [250, 298]]]
   },
   garden: {
     bg(r){ const sky = pick(r, SKIES); let fence = '';
@@ -215,9 +256,9 @@ const TH = {
       return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'),
         front: Pa('M0 172Q40 140 80 168Q120 138 160 166Q200 136 240 166Q280 140 320 168Q360 142 400 166V185H0Z', '#4E9E5E') + R(0, 170, W, 130, '#9DD27F') + fence + R(0, 172, W, 3, '#FFFFFF')
           + Pa('M170 300Q200 240 205 185H215Q222 240 250 300Z', '#E7D3B0', ' opacity=".9"') }; },
-    items: [['sun', 1, [40, 360], [30, 50]], ['cloud', [1, 3], [30, 370], [25, 75]], ['butterfly', [2, 3], [30, 370], [80, 190]], ['bird', [1, 2], [30, 370], [30, 100]],
-      ['house', 1, [60, 340], [180, 186]], ['tree', [2, 3], [20, 380], [195, 260]], ['bench', 1, [40, 360], [215, 260]], ['can', 1, [30, 370], [240, 290]], ['mushroom', [1, 2], [20, 380], [250, 296]],
-      ['pet', [1, 2], [40, 360], [245, 292]], ['flower', [6, 9], [14, 386], [205, 298]], ['mailbox', [0, 1], [30, 370], [215, 260]]]
+    items: [['sun', 1, [40, 360], [30, 50]], ['cloud', [2, 3], [30, 370], [22, 80]], ['butterfly', [2, 4], [25, 375], [80, 200]], ['bee', [1, 3], [25, 375], [90, 210]], ['bird', [1, 3], [25, 375], [25, 100]],
+      ['house', 1, [60, 340], [180, 186]], ['tree', [2, 4], [18, 382], [195, 262]], ['bush', [2, 4], [20, 380], [195, 290]], ['bench', 1, [40, 360], [215, 262]], ['lamp', [1, 2], [18, 382], [210, 280]], ['can', 1, [30, 370], [240, 290]],
+      ['mushroom', [1, 3], [18, 382], [248, 297]], ['snail', [1, 2], [18, 382], [258, 298]], ['pet', [1, 2], [40, 360], [245, 292]], ['flower', [8, 12], [12, 388], [200, 298]], ['mailbox', [0, 1], [30, 370], [215, 262]], ['tuft', [3, 6], [10, 390], [195, 298]]]
   },
   pond: {
     bg(r){ const sky = pick(r, SKIES); const cx = 175 + r() * 50, cy = 208, rx = 140 + r() * 20, ry = 56 + r() * 10;
@@ -225,28 +266,30 @@ const TH = {
       return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'), pond: [cx, cy, rx, ry],
         front: far + R(0, 112, W, 188, '#93CD7A') + E(cx, cy + 4, rx + 6, ry + 5, '#C9B98F') + grad('pw', '#6EC1E4', '#3E95CF') + E(cx, cy, rx, ry, 'url(#pw)')
           + L(`M${f1(cx - rx * .5)} ${f1(cy - ry * .3)}h40M${f1(cx + rx * .1)} ${f1(cy + ry * .2)}h50`, '#fff', 2, ' opacity=".45"') }; },
-    items: [['sun', 1, [40, 360], [26, 46]], ['cloud', [1, 2], [30, 370], [22, 66]], ['bird', [1, 2], [30, 370], [28, 80]], ['dragonfly', [1, 2], [30, 370], [120, 170]],
-      ['lily', [3, 5], [60, 340], [175, 255], null, 'pond'], ['lotus', [1, 2], [70, 330], [180, 250], null, 'pond'], ['duck', [1, 2], [80, 320], [190, 250], null, 'pond'],
-      ['frog', 1, [30, 370], [270, 296], null, 'land'], ['reed', [2, 3], [10, 390], [150, 296], null, 'land'], ['tree', [1, 2], [20, 380], [140, 165], null, 'land'], ['rock', [1, 2], [20, 380], [262, 296], null, 'land'], ['flower', [2, 4], [16, 384], [265, 298], null, 'land']]
+    items: [['sun', 1, [40, 360], [26, 46]], ['cloud', [1, 3], [30, 370], [20, 70]], ['bird', [2, 3], [25, 375], [25, 85]], ['dragonfly', [1, 3], [25, 375], [118, 175]], ['bee', [0, 1], [25, 375], [120, 170]],
+      ['lily', [4, 7], [55, 345], [172, 258], null, 'pond'], ['lotus', [1, 3], [65, 335], [178, 252], null, 'pond'], ['duck', [1, 3], [75, 325], [188, 252], null, 'pond'],
+      ['frog', [1, 2], [25, 375], [268, 297], null, 'land'], ['reed', [2, 4], [8, 392], [148, 297], null, 'land'], ['tree', [1, 3], [18, 382], [138, 166], null, 'land'], ['bush', [1, 2], [18, 382], [140, 170], null, 'land'],
+      ['rock', [1, 3], [18, 382], [258, 297], null, 'land'], ['flower', [3, 5], [14, 386], [262, 298], null, 'land'], ['snail', [0, 1], [18, 382], [272, 298], null, 'land'], ['lamp', [0, 1], [18, 382], [150, 170], null, 'land'],
+      ['tuft', [4, 7], [8, 392], [128, 298], null, 'land'], ['pebbles', [1, 2], [14, 386], [262, 298], null, 'land']]
   },
   sky: {
     bg(r){ const sky = pick(r, [['#6FB8F2', '#DDF0FF'], ['#8FC4FF', '#F3F8FF'], ['#FFB38A', '#FFE9D2'], ['#B49CF0', '#FBE7FF']]);
       return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'), front: Pa(`M0 262Q100 ${f1(236 + r() * 14)} 200 258T400 ${f1(250 + r() * 10)}V300H0Z`, '#8CCB72') + Pa('M0 282Q140 266 260 280T400 276V300H0Z', '#77BD60') }; },
-    items: [['sun', 1, [40, 360], [30, 55]], ['rainbow', [0, 1], [90, 310], [175, 185]], ['cloud', [4, 6], [20, 380], [30, 210]], ['hab', [1, 3], [30, 370], [50, 200]], ['plane', 1, [40, 360], [30, 120]],
-      ['bird', [2, 4], [20, 380], [30, 220]], ['balloon', [1, 2], [20, 380], [60, 210]], ['kite', [0, 1], [40, 360], [60, 170]],
-      ['tree', [2, 3], [20, 380], [268, 292]], ['house', [0, 1], [50, 350], [278, 286], () => ({ s: 0.8 })]]
+    items: [['sun', 1, [40, 360], [30, 55]], ['rainbow', [0, 1], [90, 310], [175, 185]], ['cloud', [5, 7], [18, 382], [25, 215]], ['hab', [2, 3], [28, 372], [45, 205]], ['plane', 1, [40, 360], [28, 125]], ['parachute', [1, 2], [28, 372], [40, 200]],
+      ['bird', [3, 6], [18, 382], [25, 225]], ['balloon', [2, 3], [18, 382], [55, 215]], ['kite', [0, 1], [40, 360], [60, 170]], ['bee', [0, 1], [25, 375], [200, 240]],
+      ['tree', [2, 4], [18, 382], [268, 294]], ['bush', [1, 2], [18, 382], [272, 296]], ['house', [0, 1], [50, 350], [278, 286], () => ({ s: 0.8 })], ['tuft', [2, 4], [10, 390], [270, 298]]]
   },
   under: {
     bg(r){ const top = pick(r, ['#5CC6EE', '#4FB8E8', '#62D0E0']); let rays = '';
       for (let i = 0; i < 4; i++){ const x = 30 + i * 100 + r() * 40; rays += Pa(`M${f1(x)} 0L${f1(x + 26)} 0L${f1(x + 90)} 240L${f1(x + 40)} 240Z`, '#ffffff', ' opacity=".09"'); }
       return { back: grad('uw', top, '#1F5FA8') + R(0, 0, W, HH, 'url(#uw)') + rays,
         front: Pa(`M0 245Q70 ${f1(228 + r() * 10)} 150 242T300 ${f1(236 + r() * 8)}T400 240V300H0Z`, '#E8D29C') + Pa('M0 268Q120 258 240 270T400 264V300H0Z', '#DCC28A') }; },
-    items: [['fish', [4, 6], [25, 375], [30, 210]], ['jelly', [1, 2], [30, 370], [30, 150]], ['turtle', [0, 1], [50, 350], [60, 170]], ['bubbles', [2, 3], [20, 380], [60, 220]],
-      ['weed', [3, 4], [12, 388], [255, 298]], ['coral', [2, 3], [25, 375], [258, 298]], ['crab', 1, [30, 370], [270, 298]], ['star', [1, 2], [20, 380], [265, 298]],
-      ['shell', [1, 2], [16, 384], [268, 298]], ['chest', [0, 1], [50, 350], [268, 296]], ['rock', [1, 2], [20, 380], [262, 298]]]
+    items: [['fish', [6, 9], [22, 378], [28, 215]], ['jelly', [1, 3], [25, 375], [28, 155]], ['turtle', [0, 1], [50, 350], [60, 170]], ['seahorse', [1, 2], [20, 380], [60, 220]], ['bubbles', [2, 4], [18, 382], [50, 225]],
+      ['weed', [3, 5], [10, 390], [252, 298]], ['coral', [2, 4], [22, 378], [256, 298]], ['crab', [1, 2], [25, 375], [266, 298]], ['star', [1, 3], [18, 382], [262, 298]], ['anchor', [0, 1], [30, 370], [262, 296]],
+      ['shell', [2, 3], [14, 386], [266, 298]], ['chest', [0, 1], [50, 350], [268, 296]], ['rock', [1, 3], [18, 382], [258, 298]], ['pebbles', [2, 3], [14, 386], [262, 298]]]
   }
 };
-const SHADOW_FREE = new Set(['fish', 'jelly', 'turtle', 'bubbles', 'bird', 'balloon', 'kite', 'plane', 'hab', 'butterfly', 'dragonfly', 'cloud', 'sun', 'rainbow', 'lily', 'lotus', 'duck', 'boat']);
+const SHADOW_FREE = new Set(['bee', 'seahorse', 'parachute', 'fish', 'jelly', 'turtle', 'bubbles', 'bird', 'balloon', 'kite', 'plane', 'hab', 'butterfly', 'dragonfly', 'cloud', 'sun', 'rainbow', 'lily', 'lotus', 'duck', 'boat']);
 
 /** 기본 색 · 덧붙일 값 — 종류마다 */
 function defaults(type, r){
@@ -259,6 +302,15 @@ function defaults(type, r){
   if (type === 'house'){ o.wall = pick(r, P.wall); o.roof = pick(r, P.roof); o.door = pick(r, P.door); o.chim = r() < 0.5; }
   if (type === 'cabin') o.roof = pick(r, ['#D9614E', '#3E4A5C', '#4E9E6E']);
   if (type === 'pet') o.c2 = pick(r, ['#8A5A3C', '#5a4a40', '#C98B5A']);
+  // 작은 디테일 — 있기도 하고 없기도 하다. 없어지는 것도 '사물' 틀린 곳이 된다 (dets)
+  if (type === 'house'){ o.pot = r() < 0.65; o.lamp = r() < 0.55; }
+  if (type === 'tree'){ o.fruit = r() < 0.5; o.fc = pick(r, ['#FF5D6C', '#FF8A3C', '#FFC93C']); }
+  if (type === 'bush'){ o.berry = r() < 0.5; o.fc = pick(r, ['#FF5D6C', '#9B6BFF', '#FFFFFF']); }
+  if (type === 'cabin'){ o.wood = r() < 0.7; o.smoke = r() < 0.6; }
+  if (['tent', 'mailbox', 'castle', 'boat'].includes(type)) o.flag = r() < 0.75;
+  if (type === 'palm') o.nuts = r() < 0.75;
+  if (type === 'pet') o.collar = r() < 0.55;
+  if (type === 'tuft') o.g = pick(r, ['#4FA466', '#3F8F5A', '#6DBB6A']);
   return o;
 }
 
@@ -273,8 +325,8 @@ export function makeScene(seed){
   for (const [type, cnt, xr, yr, extra, zone] of th.items){
     const n = Array.isArray(cnt) ? cnt[0] + Math.floor(r() * (cnt[1] - cnt[0] + 1)) : cnt;
     for (let k = 0; k < n; k++){
-      for (let t = 0; t < 50; t++){
-        const o = { type, x: xr[0] + r() * (xr[1] - xr[0]), y: yr[0] + r() * (yr[1] - yr[0]), s: 0.9 + r() * 0.3, ...defaults(type, r), ...(extra ? extra(r) : {}) };
+      for (let t = 0; t < 90; t++){
+        const o = { type, x: xr[0] + r() * (xr[1] - xr[0]), y: yr[0] + r() * (yr[1] - yr[0]), s: 0.72 + r() * 0.6, ...defaults(type, r), ...(extra ? extra(r) : {}) };
         o.shadow = !!T[type].sw && !SHADOW_FREE.has(type);
         const b = boxOf(o);
         if (b[0] < 3 || b[2] > W - 3 || b[1] < 3 || b[3] > HH - 1) continue;
@@ -318,7 +370,7 @@ function tryKind(kind, o, r){
       const c = far(list, o[part], r);
       return { apply: n => { n[part] = c; }, region: boxOf(o, t.parts[part]) };
     }
-    if (!t.colors || t.colors.length < 2 || o.type === 'cloud' || o.type === 'bird') return null;
+    if (!t.colors || t.colors.length < 2 || t.nocolor || o.type === 'cloud' || o.type === 'bird') return null;   // 비슷한 잿빛끼리는 바꿔도 안 보인다
     const c = far(t.colors, o.c, r);
     return { apply: n => { n.c = c; }, region: b0 };
   }
@@ -346,6 +398,9 @@ function tryKind(kind, o, r){
     return null;
   }
   if (kind === 'object'){
+    // 작은 디테일이 없어지기도 한다 (화분 · 사과 · 깃발 · 목걸이 …) — 물건이 통째로 없어지는 것과 반쯤씩
+    const on = t.dets ? Object.keys(t.dets).filter(k => o[k] && !(k === 'fruit' && o.shape) && !(o.type === 'tent' && o.shape)) : [];
+    if (on.length && (!t.rm || r() < 0.55)){ const k = pick(r, on); return { apply: n => { n[k] = false; }, region: boxOf(o, t.dets[k]) }; }
     if (t.rm) return { apply: 'remove', region: b0 };
     return null;
   }
@@ -362,7 +417,7 @@ export function makeDiffs(seed){
   const order = KINDS.slice();
   for (let i = order.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
   const used = new Set(), diffs = [], regions = [];
-  const SMALL = new Set(['flower', 'bird', 'shell', 'star', 'bubbles', 'butterfly', 'dragonfly']);
+  const SMALL = new Set(['flower', 'bird', 'shell', 'star', 'bubbles', 'butterfly', 'dragonfly', 'tuft', 'pebbles', 'bee', 'snail']);
   for (const kind of [...order, ...order, ...order]){
     if (diffs.length >= 5) break;
     const cands = sc.objs.filter(o => !used.has(o.id));
