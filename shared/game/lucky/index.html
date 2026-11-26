@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Lucky 주사위</title>
+<meta name="description" content="주사위 넷으로 길을 오르는 1~8인 온라인 게임. 한 번만 더 굴릴까, 멈출까?">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta property="og:title" content="Lucky 주사위">
+<meta property="og:description" content="주사위 넷으로 길을 올라요. 한 번만 더? 멈출까? 1~8명 · 팀전도.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Metaversal Studio">
+<meta property="og:url" content="https://claudecode-mobile-g.choopss93.workers.dev/shared/game/lucky/">
+<!-- 링크 미리보기 그림 (카카오톡 · 메시지 등). 주소는 꼭 전체 주소로 -->
+<meta property="og:image" content="https://claudecode-mobile-g.choopss93.workers.dev/shared/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Metaversal Studio 로고">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../../../assets/base.css">
+<style>
+  /* 공용 공간의 강조색 — Memory Poker 와 같은 금빛, 늘 검정 바탕 */
+  :root{ --accent:#8A5A24; --accent-soft:#F2E8DA }
+  :root[data-theme="dark"]{
+    --accent:#DCA94E; --accent-soft:#33281A;
+    --bg:#000000; --surface:#111111; --surface-2:#1C1C1C; --line:#2A2A2A;
+    --ink:#F2F2F2; --muted:#9C9C9C; --faint:#6E6E6E;
+  }
+  .up{color:#6CCB8A!important} .down{color:#F08A6A!important}
+
+  /* ─── 한 화면에 고정: 확대도 스크롤도 없다 ─── */
+  html{height:100%;overflow:hidden;touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  input{-webkit-user-select:text;user-select:text}
+  .field{font-size:16px}
+  .wrap{height:100%;max-width:560px;display:flex;flex-direction:column;
+    padding:0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    padding-bottom:max(10px, env(safe-area-inset-bottom))}
+  section{flex:1;min-height:0;display:flex;flex-direction:column}
+  .ver{flex:none;margin:4px 0 0;text-align:center;color:var(--faint);font-size:10.5px;height:14px;line-height:14px}
+
+  /* ─── 첫 화면 ─── (Tower 13 과 같은 결) */
+  #lobby header{padding-block:14px 12px}
+  #lobby .back{margin-bottom:8px}
+  #lobby .panel{margin-top:14px;padding:16px 14px;gap:9px}
+  #lobby label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+  #lobby .or{color:var(--faint);font-size:12px;text-align:center;margin:0}
+  #lobby .btn{min-height:46px;font-size:15px}
+  #joinForm{display:flex;gap:8px}
+  #joinForm .field{text-transform:uppercase;letter-spacing:.1em;min-width:0}
+  #joinForm .btn{white-space:nowrap;flex:none;padding-inline:18px}
+  .field.locked{color:var(--muted);background:var(--surface-2);cursor:default}
+  .lockNote{font-weight:400;color:var(--faint);font-size:11px}
+  #lobbyMsg{color:#F08A6A;font-size:12.5px;min-height:1.2em;margin:0}
+  .rules{margin:12px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.5}
+  .rules li{margin:2px 0} .rules b{color:var(--ink)}
+  #howBtn{margin-top:auto;margin-bottom:4px;flex:none;width:100%;min-height:46px;font-size:15px}
+  #lobby h1 .lk{background:linear-gradient(100deg,#FFE9B8,#DCA94E 50%,#F0A080);-webkit-background-clip:text;background-clip:text;color:transparent}
+  @media (max-height:700px){ #lobby .panel{gap:7px} #lobby .or{display:none} }
+  @media (max-height:640px){ #lobby .sub{display:none} #lobby .panel{margin-top:10px} .rules{font-size:11.5px;margin-top:8px} }
+  @media (max-height:600px){
+    #lobby header{padding-block:8px 8px} #lobby .back{margin-bottom:4px} #lobby h1{font-size:22px}
+    #lobby .panel{margin-top:8px;padding:12px 12px;gap:7px} #lobby .btn,#howBtn{min-height:42px}
+    #lobby .field{min-height:42px;padding-block:7px} #lobbyMsg{min-height:0} .rules{margin-top:6px;line-height:1.4}
+  }
+  @media (orientation:landscape) and (max-height:520px){
+    #lobby{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);grid-template-rows:auto 1fr auto;column-gap:18px;padding-top:env(safe-area-inset-top)}
+    #lobby header{grid-column:1;border:0;padding-bottom:0}
+    #lobby .rules{grid-column:1;grid-row:2;margin-top:4px}
+    #lobby .panel{grid-column:2;grid-row:1 / -1;align-self:center;margin:0;padding:12px 14px;gap:7px}
+    #lobby .btn{min-height:44px} #lobby .field{min-height:42px;padding-block:7px} #lobbyMsg{min-height:0}
+    #howBtn{grid-column:1;grid-row:3;min-height:40px;margin:0 0 4px}
+  }
+
+  /* ─── 방 화면 — 자리마다 높이를 못 박아 단계가 바뀌어도 들썩이지 않는다 ─── */
+  #room{padding-top:max(8px, env(safe-area-inset-top));gap:8px}
+  .top{display:flex;align-items:center;gap:6px;flex:none;min-width:0;height:36px}
+  .top .back{margin:0;min-height:36px;flex:none;font-size:13px}
+  .top .spacer{flex:1}
+  .top .pill{white-space:nowrap;min-width:0;min-height:32px}
+  #roomBtn{font:inherit;cursor:pointer;color:var(--ink);gap:6px}
+  #roomBtn .code{font-weight:700;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+  #roomBtn .inv{color:var(--accent);font-weight:600}
+  #netText{overflow:hidden;text-overflow:ellipsis;max-width:18vw}
+  #seats{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;flex:none}
+  #seats li{height:36px;box-sizing:border-box;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:2px 6px;
+    display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:1fr 1fr;column-gap:4px;align-items:center;font-size:11.5px;min-width:0}
+  #seats li.me{background:var(--accent-soft)}
+  #seats li.turn{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  #seats li.out{opacity:.45}
+  #seats li.dead{opacity:.55}
+  #seats li.rd{border-color:rgba(108,203,138,.55)}
+  #seats li.empty{border-style:dashed;color:var(--faint);display:flex;align-items:center;justify-content:center;background:none}
+  #seats .nm{grid-column:1 / -1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+  #seats .nm .sw{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:3px;vertical-align:1px}
+  #seats .nm .sw.ring{background:none;box-shadow:inset 0 0 0 2px var(--c)}
+  #seats .nm .tm{font-size:9.5px;color:var(--c);margin-right:2px}
+  #seats .nm em{font-style:normal;color:var(--accent);margin-right:2px}
+  #seats .sc{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+  #seats .pk{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.1;white-space:nowrap}
+  .status{display:flex;align-items:center;gap:10px;flex:none;min-width:0;height:44px}
+  .status .txt{flex:1;min-width:0}
+  .dice{display:flex;gap:4px;flex:none}
+  .die{width:30px;height:30px;border-radius:7px;background:#F4F1EA;color:#151515;font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;box-shadow:inset 0 -2px 0 rgba(0,0,0,.18)}
+  .dice.bust .die{background:#3a1d1d;color:#F08A6A;box-shadow:inset 0 0 0 1px #F08A6A}
+  #phase,#hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
+  #phase{font-size:17px;font-weight:700;line-height:24px;height:24px}
+  #hint{color:var(--muted);font-size:12.5px;line-height:18px;height:18px}
+
+  /* 가운데 — 설정(시작 전) · 길판(게임 중). 남은 자리 전부 */
+  .board{flex:1;min-height:0;display:flex;flex-direction:column}
+  .setup{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .setup .st{margin:0;font-size:13px;color:var(--muted);font-weight:600}
+  .optrow{display:flex;align-items:center;gap:10px}
+  .optrow .ol{font-size:12.5px;color:var(--muted);font-weight:700;width:3.4em;flex:none}
+  .optrow .seg{flex:1;min-width:0}
+  .seg{display:flex;gap:4px;padding:3px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line)}
+  .seg button{all:unset;flex:1;cursor:pointer;text-align:center;min-height:38px;line-height:38px;border-radius:9px;font-size:14px;font-weight:700;color:var(--muted);white-space:nowrap}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:#1a1206}
+  .seg button:disabled{cursor:default}
+  .seg button:disabled[aria-pressed="false"]{opacity:.4}
+  .seg button:focus-visible{outline:2px solid var(--accent)}
+  .setup .pool{margin:0;font-size:12px;color:var(--faint);text-align:center}
+  .setup .pool b{color:var(--ink)}
+  .pairs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:12.5px;color:var(--muted)}
+  .pairs li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .pairs b{color:var(--accent)}
+  /* 길판 — 11줄 × (13칸 + 번호). 짧은 길은 가운데에 와서 마름모가 된다 */
+  .track{flex:1;min-height:0;display:grid;grid-template-columns:repeat(11,minmax(0,1fr));grid-template-rows:repeat(13,minmax(0,1fr)) 22px;gap:2px;
+    background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px 6px 6px}
+  .cell{position:relative;border-radius:4px;background:var(--surface-2);border:1px solid #262626;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:1px;padding:1px;cursor:pointer;min-height:0;overflow:hidden}
+  .cell.goal{border-color:#6b5426}
+  .cell.own{background:color-mix(in srgb, var(--o) 55%, #111);border-color:var(--o)}
+  .cell .flag{font-size:11px;line-height:1}
+  .cell.hasTmp{border-color:#fff;box-shadow:0 0 0 1px #fff}
+  .m{display:block;width:min(7px,30%);aspect-ratio:1;border-radius:50%;background:var(--c);flex:none}
+  .m.ring{background:none;box-shadow:inset 0 0 0 1.6px var(--c)}
+  .m.tmp{width:min(11px,46%);background:#fff;box-shadow:0 0 0 2px var(--c)}
+  .lab{display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted);border-radius:6px;cursor:pointer;font-variant-numeric:tabular-nums}
+  .lab.used{color:#fff;background:#2c2c2c}
+  .lab.opt{color:#1a1206;background:var(--accent)}
+  .lab.own{color:var(--o)}
+
+  /* 단추 — 두 줄 (위: 한 수 · 아래: 정보). 고르기는 2줄 × 3칸까지 */
+  .actions{display:flex;flex-direction:column;gap:6px;height:100px;flex:none}
+  .actions .row1{display:flex;gap:8px;flex:1;min-height:0}
+  .actions .row1 .btn{flex:1;min-height:0;height:100%;font-size:15px}
+  .actions .row2{margin:0;height:22px;line-height:22px;text-align:center;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+  .actions .row2 b{color:var(--ink)}
+  .actions .btn.roll{flex:2;font-size:19px;font-weight:800;background:var(--accent);border-color:var(--accent);color:#1a1206}
+  .actions .btn.stop{font-size:16px;font-weight:700}
+  .actions .btn:disabled{opacity:.45}
+  .btn.on{background:rgba(108,203,138,.14);border-color:#6CCB8A;color:#6CCB8A}
+  .btn.on small{font-size:12px;opacity:.75;font-weight:500}
+  .actions .wait{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:14px;
+    border:1px dashed var(--line);border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 12px}
+  .picks{flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:6px;height:100%}
+  .picks.n1,.picks.n2{grid-template-columns:repeat(2,minmax(0,1fr))} .picks.n1{grid-template-columns:1fr}
+  .picks .btn.pick{min-height:0;height:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:20px;font-weight:800;padding:0 4px}
+  .picks .btn.pick span{color:var(--muted);font-weight:500;font-size:15px}
+  .picks .btn.pick small{font-size:12px;color:var(--muted);font-weight:600}
+  .picks.n4 .btn.pick,.picks.n5 .btn.pick,.picks.n6 .btn.pick{font-size:17px}
+  @media (max-height:600px){
+    #room{gap:6px}
+    .setup{gap:8px;padding:10px} .seg button{min-height:34px;line-height:34px;font-size:13px}
+    .actions{height:92px} .track{padding:5px 5px 4px;grid-template-rows:repeat(13,minmax(0,1fr)) 18px}
+  }
+  @media (orientation:landscape) and (max-height:520px){
+    .wrap{max-width:none}
+    #room{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);grid-template-rows:auto auto auto 1fr auto;column-gap:16px;row-gap:6px}
+    #room > .top{grid-column:1 / -1}
+    #room > #seats{grid-column:2;grid-row:2}
+    #room > .status{grid-column:2;grid-row:3;height:40px}
+    #room > .board{grid-column:1;grid-row:2 / -1}
+    #room > .actions{grid-column:2;grid-row:5;height:96px}
+    #seats li{height:32px}
+    .setup{gap:6px;padding:8px 10px} .seg button{min-height:30px;line-height:30px;font-size:13px} .optrow{gap:3px}
+    .die{width:26px;height:26px;font-size:15px}
+  }
+  #rank{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+  #rank li{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto;gap:8px;align-items:center;background:var(--surface-2);
+    border:1px solid var(--line);border-radius:10px;padding:7px 10px}
+  #rank li.win{border-color:var(--accent)}
+  #rank .no{font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+  #rank .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #rank .tk{font-size:11.5px;color:var(--muted);white-space:nowrap}
+  #rank .sc{font-weight:700;font-variant-numeric:tabular-nums;font-size:15px;text-align:right}
+  #rank.tight li{padding:4px 10px} #rank.tight{gap:3px}
+  .sw{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:6px;vertical-align:0}
+  .sw.ring{background:none;box-shadow:inset 0 0 0 2px var(--c)}
+  @media (orientation:landscape) and (max-height:520px){ #rank{display:grid;grid-template-columns:1fr 1fr;gap:5px} #rank li{padding:5px 10px} }
+  .colp{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .colp li{display:grid;grid-template-columns:minmax(0,7em) minmax(0,1fr) 3.4em;gap:8px;align-items:center;font-size:13px}
+  .colp .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .colp .bar{position:relative;height:10px;border-radius:5px;background:var(--surface-2);overflow:hidden}
+  .colp .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:5px}
+  .colp .bar b{position:absolute;left:0;top:0;bottom:0;border-radius:5px;box-shadow:inset 0 0 0 2px #fff}
+  .colp .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+  @media (max-height:600px){ .colp{gap:3px} .colp li{font-size:12px} }
+  .how{margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:var(--muted)}
+  .how li{margin:3px 0} .how b{color:var(--ink)}
+  @media (max-height:600px){ .how{font-size:11px;line-height:1.34} .how li{margin:1px 0} }
+  #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 56px);transform:translateX(-50%);z-index:20;background:#fff;color:#111;
+    border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.5);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section id="lobby">
+    <header>
+      <a class="back" href="../../#project">← Metaversal Studio › META PROJECT</a>
+      <h1><span class="lk">Lucky 주사위</span></h1>
+      <p class="sub">주사위 넷으로 길을 올라요. 한 번만 더? 멈출까? 1~8명.</p>
+    </header>
+    <div class="panel stack">
+      <div>
+        <label for="name">내 이름</label>
+        <input class="field" id="name" maxlength="12" autocomplete="nickname" placeholder="친구들에게 보일 이름">
+      </div>
+      <button class="btn primary" id="make" type="button">새 방 만들기</button>
+      <p class="or">또는 받은 방 코드로</p>
+      <form id="joinForm">
+        <input class="field" id="code" maxlength="8" autocomplete="off" autocapitalize="characters" placeholder="ABC-123" aria-label="방 코드">
+        <button class="btn" type="submit">들어가기</button>
+      </form>
+      <p id="lobbyMsg" role="alert"></p>
+    </div>
+    <ol class="rules">
+      <li>주사위 <b>넷</b>을 굴려 둘씩 짝지은 <b>합 두 개</b>의 길(2~12)로 올라가요.</li>
+      <li>더 굴릴지 <b>멈출지</b>는 내 마음. 올릴 길이 없으면 <b>💥 꽝</b> — 이번 차례에 오른 것을 잃어요.</li>
+      <li>꼭대기에 닿으면 그 길은 내 것. 길 <b>3개</b>(5명부터 <b>2개</b>)를 먼저 차지하면 승리.</li>
+      <li>짝수 인원은 <b>팀전</b>(2명씩)도 돼요. 혼자 시작하면 META BOT 셋과.</li>
+    </ol>
+    <button class="btn" id="howBtn" type="button">게임 방법 자세히</button>
+  </section>
+
+  <section id="room" hidden>
+    <div class="top">
+      <a class="back" href="./">← 나가기</a>
+      <button class="pill" id="roomBtn" type="button" aria-label="친구 부르기">방 <span class="code" id="roomCode"></span> <span class="inv">초대</span></button>
+      <span class="spacer"></span>
+      <span class="pill"><span class="dot off" id="netDot"></span><span id="netText">연결 중</span></span>
+    </div>
+    <ul id="seats"></ul>
+    <div class="status"><div class="txt"><p id="phase">기다리는 중</p><p id="hint"></p></div><div class="dice" id="dice"></div></div>
+    <div class="board" id="board"></div>
+    <div class="actions" id="actions"></div>
+  </section>
+
+  <p class="ver">판 1</p>
+</div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="card2">
+    <div class="grip"></div>
+    <header><h2 id="sheetTitle"></h2><button class="x" id="sheetClose" type="button" aria-label="닫기">✕</button></header>
+    <p class="sub2" id="sheetSub"></p>
+    <div class="body" id="sheetBody"></div>
+    <div class="btns" id="sheetBtns"></div>
+  </div>
+</div>
+<div id="toast" hidden></div>
+<script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>
