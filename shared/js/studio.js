@@ -107,12 +107,12 @@ requestAnimationFrame(frame);
 /* ─────────── 화면 바꾸기 ─────────── */
 function show(name){
   for (const s of screens) $('#' + s).hidden = s !== name;
-  // 로고는 첫 화면에만 (사용자 요청). 메뉴는 캐릭터가 있으면 캐릭터, 없으면 자리를 비운다.
+  // 로고는 첫 화면에만 (사용자 요청). 로그인하자마자 오는 메뉴에는 캐릭터도 두지 않는다 (사용자 요청).
   // META WORLD 목록에는 늘 내 캐릭터 — 아직 없으면 만들 캐릭터를 미리 보여 준다 (사용자 요청).
   // META PROJECT 목록에는 캐릭터를 쓰지 않으므로 자리를 비운다.
   showLogo = name === 'intro';
   const slot = $('#' + name + ' [data-stage]');
-  const bare = (name === 'menu' && !charOf(account)) || (name === 'cat' && catKey !== 'world');
+  const bare = name === 'menu' || (name === 'cat' && catKey !== 'world');
   $('#' + name).classList.toggle('nostage', bare);
   if (slot) slot.hidden = bare;
   if (slot && !bare){ slot.appendChild(canvas); requestAnimationFrame(fit); }
