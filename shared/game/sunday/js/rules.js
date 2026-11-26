@@ -20,6 +20,8 @@ import { BANK } from './data.js?v=1';
 export const ROUND_MS = 180 * 1000;     // 한 판 최대 3분
 export const ANSWER_MS = 20 * 1000;     // 손 든 사람이 적는 시간
 export const REVEAL_MS = 4000;          // 정답을 보여 주고 넘어가기까지
+export const HINT_MS = 60 * 1000;      // 1분 · 2분에 힌트 하나씩 (모두 두 번)
+export const HINT_MAX = 2;
 export const BUZZ_WINDOW = 350;         // 손이 거의 같이 올라오면 이만큼 모아 서버 시각이 이른 사람을 고른다
 export const ROUND_CHOICES = [5, 10, 15, 20, 30];
 export const MAX_SEATS = 8;
@@ -43,6 +45,44 @@ export const titleOf = (s, i) => itemOf(s, i)[0];
 export function questionOf(s, i = s.n){
   const it = itemOf(s, i);
   return s.mode === 'abbr' ? it[1] : chosung(it[0]);
+}
+/* 초성에 몇 글자를 드러낸다 — 드러낼 자리(한글 음절의 몇 번째)를 받는다 */
+function reveal(title, show){
+  let i = -1, out = '';
+  for (const ch of title){
+    const c = ch.charCodeAt(0);
+    if (c >= 0xAC00 && c <= 0xD7A3){ i++; out += show.has(i) ? ch : chosung(ch); }
+    else out += ch;
+  }
+  return out;
+}
+/**
+ * 힌트 — level 1 (1분), 2 (2분). 늘 정답을 다 보여 주지는 않는다.
+ *   초성: 1 = 첫 글자, 2 = 한 글자 건너 하나씩(첫 글자부터) · 두 글자면 둘째 글자의 받침 뺀 모양
+ *   줄임말: 1 = 원래 제목의 초성, 2 = 거기에 첫 글자
+ */
+export function hintOf(s, level, i = s.n){
+  if (!level) return '';
+  const t = titleOf(s, i);
+  const n = [...t].filter(ch => ch >= '가' && ch <= '힣').length;
+  if (!n) return '';
+  const first = new Set([0]);
+  if (s.mode === 'abbr') return level === 1 ? chosung(t) : reveal(t, first);
+  if (n < 2) return '';
+  if (level === 1) return reveal(t, first);
+  if (n === 2){                                   // 두 글자 — 둘째 글자는 받침만 빼고 보인다
+    let i = -1, out = '';
+    for (const ch of t){
+      const c = ch.charCodeAt(0);
+      if (c >= 0xAC00 && c <= 0xD7A3){ i++; out += i === 0 ? ch : (c - 0xAC00) % 28 ? String.fromCharCode(c - (c - 0xAC00) % 28) : chosung(ch); }
+      else out += ch;
+    }
+    return out;
+  }
+  const show = new Set();
+  for (let k = 0; k < n; k += 2) show.add(k);
+  if (show.size >= n) show.delete(n - 1);
+  return reveal(t, show);
 }
 export function isRight(s, text){
   const it = itemOf(s);

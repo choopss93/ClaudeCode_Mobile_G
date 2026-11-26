@@ -1,5 +1,5 @@
 import { ROUND_MS, ANSWER_MS, REVEAL_MS, BUZZ_WINDOW, ROUND_CHOICES, MAX_SEATS, newGame, canBuzz, buzz, submit, timeUp, next,
-         ranking, questionOf, titleOf, poolSize } from './rules.js?v=1';
+         ranking, questionOf, titleOf, poolSize, hintOf, HINT_MS, HINT_MAX } from './rules.js?v=2';
 import { CAT_NAME, MODE_NAME } from './data.js?v=1';
 import { joinRoom, makeId } from '../../poker/js/room.js?v=12';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
@@ -68,6 +68,9 @@ const inGame = () => S && !S.over && S.order.includes(me.id);
 const keyOf = s => s ? `${s.g}|${s.n}|${s.phase}|${s.k}` : '';
 const rKeyOf = s => s ? `${s.g}|${s.n}` : '';
 const left = () => Math.max(0, ROUND_MS - (now() - roundAt));
+/** 지금 몇 번째 힌트까지 나왔나 — 판이 시작하고 1분 · 2분 (모두 두 번) */
+const hintLevel = () => Math.min(HINT_MAX, Math.floor((now() - roundAt) / HINT_MS));
+let shownHint = -1;
 const ansLeft = () => Math.max(0, ANSWER_MS - (now() - stepAt));
 const fmt = ms => { const t = Math.ceil(ms / 1000); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 
@@ -380,6 +383,13 @@ function paintAnsClock(){
   if (b){ b.textContent = sec; b.parentNode.classList.toggle('low', ms <= 5000); }
   if (bar) bar.style.transform = `scaleX(${(ms / ANSWER_MS).toFixed(3)})`;
 }
+function hintLine(){
+  const lv = S && S.phase !== 'reveal' ? hintLevel() : 0;
+  shownHint = lv;
+  const h = lv ? hintOf(S, lv) : '';
+  if (!lv) return `<p class="hintln none">💡 힌트 1 · 1:00 지나면</p>`;
+  return `<p class="hintln"><span>💡 힌트 ${lv}</span><b>${esc(h || '없어요')}</b></p>`;
+}
 function render(){
   pres && pres.update();
   if (!net) return;
@@ -447,7 +457,7 @@ function render(){
     const reveal = ph === 'reveal' ? `<p class="ans">정답 · <b>${esc(titleOf(S, S.n))}</b></p>` : '';
     B.innerHTML = `<div class="qcard ph-${ph}">
         <div class="qtop"><span class="qk">${MODE_NAME[S.mode]} · ${CAT_NAME[S.cat]}</span><span class="clock" id="clock">${fmt(left())}</span></div>
-        <p class="q ${big}">${esc(q)}</p>${reveal}
+        <p class="q ${big}">${esc(q)}</p>${reveal || hintLine()}
         <div class="typing" id="live"></div>
         <ul class="tries">${recent}</ul>
       </div>`;
@@ -487,6 +497,7 @@ setInterval(() => {
   const c = $('#clock');
   if (c){ c.textContent = fmt(left()); c.classList.toggle('low', left() < 30000); }
   if (S.phase === 'buzz') paintAnsClock();
+  if ((S.phase === 'q' || S.phase === 'buzz') && shownHint !== hintLevel()) render();
 }, 100);
 
 /* 접속 알림 (마스터의 '접속자') — 게임에 앉아 있는 동안이 게임 중 */
