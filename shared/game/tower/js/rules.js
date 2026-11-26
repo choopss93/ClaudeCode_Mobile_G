@@ -6,7 +6,7 @@
  *   한 판은 세 단계다 (사용자가 정함):
  *     1. 고르기  — 판이 시작하면 **모두가 동시에** 이번 판의 박스(카드 한 장 + 칩 하나,
  *                  무지개면 올릴 색까지)를 몰래 고른다. 다 고르면 다음으로.
- *     2. 차례    — 정해진 순서대로 한 사람씩 **올리기 확정** 또는 **패스**. 모두 고른
+ *     2. 차례    — 이번 세트의 순서대로(무지개 → 큰 숫자 → 선 플레이어부터) 한 사람씩 **올리기 확정** 또는 **패스**. 모두 고른
  *                  뒤라 모두의 박스가 공개돼 있고, 그것을 보고 정한다 (사용자 요청).
  *     3. 공개    — 모두 정하면 확정한 박스를 **순서대로** 공개하며 쌓고, 이어서 패스한
  *                  박스를 **역순으로**(마지막에 패스한 사람부터 처음 패스한 사람까지)
@@ -62,12 +62,25 @@ export function choose(s, id, card, chip, zone){
   const n = structuredClone(s);
   n.picks[id] = { card, chip, zone };
   n.seq++;
-  if (n.order.every(p => n.picks[p])){ n.step = 'turn'; n.turn = 0; }
+  if (n.order.every(p => n.picks[p])){ n.step = 'turn'; n.turn = 0; n.turnOrder = turnOrderOf(n); }
   return n;
 }
 
-/* ── 2. 차례 ── */
-export const turnOf = s => (s && !s.over && s.step === 'turn' ? s.order[s.turn] : null);
+/* ── 2. 차례 ──
+   세트마다 순서를 새로 정한다 (사용자 요청 — 방송 게임과 같은 방식):
+     무지개 칩을 낸 사람이 먼저 → 그다음 카드 숫자가 큰 사람부터 → 같으면 선 플레이어부터 자리 차례로.
+   선 플레이어는 처음 뽑은 순서(order)의 맨 앞에서 시작해 **세트마다 한 칸씩** 돈다 (leadOf).
+   s.order 는 자리 차례(처음 뽑은 순서)로 그대로 두고, 이번 세트의 차례는 s.turnOrder 에 적는다. */
+export const setIndex = s => (s.game - 1) * SETS + (s.round - 1);       // 게임 안에서 몇 번째 세트 (0부터)
+export const leadOf = s => (s && s.order.length ? s.order[setIndex(s) % s.order.length] : null);
+export function turnOrderOf(s){
+  const n = s.order.length, L = setIndex(s) % n;
+  const dist = id => (s.order.indexOf(id) - L + n) % n;                 // 선 플레이어에서 몇 칸 뒤인가
+  const rain = id => (CHIPS[s.picks[id].chip] === 'w' ? 0 : 1);
+  return s.order.slice().sort((a, b) => rain(a) - rain(b) || s.picks[b].card - s.picks[a].card || dist(a) - dist(b));
+}
+export const seqOf = s => (s && s.turnOrder) || (s ? s.order : []);    // 이번 세트의 차례 (옛 상태면 자리 차례)
+export const turnOf = s => (s && !s.over && s.step === 'turn' ? seqOf(s)[s.turn] : null);
 export function act(s, id, what){
   const n = structuredClone(s);
   const pass = what === 'pass';
@@ -113,7 +126,7 @@ function place(n, id){
 }
 function endRound(n){
   n.round++;
-  n.picks = {}; n.done = {}; n.puts = []; n.passed = []; n.queue = [];
+  n.picks = {}; n.done = {}; n.puts = []; n.passed = []; n.queue = []; n.turnOrder = null;
   n.turn = 0; n.step = 'choose';
   if (n.round > SETS){                     // 한 판 끝 — 카드 · 칩을 새로 받는다. 탑 · 점수는 그대로
     n.game++;

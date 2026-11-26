@@ -1,5 +1,5 @@
 import { SETS, GAMES, MAX_GAMES, gamesOf, LIMIT, CARDS, CHIPS, ZONES, ZONE_NAME, MAX_SEATS, sumOf, canPut, newGame,
-         canChoose, choose, turnOf, act, resolveStep, autoPick, ranking } from './rules.js?v=5';
+         canChoose, choose, turnOf, seqOf, leadOf, act, resolveStep, autoPick, ranking } from './rules.js?v=6';
 import { joinRoom, makeId } from '../../poker/js/room.js?v=12';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
@@ -385,9 +385,9 @@ sheet.addEventListener('click', e => {
 addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden){ closeSheet(); render(); } });
 
 const HOW = `<ol class="how">
-  <li>각자 <b>숫자 카드 0~6</b> 일곱 장과 <b>칩 일곱 개</b>(빨강 · 초록 · 파랑 둘씩, 무지개 하나). 시작할 때 카드를 뽑아 <b>순서</b>를 정해요.</li>
+  <li>각자 <b>숫자 카드 0~6</b> 일곱 장과 <b>칩 일곱 개</b>(빨강 · 초록 · 파랑 둘씩, 무지개 하나). 시작할 때 카드를 뽑아 <b>첫 선 플레이어</b>를 정해요 — 선은 <b>세트마다 한 칸씩</b> 돌아요.</li>
   <li>판이 시작하면 <b>모두 동시에</b> 이번 판의 박스(카드 + 칩)를 몰래 골라요. <b>무지개</b>는 올릴 색까지.</li>
-  <li>모두 고르면 <b>모두의 박스가 공개</b>돼요. 그걸 보고 순서대로 한 사람씩 <b>올리기 확정</b> 또는 <b>패스</b>.</li>
+  <li>모두 고르면 <b>모두의 박스가 공개</b>되고 이번 세트의 <b>순서</b>가 정해져요 — <b>무지개 칩</b>이 먼저, 그다음 <b>숫자가 큰 사람</b>부터, 같으면 <b>선 플레이어</b>부터. 그 순서대로 한 사람씩 <b>올리기 확정</b> 또는 <b>패스</b>.</li>
   <li>모두 정하면 공개 — 확정한 박스는 <b>순서대로</b>, 패스한 박스는 <b>거꾸로</b>(마지막에 패스한 사람부터) 쌓여요.</li>
   <li>쌓은 뒤 그 탑이 <b>13 이상</b>이면 와르르 — 그 박스 주인이 탑의 박스를 <b>전부</b> 가져오고 <b>하나에 −1점</b>. 탑은 비어요.</li>
   <li>모두 한 번씩 올리면 <b>1세트</b>, <b>7세트가 1판</b>. 판마다 카드 · 칩을 새로 받아요.</li>
@@ -407,7 +407,7 @@ function drawSheet(){
   const T = $('#sheetTitle'), Sub = $('#sheetSub'), B = $('#sheetBody'), F = $('#sheetBtns');
   if (sheetFor === 'draw'){
     T.textContent = '순서 뽑기';
-    Sub.textContent = `뽑은 카드가 작은 사람부터 해요. ${gamesOf(S)}판 내내 이 순서예요.`;
+    Sub.textContent = `뽑은 카드가 작은 사람이 첫 선 플레이어 · 선은 세트마다 한 칸씩 돌아요. 차례는 세트마다 무지개 → 큰 숫자 → 선부터.`;
     B.innerHTML = '<ul class="order">' + S.order.map(id => `<li><span class="card">${S.draw[id]}</span><span class="nm">${esc(nameOf(id))}${id === me.id ? ' (나)' : ''}</span></li>`).join('') + '</ul>';
     F.innerHTML = '<button class="btn" data-act="close" type="button">확인</button>';
     return;
@@ -416,7 +416,7 @@ function drawSheet(){
     const cur = turnOf(S);
     T.textContent = '모두의 박스 공개';
     Sub.textContent = `${where(S)} · 모두 골랐어요. 보고 순서대로 확정 또는 패스`;
-    B.innerHTML = `<ul id="picks" class="${S.order.length > 5 ? 'tight' : ''}">` + S.order.map((id, i) => {
+    B.innerHTML = `<ul id="picks" class="${S.order.length > 5 ? 'tight' : ''}">` + seqOf(S).map((id, i) => {
       const p = S.picks[id], d = S.done[id];
       const st = id === cur ? '▶ 차례' : d === 'pass' ? '패스' : d === 'put' ? '✓ 확정' : S.step === 'turn' ? '기다림' : '';
       return `<li class="${id === cur ? 'cur' : ''}"><span class="no">${i + 1}</span><span class="nm">${esc(nameOf(id))}${id === me.id ? ' (나)' : ''}</span>
@@ -477,10 +477,10 @@ function render(){
     else if (ph === 'choose') right = S.picks[id] ? '✓ 고름' : '고르는 중';
     else if (ph === 'turn'){
       const d = S.done[id];
-      right = pbox(id) + (id === cur ? '▶ 차례' : d === 'pass' ? '패스' : d === 'put' ? '✓ 확정' : `${S.order.indexOf(id) + 1}번`);
+      right = pbox(id) + (id === cur ? '▶ 차례' : d === 'pass' ? '패스' : d === 'put' ? '✓ 확정' : `${seqOf(S).indexOf(id) + 1}번`);
     } else if (ph === 'resolve') right = pbox(id) + (S.done[id] === 'pass' ? '패스' : '확정') + (pending.includes(id) ? ' · 대기' : ' · 쌓임');
     return `<li class="${id === me.id ? 'me' : ''} ${id === cur || pending[0] === id ? 'turn' : ''} ${rd ? 'rd' : ''} ${!between && !here(id) ? 'out' : ''}">
-      <span class="nm">${id === host ? '<em>★</em>' : ''}${esc(nameOf(id))}</span>
+      <span class="nm">${id === host ? '<em>★</em>' : ''}${!between && ph !== 'draw' && leadOf(S) === id ? '<i class="ld">선</i>' : ''}${esc(nameOf(id))}</span>
       <span class="sc ${sc < 0 ? 'down' : ''}">${has ? sc : ''}</span><span class="pk ${rd ? 'up' : ''}">${right}</span></li>`;
   }).join('') + Array.from({ length: Math.max(0, MAX_SEATS - showIds.length) }, () => '<li class="empty">빈자리</li>').join('');
 

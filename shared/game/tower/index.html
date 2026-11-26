@@ -116,6 +116,7 @@
   #seats li.rd{border-color:rgba(108,203,138,.55)}
   #seats li.empty{border-style:dashed;color:var(--faint);display:flex;align-items:center;justify-content:center;background:none}
   #seats .nm{grid-column:1 / -1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+  #seats .nm .ld{font-style:normal;font-size:10px;font-weight:800;color:#1a1206;background:var(--accent);border-radius:4px;padding:0 3px;margin-right:3px;vertical-align:1px}
   #seats .nm em{font-style:normal;color:var(--accent);margin-right:2px}
   #seats .sc{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
   #seats .pk{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.1;white-space:nowrap;display:flex;align-items:center;justify-content:flex-end;gap:3px}
@@ -282,7 +283,7 @@
 
     <ol class="rules">
       <li>판마다 모두 몰래 <b>박스(숫자 카드 + 색 칩)</b>를 골라요. 무지개는 아무 색에나.</li>
-      <li>모두 고르면 <b>모두의 박스 공개</b>. 보고 순서대로 <b>확정</b> 또는 <b>패스</b> — 확정은 순서대로, 패스는 거꾸로 쌓여요.</li>
+      <li>모두 고르면 <b>모두의 박스 공개</b>. 순서는 세트마다 <b>무지개 → 큰 숫자 → 선</b>부터 — 그 순서로 <b>확정</b> 또는 <b>패스</b>.</li>
       <li>올린 뒤 그 탑이 <b>13 이상</b>이면 와르르 — 박스를 전부 가져오고 <b>하나에 −1점</b>.</li>
       <li>모두 한 번씩 올리면 1세트, <b>7세트가 1판</b>. 판 수는 <b>방장이 정해요</b>(기본 7판). 판을 이어서 하고, 탑과 점수는 내내 그대로예요.</li>
     </ol>
@@ -317,7 +318,7 @@
     <div class="actions" id="actions"></div>
   </section>
 
-  <p class="ver">판 14</p>
+  <p class="ver">판 15</p>
 </div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="card2">
@@ -329,6 +330,6 @@
   </div>
 </div>
 <div id="toast" hidden></div>
-<script type="module" src="js/main.js?v=14"></script>
+<script type="module" src="js/main.js?v=15"></script>
 </body>
 </html>
