@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>틀린그림찾기</title>
+<meta name="description" content="3분 동안 그림을 외우고, 바뀐 곳 다섯을 1분 안에 찾는 1~8인 온라인 게임.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta property="og:title" content="틀린그림찾기">
+<meta property="og:description" content="3분 동안 외우고 1분 안에 바뀐 곳 다섯 찾기. 1~8명.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Metaversal Studio">
+<meta property="og:url" content="https://claudecode-mobile-g.choopss93.workers.dev/shared/game/spot/">
+<!-- 링크 미리보기 그림 (카카오톡 · 메시지 등). 주소는 꼭 전체 주소로 -->
+<meta property="og:image" content="https://claudecode-mobile-g.choopss93.workers.dev/shared/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Metaversal Studio 로고">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../../../assets/base.css">
+<style>
+  /* 공용 공간의 강조색 — Memory Poker 와 같은 금빛, 늘 검정 바탕 */
+  :root{ --accent:#8A5A24; --accent-soft:#F2E8DA }
+  :root[data-theme="dark"]{
+    --accent:#DCA94E; --accent-soft:#33281A;
+    --bg:#000000; --surface:#111111; --surface-2:#1C1C1C; --line:#2A2A2A;
+    --ink:#F2F2F2; --muted:#9C9C9C; --faint:#6E6E6E;
+  }
+  .up{color:#6CCB8A!important} .down{color:#F08A6A!important}
+
+  /* ─── 한 화면에 고정: 확대도 스크롤도 없다 ─── */
+  html{height:100%;overflow:hidden;touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  input{-webkit-user-select:text;user-select:text}
+  .field{font-size:16px}
+  .wrap{height:100%;max-width:560px;display:flex;flex-direction:column;
+    padding:0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    padding-bottom:max(10px, env(safe-area-inset-bottom))}
+  section{flex:1;min-height:0;display:flex;flex-direction:column}
+  .ver{flex:none;margin:4px 0 0;text-align:center;color:var(--faint);font-size:10.5px;height:14px;line-height:14px}
+
+  /* ─── 첫 화면 ─── (Tower 13 과 같은 결) */
+  #lobby header{padding-block:14px 12px}
+  #lobby .back{margin-bottom:8px}
+  #lobby .panel{margin-top:14px;padding:16px 14px;gap:9px}
+  #lobby label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+  #lobby .or{color:var(--faint);font-size:12px;text-align:center;margin:0}
+  #lobby .btn{min-height:46px;font-size:15px}
+  #joinForm{display:flex;gap:8px}
+  #joinForm .field{text-transform:uppercase;letter-spacing:.1em;min-width:0}
+  #joinForm .btn{white-space:nowrap;flex:none;padding-inline:18px}
+  .field.locked{color:var(--muted);background:var(--surface-2);cursor:default}
+  .lockNote{font-weight:400;color:var(--faint);font-size:11px}
+  #lobbyMsg{color:#F08A6A;font-size:12.5px;min-height:1.2em;margin:0}
+  .rules{margin:12px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.5}
+  .rules li{margin:2px 0} .rules b{color:var(--ink)}
+  #howBtn{margin-top:auto;margin-bottom:4px;flex:none;width:100%;min-height:46px;font-size:15px}
+  #lobby h1 .sp{background:linear-gradient(100deg,#FFE9B8,#DCA94E 50%,#F0A080);-webkit-background-clip:text;background-clip:text;color:transparent}
+  @media (max-height:700px){ #lobby .panel{gap:7px} #lobby .or{display:none} }
+  @media (max-height:640px){ #lobby .sub{display:none} #lobby .panel{margin-top:10px} .rules{font-size:11.5px;margin-top:8px} }
+  @media (max-height:600px){
+    #lobby header{padding-block:8px 8px} #lobby .back{margin-bottom:4px} #lobby h1{font-size:22px}
+    #lobby .panel{margin-top:8px;padding:12px 12px;gap:7px} #lobby .btn,#howBtn{min-height:42px}
+    #lobby .field{min-height:42px;padding-block:7px} #lobbyMsg{min-height:0} .rules{margin-top:6px;line-height:1.4}
+  }
+  @media (orientation:landscape) and (max-height:520px){
+    #lobby{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);grid-template-rows:auto 1fr auto;column-gap:18px;padding-top:env(safe-area-inset-top)}
+    #lobby header{grid-column:1;border:0;padding-bottom:0}
+    #lobby .rules{grid-column:1;grid-row:2;margin-top:4px}
+    #lobby .panel{grid-column:2;grid-row:1 / -1;align-self:center;margin:0;padding:12px 14px;gap:7px}
+    #lobby .btn{min-height:44px} #lobby .field{min-height:42px;padding-block:7px} #lobbyMsg{min-height:0}
+    #howBtn{grid-column:1;grid-row:3;min-height:40px;margin:0 0 4px}
+  }
+
+  /* ─── 방 화면 — 자리마다 높이를 못 박아 단계가 바뀌어도 들썩이지 않는다 ─── */
+  #room{padding-top:max(8px, env(safe-area-inset-top));gap:8px}
+  .top{display:flex;align-items:center;gap:6px;flex:none;min-width:0;height:36px}
+  .top .back{margin:0;min-height:36px;flex:none;font-size:13px}
+  .top .spacer{flex:1}
+  .top .pill{white-space:nowrap;min-width:0;min-height:32px}
+  #roomBtn{font:inherit;cursor:pointer;color:var(--ink);gap:6px}
+  #roomBtn .code{font-weight:700;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+  #roomBtn .inv{color:var(--accent);font-weight:600}
+  #netText{overflow:hidden;text-overflow:ellipsis;max-width:18vw}
+  #seats{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;flex:none}
+  #seats li{height:36px;box-sizing:border-box;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:2px 6px;
+    display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:1fr 1fr;column-gap:4px;align-items:center;font-size:11.5px;min-width:0}
+  #seats li.me{background:var(--accent-soft)}
+  #seats li.turn{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  #seats li.out{opacity:.45}
+  #seats li.done{border-color:#2BD46B}
+  #seats li.rd{border-color:rgba(108,203,138,.55)}
+  #seats li.empty{border-style:dashed;color:var(--faint);display:flex;align-items:center;justify-content:center;background:none}
+  #seats .nm{grid-column:1 / -1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+  #seats .nm em{font-style:normal;color:var(--accent);margin-right:2px}
+  #seats .sc{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+  #seats .pk{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.1;white-space:nowrap}
+  .status{display:flex;align-items:center;gap:10px;flex:none;min-width:0;height:44px}
+  .status .txt{flex:1;min-width:0}
+  #phase,#hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
+  #phase{font-size:17px;font-weight:700;line-height:24px;height:24px}
+  #hint{color:var(--muted);font-size:12.5px;line-height:18px;height:18px}
+
+  /* 가운데 — 설정(시작 전) · 그림(게임 중). 남은 자리 전부 */
+  .board{flex:1;min-height:0;display:flex;flex-direction:column}
+  .setup{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .setup .st{margin:0;font-size:13px;color:var(--muted);font-weight:600}
+  .optrow{display:flex;align-items:center;gap:10px}
+  .optrow .ol{font-size:12.5px;color:var(--muted);font-weight:700;width:3.4em;flex:none}
+  .optrow .seg{flex:1;min-width:0}
+  .seg{display:flex;gap:4px;padding:3px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line)}
+  .seg button{all:unset;flex:1;cursor:pointer;text-align:center;min-height:38px;line-height:38px;border-radius:9px;font-size:14px;font-weight:700;color:var(--muted);white-space:nowrap}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:#1a1206}
+  .seg.ro button{cursor:default}
+  .seg.ro button[aria-pressed="false"]{opacity:.45}
+  .seg button:focus-visible{outline:2px solid var(--accent)}
+  .setup .pool{margin:0;font-size:12px;color:var(--faint);text-align:center;line-height:1.5}
+  .setup .pool b{color:var(--ink)}
+  .pcard{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px}
+  .pcard.ph-find{border-color:var(--accent)}
+  .ptop{display:flex;align-items:center;gap:8px;height:26px;flex:none}
+  .pk2{font-size:12.5px;color:var(--muted);font-weight:700;white-space:nowrap}
+  .spots{flex:1;display:flex;gap:4px;justify-content:center}
+  .spots i{width:12px;height:12px;border-radius:50%;border:2px solid #2BD46B;box-sizing:border-box}
+  .spots i.on{background:#2BD46B}
+  .clock{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--surface-2);border-radius:999px;padding:2px 10px;margin-left:auto}
+  .clock.low{color:#F08A6A}
+  /* 그림 — 남은 자리 안에서 4:3 을 지키며 가장 크게 */
+  .pwrap{flex:1;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
+  #pic{width:min(100cqw, calc(100cqh * 4 / 3));aspect-ratio:4 / 3;border-radius:10px;overflow:hidden;touch-action:manipulation;cursor:crosshair;background:#dfefff}
+  #pic svg{display:block;width:100%;height:100%}
+  #pic.locked{cursor:not-allowed;filter:saturate(.6)}
+  .ph-look #pic{cursor:default}
+
+  .actions{display:flex;gap:8px;height:52px;flex:none}
+  .actions .btn{flex:1;min-height:52px;font-size:15px}
+  .btn.on{background:rgba(108,203,138,.14);border-color:#6CCB8A;color:#6CCB8A}
+  .btn.on small{font-size:12px;opacity:.75;font-weight:500}
+  .actions .wait{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:14px;
+    border:1px dashed var(--line);border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 12px}
+  .actions .wait b{color:var(--ink);font-variant-numeric:tabular-nums}
+  @media (max-height:600px){
+    #room{gap:6px}
+    .setup{gap:8px;padding:10px} .seg button{min-height:34px;line-height:34px;font-size:13px}
+    .pcard{padding:6px;gap:4px} .ptop{height:22px}
+  }
+  @media (orientation:landscape) and (max-height:520px){
+    .wrap{max-width:none}
+    #room{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);grid-template-rows:auto auto auto 1fr auto;column-gap:16px;row-gap:6px}
+    #room > .top{grid-column:1 / -1}
+    #room > #seats{grid-column:2;grid-row:2}
+    #room > .status{grid-column:2;grid-row:3;height:40px}
+    #room > .board{grid-column:1;grid-row:2 / -1}
+    #room > .actions{grid-column:2;grid-row:5}
+    #seats li{height:32px}
+    .setup{gap:6px;padding:8px 10px} .seg button{min-height:30px;line-height:30px;font-size:13px} .optrow{gap:3px}
+  }
+  #rank{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+  #rank li{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto;gap:8px;align-items:center;background:var(--surface-2);
+    border:1px solid var(--line);border-radius:10px;padding:7px 10px}
+  #rank li.win{border-color:var(--accent)}
+  #rank .no{font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+  #rank .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #rank .tk{font-size:11.5px;color:var(--muted);white-space:nowrap}
+  #rank .sc{font-weight:700;font-variant-numeric:tabular-nums;font-size:16px;width:2.4em;text-align:right}
+  #rank.tight li{padding:4px 10px} #rank.tight{gap:3px}
+  @media (orientation:landscape) and (max-height:520px){ #rank{display:grid;grid-template-columns:1fr 1fr;gap:5px} #rank li{padding:5px 10px} }
+  .how{margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:var(--muted)}
+  .how li{margin:3px 0} .how b{color:var(--ink)}
+  @media (max-height:600px){ .how{font-size:11px;line-height:1.34} .how li{margin:1px 0} }
+  #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 56px);transform:translateX(-50%);z-index:20;background:#fff;color:#111;
+    border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.5);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section id="lobby">
+    <header>
+      <a class="back" href="../../#project">← Metaversal Studio › META PROJECT</a>
+      <h1><span class="sp">틀린그림찾기</span></h1>
+      <p class="sub">3분 동안 외우고, 바뀐 곳 다섯을 1분 안에. 1~8명.</p>
+    </header>
+    <div class="panel stack">
+      <div>
+        <label for="name">내 이름</label>
+        <input class="field" id="name" maxlength="12" autocomplete="nickname" placeholder="친구들에게 보일 이름">
+      </div>
+      <button class="btn primary" id="make" type="button">새 방 만들기</button>
+      <p class="or">또는 받은 방 코드로</p>
+      <form id="joinForm">
+        <input class="field" id="code" maxlength="8" autocomplete="off" autocapitalize="characters" placeholder="ABC-123" aria-label="방 코드">
+        <button class="btn" type="submit">들어가기</button>
+      </form>
+      <p id="lobbyMsg" role="alert"></p>
+    </div>
+    <ol class="rules">
+      <li>그림을 <b>3분</b> 동안 잘 봐 두세요.</li>
+      <li>그림이 사라지고 바뀐 그림이 나오면 <b>1분</b> 안에 틀린 곳 <b>5곳</b>을 눌러요.</li>
+      <li>색상 · 모양 · 사물 · 그림자 · 형태가 바뀌어요. 한 곳에 <b>1점</b>.</li>
+      <li><b>3 · 5 · 7 라운드</b> 중에 골라요. 라운드마다 점수를 봐요.</li>
+    </ol>
+    <button class="btn" id="howBtn" type="button">게임 방법 자세히</button>
+  </section>
+
+  <section id="room" hidden>
+    <div class="top">
+      <a class="back" href="./">← 나가기</a>
+      <button class="pill" id="roomBtn" type="button" aria-label="친구 부르기">방 <span class="code" id="roomCode"></span> <span class="inv">초대</span></button>
+      <span class="spacer"></span>
+      <span class="pill"><span class="dot off" id="netDot"></span><span id="netText">연결 중</span></span>
+    </div>
+    <ul id="seats"></ul>
+    <div class="status"><div class="txt"><p id="phase">기다리는 중</p><p id="hint"></p></div></div>
+    <div class="board" id="board"></div>
+    <div class="actions" id="actions"></div>
+  </section>
+
+  <p class="ver">판 1</p>
+</div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="card2">
+    <div class="grip"></div>
+    <header><h2 id="sheetTitle"></h2><button class="x" id="sheetClose" type="button" aria-label="닫기">✕</button></header>
+    <p class="sub2" id="sheetSub"></p>
+    <div class="body" id="sheetBody"></div>
+    <div class="btns" id="sheetBtns"></div>
+  </div>
+</div>
+<div id="toast" hidden></div>
+<script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>
