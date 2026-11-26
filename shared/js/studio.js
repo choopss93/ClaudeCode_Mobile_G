@@ -347,6 +347,7 @@ function openCat(key){
   $('#catCrumb').innerHTML = `Metaversal Studio › <b>${c.label}</b>`;
   $('#catTitle').textContent = c.name;
   $('#catSub').textContent = c.sub;
+  $('#catList').classList.toggle('dense', c.items.length >= 4);
   $('#catList').innerHTML = c.items.map(it => `<a href="${it.href}">
     <span class="ic" style="${it.icStyle}">${it.ic}</span>
     <span class="t"><b>${c.label}</b><span>${escH(it.name)}</span><small>${escH(it.desc)}</small></span>
