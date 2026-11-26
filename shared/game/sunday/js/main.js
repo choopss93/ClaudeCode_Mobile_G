@@ -367,8 +367,18 @@ function paintLive(){
   if (!L || !S) return;
   if (S.phase === 'buzz'){
     const who = S.buzzer === me.id ? '내가' : `${nameOf(S.buzzer)} 님이`;
-    L.innerHTML = `<span class="who">✋ ${esc(who)} 적는 중</span><b class="typed">${esc(liveText) || '<i>…</i>'}</b>`;
+    L.innerHTML = `<span class="who">✋ ${esc(who)} 적는 중</span><b class="typed">${esc(liveText) || '<i>…</i>'}</b>`
+      + `<div class="acount"><b id="ansBig">${Math.ceil(ansLeft() / 1000)}</b><span class="abar"><i id="ansBar"></i></span></div>`;
+    paintAnsClock();
   }
+}
+/* 손 든 뒤 20초 — 큰 숫자와 줄어드는 띠 (판의 3분과 따로) */
+function paintAnsClock(){
+  const ms = ansLeft(), sec = Math.ceil(ms / 1000);
+  const a = $('#ansClock'); if (a) a.textContent = sec;
+  const b = $('#ansBig'), bar = $('#ansBar');
+  if (b){ b.textContent = sec; b.parentNode.classList.toggle('low', ms <= 5000); }
+  if (bar) bar.style.transform = `scaleX(${(ms / ANSWER_MS).toFixed(3)})`;
 }
 function render(){
   pres && pres.update();
@@ -476,9 +486,8 @@ setInterval(() => {
   if (!S || S.over) return;
   const c = $('#clock');
   if (c){ c.textContent = fmt(left()); c.classList.toggle('low', left() < 30000); }
-  const a = $('#ansClock');
-  if (a) a.textContent = Math.ceil(ansLeft() / 1000);
-}, 250);
+  if (S.phase === 'buzz') paintAnsClock();
+}, 100);
 
 /* 접속 알림 (마스터의 '접속자') — 게임에 앉아 있는 동안이 게임 중 */
 var pres = trackPresence(() => ({ state: net && inGame() ? 'game' : 'wait', place: '어메이징 선데이' }));
