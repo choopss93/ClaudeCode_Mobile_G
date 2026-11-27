@@ -1638,19 +1638,19 @@ function begin(myName, petName, petSpec, friends, myLook){
   /* ── 작은 전체 지도 (사용자 요청) ──
      들판 섬 · 연못 · 나무 같은 막는 것들은 처음 한 번만 그려 두고, 나 · 내 아이 · 다른 사람만 다시 그린다.
      위가 -Z (들어설 때 보는 쪽). 0.2초마다 — 매 프레임 그릴 일이 아니다. */
-  const mini = $('minimap'), mctx = mini.getContext('2d');
-  let miniBg = null, miniAt = 0, miniPx = 0;
-  function drawMinimap(now){
-    if (now - miniAt < 200) return;
-    miniAt = now;
-    const px = Math.round(mini.clientWidth * Math.min(2, devicePixelRatio || 1));
+  const mini = $('minimap'), bigMap = $('mapCanvas'), mapPanel = $('mapPanel');
+  let miniAt = 0;
+  const tagOf = label => (label && label.el && label.el.querySelector('.tag') || {}).textContent || '';
+  /* 지도 한 장 그리기 — 작은 지도 · 큰 지도가 같이 쓴다. 바탕은 크기마다 한 번만 지어 둔다 (cv._bg) */
+  function paintMap(cv, big){
+    const px = Math.round(cv.clientWidth * Math.min(2, devicePixelRatio || 1));
     if (!px) return;
     const R = world.radius + 3, sc = px / 2 / R, c = px / 2;
     const X = x => c + x * sc, Y = z => c + z * sc;
-    if (px !== miniPx){
-      miniPx = px; mini.width = mini.height = px;
-      miniBg = document.createElement('canvas'); miniBg.width = miniBg.height = px;
-      const g = miniBg.getContext('2d');
+    if (px !== cv._px){
+      cv._px = px; cv.width = cv.height = px;
+      const bg = cv._bg = document.createElement('canvas'); bg.width = bg.height = px;
+      const g = bg.getContext('2d');
       g.fillStyle = 'rgba(255,255,255,0.85)'; g.beginPath(); g.arc(c, c, c, 0, Math.PI * 2); g.fill();   // 구름
       g.fillStyle = '#A9D98E'; g.beginPath(); g.arc(c, c, world.radius * sc, 0, Math.PI * 2); g.fill();  // 들판
       g.strokeStyle = '#6FB862'; g.lineWidth = Math.max(1, px / 60); g.stroke();                         // 산울타리
@@ -1659,19 +1659,42 @@ function begin(myName, petName, petSpec, friends, myLook){
         g.beginPath(); g.arc(X(k.x), Y(k.z), Math.max(k.r * sc, px / 90), 0, Math.PI * 2); g.fill();
       }
     }
-    mctx.clearRect(0, 0, px, px);
-    mctx.drawImage(miniBg, 0, 0);
-    const dot = (o, col, r) => { mctx.fillStyle = col; mctx.beginPath(); mctx.arc(X(o.x), Y(o.z), r, 0, Math.PI * 2); mctx.fill(); };
-    for (const p of peers.values()) dot(p.actor.group.position, '#7A8CF0', px / 28);
-    if (myPet) dot(myPet.actor.group.position, '#F0A04B', px / 30);
+    const x = cv.getContext('2d');
+    x.clearRect(0, 0, px, px);
+    x.drawImage(cv._bg, 0, 0);
+    const marks = [];
+    const dot = (o, col, r, name) => {
+      x.fillStyle = col; x.beginPath(); x.arc(X(o.x), Y(o.z), r, 0, Math.PI * 2); x.fill();
+      if (big){ x.strokeStyle = '#fff'; x.lineWidth = px / 300; x.stroke(); if (name) marks.push([name, X(o.x), Y(o.z) - r - px / 120, col]); }
+    };
+    const k = big ? 0.55 : 1;
+    for (const p of peers.values()) dot(p.actor.group.position, '#7A8CF0', px / 28 * k, tagOf(p.label));
+    if (myPet) dot(myPet.actor.group.position, '#F0A04B', px / 30 * k, myPet.name);
     // 나 — 보는 쪽을 가리키는 삼각형
-    const m = me.group.position, a = me.group.rotation.y, fx = Math.sin(a), fz = Math.cos(a), s = px / 11;
-    mctx.save(); mctx.translate(X(m.x), Y(m.z));
-    mctx.rotate(Math.atan2(fz, fx) - Math.PI / 2);
-    mctx.fillStyle = '#E8445A'; mctx.strokeStyle = '#fff'; mctx.lineWidth = Math.max(1, px / 70);
-    mctx.beginPath(); mctx.moveTo(0, s * 1.2); mctx.lineTo(s * 0.8, -s * 0.7); mctx.lineTo(-s * 0.8, -s * 0.7); mctx.closePath();
-    mctx.fill(); mctx.stroke(); mctx.restore();
+    const m = me.group.position, a = me.group.rotation.y, s = px / 11 * k;
+    x.save(); x.translate(X(m.x), Y(m.z));
+    x.rotate(Math.atan2(Math.cos(a), Math.sin(a)) - Math.PI / 2);
+    x.fillStyle = '#E8445A'; x.strokeStyle = '#fff'; x.lineWidth = Math.max(1, px / 70 * k);
+    x.beginPath(); x.moveTo(0, s * 1.2); x.lineTo(s * 0.8, -s * 0.7); x.lineTo(-s * 0.8, -s * 0.7); x.closePath();
+    x.fill(); x.stroke(); x.restore();
+    if (big){
+      marks.push(['나', X(m.x), Y(m.z) - s * 1.3, '#E8445A']);
+      x.font = `700 ${Math.round(px / 30)}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'bottom';
+      x.lineJoin = 'round'; x.lineWidth = px / 120; x.strokeStyle = 'rgba(255,255,255,.95)';
+      for (const [t, tx, ty, col] of marks){ x.strokeText(t, tx, ty); x.fillStyle = col === '#E8445A' ? col : '#3E4A5C'; x.fillText(t, tx, ty); }
+    }
   }
+  function drawMinimap(now){
+    if (now - miniAt < 200) return;
+    miniAt = now;
+    paintMap(mini, false);
+    if (!mapPanel.hidden) paintMap(bigMap, true);
+  }
+  // 작은 지도를 누르면 크게 (사용자 요청). 바깥이나 닫기를 누르면 닫는다
+  mini.addEventListener('click', () => { mapPanel.hidden = false; miniAt = 0; });
+  $('closeMap').addEventListener('click', () => { mapPanel.hidden = true; });
+  mapPanel.addEventListener('click', e => { if (e.target === mapPanel) mapPanel.hidden = true; });
+
   /* 머리 단추줄 밑에 둔다. 단추줄이 두 줄로 접혀 둘째 줄 오른쪽이 비어 있으면 그 자리(둘째 줄 높이)에 —
      낮은 폰에서 밑으로 내리면 재주 단추와 겹친다 */
   function placeMinimap(){
