@@ -8,6 +8,7 @@
  *   POST /api/ghide  {id, hidden} 숨기기 · 다시 보이기 (지우기는 없다 — 사용자 요청)
  *   GET  /api/model  ?id          모델 조각 (누구나 — 정원에서 남들 화면에도 그 모습이 보여야 한다)
  *   POST /api/credit {id, add}    횟수 충전 (마스터만 — 결제를 붙이기 전까지)
+ *   POST /api/gdel   {id}         모델 · 사진 지우기 (**마스터만** — 마스터의 마이페이지에서만, 사용자 요청). 회원은 숨기기만 된다
  *
  * 횟수: 회원마다 무료 2번(FREE) + 충전한 만큼 (user.gen = {used, extra}). 4,900원에 5번은 결제를 붙이면
  * /api/credit 과 같은 자리에 더한다. 만든 모델은 **올린 사람과 마스터만 입을 수 있다** (PUT /api/me 가 따진다).
@@ -128,7 +129,7 @@ export async function handleGen(request, env, ctx, { path, method, readUser, sav
     return new Response(JSON.stringify({ id, gender: m.gender, skin: m.skin, hairColor: m.hairColor, parts: m.parts }), {
       headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400, immutable' } });
   }
-  if (!['/api/gen', '/api/gens', '/api/gimg', '/api/ghide', '/api/credit'].includes(path)) return null;
+  if (!['/api/gen', '/api/gens', '/api/gimg', '/api/ghide', '/api/credit', '/api/gdel'].includes(path)) return null;
   const user = await readUser();
   if (!user) return fail('다시 로그인해 주세요', 401);
   const admin = isAdmin(user.id);
@@ -144,6 +145,25 @@ export async function handleGen(request, env, ctx, { path, method, readUser, sav
     target.gen.extra = Math.max(0, (target.gen.extra | 0) + add);
     await saveUser(env, target);
     return json({ ok: true, id: target.id, left: left(target) });
+  }
+
+  /* 지우기 — 마스터만. 모델 · 사진을 지우고, 올린 사람의 목록에서 빼고, 그 모델을 입고 있었으면 벗긴다 (일반 꾸미기로 돌아간다) */
+  if (path === '/api/gdel' && method === 'POST'){
+    if (!admin) return fail('마스터만 지울 수 있어요', 403);
+    const id = String((await body(request)).id || '');
+    if (!ID_OK.test(id)) return fail('없는 모델이에요', 404);
+    const m = await env.ACCOUNTS.get('gmod:' + id, 'json');
+    if (!m) return fail('없는 모델이에요', 404);
+    await env.ACCOUNTS.delete('gmod:' + id);
+    await env.ACCOUNTS.delete('gimg:' + id);
+    const owner = await getUser(env, m.owner);
+    if (owner){
+      owner.gens = (owner.gens || []).filter(x => x !== id);
+      if (owner.char && owner.char.mid === id) delete owner.char.mid;
+      await saveUser(env, owner);
+    }
+    if (user.char && user.char.mid === id && (!owner || owner.id !== user.id)){ delete user.char.mid; await saveUser(env, user); }
+    return json({ ok: true, id });
   }
 
   if (path === '/api/gens' && method === 'GET'){

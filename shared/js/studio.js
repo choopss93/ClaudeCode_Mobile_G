@@ -758,7 +758,7 @@ refresh().then(a => { account = a; if (!$('#intro').hidden) paintIntro(); });
    서버도 마스터가 아니면 목록을 주지 않는다 (api.js 의 ADMINS). */
 function isAdmin(){ return !!(account && ['MASTER'].includes(account.user.id)); }   // 함수로 — 위에서 먼저 불린다
 const mySheet = $('#mySheet');
-let myView = 'menu', myFilter = 'all', myPage = 0, online = null, onlineErr = '', logs = null, myBusy = false;
+let myView = 'menu', myFilter = 'all', myPage = 0, online = null, onlineErr = '', logs = null, myBusy = false, allGens = null, delArm = '';
 /* 기간별 — unit: day · month · year · range. anchor 는 그 단위의 한 날(한국 날짜) */
 const kstDay = t => new Date(t + 9 * 3600 * 1000).toISOString().slice(0, 10);
 let stUnit = 'day', stAnchor = '', stFrom = '', stTo = '', stats = null;
@@ -817,7 +817,8 @@ async function reloadMy(){
   if (myView === 'menu') return;
   myBusy = true; drawMy();
   try {
-    if (myView === 'log') logs = await getJson('/api/online-log?limit=300');
+    if (myView === 'models') allGens = await getJson('/api/gens?all=1');
+    else if (myView === 'log') logs = await getJson('/api/online-log?limit=300');
     else online = await getJson('/api/online');
     if (myView === 'online') loadStats();
     onlineErr = '';
@@ -861,13 +862,27 @@ function drawMy(){
     T.textContent = '마이페이지';
     Sub.textContent = `@${account.user.id}`;
     B.innerHTML = '<div class="mylist">'
-      + (isAdmin() ? '<p class="grp">관리</p><div class="mygrid"><button type="button" data-my="online"><span>접속자</span> ›</button><button type="button" data-my="log"><span>접속 기록</span> ›</button><button type="button" data-my="credit"><span>사진 횟수 충전</span> ›</button></div>' : '')
+      + (isAdmin() ? '<p class="grp">관리</p><div class="mygrid"><button type="button" data-my="online"><span>접속자</span> ›</button><button type="button" data-my="log"><span>접속 기록</span> ›</button><button type="button" data-my="credit"><span>사진 횟수 충전</span> ›</button><button type="button" data-my="models"><span>사진 모델 관리</span> ›</button></div>' : '')
       + '<p class="grp">내 계정</p><div class="mygrid">'
       + '<button type="button" data-my="idchg"><span>아이디 변경</span></button>'
       + '<button type="button" data-my="rec"><span>복구 코드</span></button>'
       + '<button type="button" data-my="out"><span>로그아웃</span></button>'
       + (isAdmin() ? '' : '<button type="button" class="del" data-my="del"><span>계정 삭제</span></button>')
       + '</div></div>';
+    return;
+  }
+  /* 사진 모델 관리 — 마스터만, 여기서만 지운다 (사용자 요청). 지우기는 두 번 눌러야 된다 */
+  if (myView === 'models'){
+    T.textContent = '사진 모델 관리';
+    const items = (allGens && allGens.items) || [], per = gper(), pages = Math.max(1, Math.ceil(items.length / per));
+    myPage = Math.min(myPage, pages - 1);
+    Sub.textContent = onlineErr || (myBusy ? '불러오는 중…' : `모든 회원 ${items.length}개 · 지우면 되돌릴 수 없어요`);
+    const show = items.slice(myPage * per, myPage * per + per);
+    B.innerHTML = show.length ? '<div class="gens">' + show.map(it => `<div class="g${it.hidden ? ' hid' : ''}"><button type="button" class="pic" data-mv="${it.id}" aria-label="${esc(it.name || '모델')}"></button>`
+      + `<small>${esc(it.name || '모델')} · ${esc(it.owner)}${it.hidden ? ' · 숨김' : ''}</small><button type="button" class="hide gdel${delArm === it.id ? ' arm' : ''}" data-gd="${it.id}">${delArm === it.id ? '정말 지우기' : '지우기'}</button></div>`).join('') + '</div>'
+      : `<p class="sub2">${myBusy ? '' : '만든 모델이 없어요.'}</p>`;
+    if (pages > 1) F.innerHTML = `<button class="btn" type="button" data-my="prev" ${myPage ? '' : 'disabled'}>‹</button><span class="sub2">${myPage + 1} / ${pages}</span><button class="btn" type="button" data-my="next" ${myPage < pages - 1 ? '' : 'disabled'}>›</button>`;
+    for (const it of show) thumb(it.id).then(u => { const b = B.querySelector(`[data-mv="${it.id}"]`); if (b && u) b.style.backgroundImage = `url(${u})`; });
     return;
   }
   const src = myView === 'log' ? logs : online;
@@ -916,6 +931,21 @@ $('#myBack').onclick = () => goMy(myView === 'list' ? 'online' : 'menu');
 $('#myReload').onclick = () => { if (!myBusy) reloadMy(); };
 mySheet.addEventListener('click', e => {
   if (e.target === mySheet || e.target.closest('[data-close]')) return closeMy();
+  const gd = e.target.closest('[data-gd]');
+  if (gd){                                           // 사진 모델 지우기 — 첫 번째는 '정말 지우기' 로 바뀌고, 두 번째에 지운다
+    const id = gd.dataset.gd;
+    if (delArm !== id){ delArm = id; drawMy(); return; }
+    delArm = ''; gd.disabled = true;
+    fetch('/api/gdel', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session': account.token }, body: JSON.stringify({ id }) })
+      .then(r => r.json()).then(d => {
+        if (d.error) throw new Error(d.error);
+        allGens.items = allGens.items.filter(x => x.id !== id);
+        if (genInfo) genInfo.items = (genInfo.items || []).filter(x => x.id !== id);
+        const ch = charOf(account); if (ch && ch.mid === id) refresh().then(a => { if (a) account = a; });
+        onlineErr = '';
+      }).catch(err => { onlineErr = err.message; }).finally(drawMy);
+    return;
+  }
   const b = e.target.closest('[data-my]');
   if (!b) return;
   const a = b.dataset.my;
@@ -927,6 +957,7 @@ mySheet.addEventListener('click', e => {
   else if (a === 'sprev') stShift(-1);
   else if (a === 'snext') stShift(1);
   else if (a === 'credit'){ closeMy(); openCredit(); }
+  else if (a === 'models'){ delArm = ''; goMy('models'); }
   else if (a === 'idchg'){ closeMy(); openIdSheet(); }
   else if (a === 'rec'){ closeMy(); newCode(); }
   else if (a === 'out'){ closeMy(); openOut(); }
