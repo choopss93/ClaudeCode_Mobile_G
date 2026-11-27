@@ -93,7 +93,7 @@ function frame(t){
     renderer.render(logo.scene, logo.camera);
     return;
   }
-  if (!actor) return;
+  if (!actor){ renderer.clear(); return; }    // 캐릭터가 없을 때 비워 둔다 — 안 비우면 첫 화면의 로고가 그대로 남아 보였다
   if (!drag){
     if (zoomTo > 0){
       // 얼굴 · 헤어를 고를 때는 앞을 보고 멈춘다 — 돌아가 있으면 뒤통수만 보인다
