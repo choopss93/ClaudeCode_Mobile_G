@@ -154,7 +154,7 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   const metal = toon(METAL), dmetal = toon(DARKM);
   const glowC = GLOWS[c.glow];
   /* 관절 구 — 살갗보다 아주 조금 짙게 해 '관절 인형' 처럼 읽히게. 무지는 쇠 */
-  const jointMat = mech ? metal : toon(shade(skinC, 0.91));
+  const jointMat = mech ? metal : skin;                 // 관절 구는 피부색 그대로 (사용자 요청) — 무지만 쇠
   const limbMat = mech ? toon(shade(skinC, 1.0)) : skin;
 
   const group = new THREE.Group();

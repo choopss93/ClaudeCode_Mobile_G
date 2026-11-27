@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s9';
+import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s10';
 import { STYLES, GENDERS, PALETTE, SKINS, HAIR_COLORS, EYE_COLORS, GLOWS, LIPS, HAIRS, BROWS, EYES, NOSES, MOUTHS, CHINS,
   EYE_SHAPES, TOPS, BOTTOMS, SHOES, HATS, ACCS, SLIDER, STYLE_PRESET, hasFace, hex, cleanChar, randomChar } from './character.js?v=c4';
 import { readAccount, refresh, signup, login, logout, logoutAll, deleteAccount, saveChar, recover, newRecovery, checkId, renameId } from './account.js?v=s9';
