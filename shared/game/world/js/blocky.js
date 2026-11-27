@@ -491,7 +491,7 @@ function shape(out, c, AX, LX){
     }
     return [g, col, x, (y1 + y2) / 2, z, w, y2 - y1, d, r, rz];
   });
-  return { out: res, AX: AXn, LX: LXn, hipY: HIP, shY, headY, lift };
+  return { out: res, AX: AXn, LX: LXn, hipY: HIP, shY, headY, lift, handY: (0.52 - 0.9) * As, handZ: 0.005 * fa };
 }
 
 /* 유광 — 색 위에 투명 유리 코팅(clearcoat)과 하늘 비침. 무광 — 코팅 없이 거친 겉면 */
@@ -529,7 +529,7 @@ export function createBlocky(c, { lamp = false } = {}){
   const group = new THREE.Group();
   const blob = makeBlob(0.3);
   group.add(blob);
-  const { out, AX, LX, hipY, shY, headY, lift } = build(c);
+  const { out, AX, LX, hipY, shY, headY, lift, handY, handZ } = build(c);
   const PIVOT = { body: [0, 0, 0], head: [0, headY, 0], armL: [-AX, shY, 0], armR: [AX, shY, 0], legL: [-LX, hipY, 0], legR: [LX, hipY, 0] };
   const J = {};
   for (const k in PIVOT){ const p = new THREE.Group(); p.position.fromArray(PIVOT[k]); group.add(p); J[k] = p; }
@@ -550,13 +550,20 @@ export function createBlocky(c, { lamp = false } = {}){
   }
 
   /* 밤의 등불 — 오른손에. 빛은 내 캐릭터에만, group 에 늘 달아 두고 세기만 바꾼다 (actor.js 와 같은 까닭) */
+  /* 손잡이는 손 정육면체 바로 앞 — 자루는 손에서 앞쪽 위로 비스듬히 내밀고, 불빛은 그 끝에 매달린다.
+     (예전엔 자루를 손 위로 세워 팔 속으로 들어가 보였다) */
   const lantern = new THREE.Group();
-  lantern.position.set(0, -0.39, 0.03);
+  lantern.position.set(0, handY, handZ + 0.045);
+  lantern.rotation.x = 0.45;                     // 들 때 팔을 앞으로 0.45 들어 올린다 — 그만큼 되돌려 등불은 똑바로 매달린다
   J.armR.add(lantern);
-  const rodG = new THREE.CylinderGeometry(0.012, 0.012, 0.5, 8), bulbG = new THREE.SphereGeometry(1, 12, 9);
-  own.push(rodG, bulbG);
-  const rod = new THREE.Mesh(rodG, coated(0xB08A62, c.finish)); rod.position.y = 0.22; lantern.add(rod);
-  const bulb = new THREE.Mesh(bulbG, glowMat); bulb.position.set(0, 0.5, 0.04); bulb.scale.set(0.055, 0.066, 0.055); lantern.add(bulb);
+  const ROD = 0.42, TILT = 1.05;                                        // 자루 길이 · 앞으로 기울인 각도
+  const rodG = new THREE.CylinderGeometry(0.011, 0.011, ROD, 8), bulbG = new THREE.SphereGeometry(1, 12, 9), cordG = new THREE.CylinderGeometry(0.003, 0.003, 0.07, 5);
+  own.push(rodG, bulbG, cordG);
+  const stick = new THREE.Group(); stick.rotation.x = TILT; lantern.add(stick);
+  const rod = new THREE.Mesh(rodG, coated(0xB08A62, c.finish)); rod.position.y = ROD / 2 - 0.03; stick.add(rod);
+  const tipY = Math.cos(TILT) * (ROD - 0.03), tipZ = Math.sin(TILT) * (ROD - 0.03);
+  const cord = new THREE.Mesh(cordG, coated(0x8A7258, c.finish)); cord.position.set(0, tipY - 0.035, tipZ); lantern.add(cord);
+  const bulb = new THREE.Mesh(bulbG, glowMat); bulb.position.set(0, tipY - 0.11, tipZ); bulb.scale.set(0.05, 0.06, 0.05); lantern.add(bulb);
   lantern.visible = false;
   let glow = null;
   if (lamp){ glow = new THREE.PointLight(LAMP_COLOR, 0, LAMP_REACH, LAMP_DECAY); glow.position.set(0.15, 2.4, 0); group.add(glow); }
