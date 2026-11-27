@@ -147,21 +147,26 @@ async function readToken(env, token){
   return sameBytes(given, await hmac(env.SESSION_SECRET, `${id}.${exp}.${nonce}.${user.key}`)) ? user : null;
 }
 
-/* 캐릭터 (v3 · 블록 캐릭터) — 번호만 담는다. 번호가 무엇인지는 화면 쪽(shared/js/character.js)이 안다.
-   {v:3, nick, skin, lip, hair, …} — 열쇠는 CHAR_KEYS 그대로, 값은 0~63 정수.
-   예전 판(v 가 3 이 아닌 것)은 **버린다** (사용자 요청 — 이전 캐릭터는 빼고 블록 캐릭터로 다시 만든다). */
-const CHAR_KEYS = ['skin', 'lip', 'hair', 'hairColor', 'topColor', 'bottomColor', 'shoesColor', 'phones', 'phonesColor', 'necklace', 'finish'];
+/* 캐릭터 (v4 · 블록 캐릭터) — 번호만 담는다. 번호가 무엇인지는 화면 쪽(shared/js/character.js)이 안다.
+   {v:4, nick, gender, skin, …} — 열쇠는 CHAR_KEYS 그대로. 종류는 0~63 정수, 색(…Color · skin · lip)은 0~0xFFFFFF 정수 (컬러피커).
+   예전 판(v 가 4 가 아닌 것)은 **버린다** (사용자 요청 — 새 꾸미기로 다시 만든다). */
+const CHAR_KEYS = ['gender', 'skin', 'lip', 'hair', 'hairColor', 'top', 'topColor', 'bottom', 'bottomColor', 'shoes', 'shoesColor',
+  'hat', 'hatColor', 'face', 'faceColor', 'neck', 'neckColor', 'back', 'backColor', 'finish'];
+const isColorKey = k => k === 'skin' || k === 'lip' || k.endsWith('Color');
 function cleanChar(c){
-  if (!c || typeof c !== 'object' || c.v !== 3) return null;
+  if (!c || typeof c !== 'object' || c.v !== 4) return null;
   const nick = String(c.nick || '').trim().slice(0, 16);
   if (!nick) return null;
-  const out = { v: 3, nick };
-  for (const k of CHAR_KEYS) out[k] = Number.isInteger(c[k]) && c[k] >= 0 && c[k] <= 63 ? c[k] : 0;
+  const out = { v: 4, nick };
+  for (const k of CHAR_KEYS){
+    const max = isColorKey(k) ? 0xFFFFFF : 63;
+    out[k] = Number.isInteger(c[k]) && c[k] >= 0 && c[k] <= max ? c[k] : 0;
+  }
   return out;
 }
 /* 열쇠 · 해시는 절대 내보내지 않는다. 캐릭터 이름은 **늘 로그인 아이디**다 (사용자 요청 —
    '로그인 아이디와 사용 아이디가 일치해야' 한다). 예전에 따로 지은 이름이 남아 있어도 아이디로 덮어 내보낸다. */
-const publicUser = u => ({ id: u.id, char: u.char && u.char.v === 3 ? { ...u.char, nick: u.id } : null });   // 옛 판은 없는 것으로
+const publicUser = u => ({ id: u.id, char: u.char && u.char.v === 4 ? { ...u.char, nick: u.id } : null });   // 옛 판은 없는 것으로
 
 /* 마이페이지(접속자)를 볼 수 있는 계정 */
 const ADMINS = ['MASTER'];

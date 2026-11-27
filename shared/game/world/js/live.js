@@ -102,7 +102,7 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
                 // Metaversal Studio 캐릭터의 색 — 늘 뒤에 붙인다 (옛 판은 여기까지 읽지 않는다)
                 Array.isArray(me.colors) ? me.colors : null,
                 Array.isArray(me.style) ? me.style : null,
-                // 새 캐릭터(v3 · 블록) — [3, …character.js 의 KEYS 순서 번호]. 옛 판은 읽지 않는다.
+                // 새 캐릭터(v4 · 블록) — [4, …character.js 의 KEYS 순서 번호]. 옛 판은 읽지 않는다.
                 Array.isArray(me.pack) ? me.pack : null];
 
   function tell(s){

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s13';
-import { PALETTE, SKINS, HAIR_COLORS, LIPS, HAIRS, ONOFF, FINISHES, hex, cleanChar, blankChar } from './character.js?v=c7';
+import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s14';
+import { GENDERS, HAIRS, TOPS, BOTTOMS, SHOES, HATS, FACES, NECKS, BACKS, FINISHES, OPTIONS, hex, cleanChar, blankChar, fitGender } from './character.js?v=c8';
 import { readAccount, refresh, signup, login, logout, logoutAll, deleteAccount, saveChar, recover, newRecovery, checkId, renameId } from './account.js?v=s9';
 import { trackPresence } from './presence.js?v=p2';
 import { serverNow } from './clock.js?v=k1';
@@ -243,18 +243,22 @@ $('#authForm').onsubmit = async e => {
   } finally { btn.disabled = false; }
 };
 
-/* ─────────── 캐릭터 꾸미기 (블록 캐릭터 · v3) ───────────
-   바탕은 사용자가 준 블렌더 모델(핑크 소녀) 하나 — 예전 캐릭터 고르기(스타일 · 성별 · 얼굴 · 몸)는 뺐다 (사용자 요청).
-   차례: 얼굴 → 머리 → 옷 → 소품 → 표면(유광 · 무광). 고를 거리 · 색은 character.js 한 곳 — 여기는 칸만 늘어놓는다. 화면은 넘기지 않는다. */
-const STEPS = [['face', '얼굴'], ['hair', '머리'], ['cloth', '옷'], ['acc', '소품'], ['finish', '표면']];
+/* ─────────── 캐릭터 꾸미기 (블록 캐릭터 · v4) ───────────
+   차례: 기본(성별 · 피부 · 입 · 표면) → 머리 → 상의 → 하의 → 신발 → 소품(모자 · 얼굴 · 목 · 가방).
+   한 칸 안에서 **종류와 색을 함께** 고른다 (사용자 요청 — 상의 안에 상의 종류 + 색). 색은 모두 **컬러피커**.
+   보이는 종류는 남녀마다 다르다 (character.js 의 OPTIONS). 처음엔 아무것도 고르지 않은 맨몸. 화면은 넘기지 않는다.
+   칸: [열쇠, 이름, 종류 목록(없으면 색만), 색 열쇠] */
+const STEPS = [['base', '기본'], ['hair', '머리'], ['top', '상의'], ['bottom', '하의'], ['shoes', '신발'], ['acc', '소품']];
 const SUBS = {
-  face: [['skin', '피부', SKINS], ['lip', '입', LIPS]],
-  hair: [['hair', '헤어', HAIRS], ['hairColor', '머리색', HAIR_COLORS]],
-  cloth: [['topColor', '상의', PALETTE], ['bottomColor', '하의', PALETTE], ['shoesColor', '신발', PALETTE]],
-  acc: [['phones', '헤드폰', ONOFF], ['phonesColor', '헤드폰 색', PALETTE], ['necklace', '목걸이', ONOFF]],
-  finish: [['finish', '표면', FINISHES]]
+  base: [['gender', '성별', GENDERS], ['skin', '피부'], ['lip', '입'], ['finish', '표면', FINISHES]],
+  hair: [['hair', '헤어', HAIRS, 'hairColor']],
+  top: [['top', '상의', TOPS, 'topColor']],
+  bottom: [['bottom', '하의', BOTTOMS, 'bottomColor']],
+  shoes: [['shoes', '신발', SHOES, 'shoesColor']],
+  acc: [['hat', '모자', HATS, 'hatColor'], ['face', '얼굴', FACES, 'faceColor'], ['neck', '목', NECKS, 'neckColor'], ['back', '가방', BACKS, 'backColor']]
 };
-let step = 'face', sub = { face: 'skin', hair: 'hair', cloth: 'topColor', acc: 'phones', finish: 'finish' };
+const NEAR = new Set(['skin', 'lip', 'hair', 'hat', 'face']);       // 이 칸들은 얼굴로 다가가 본다
+let step = 'base', sub = { base: 'gender', hair: 'hair', top: 'top', bottom: 'bottom', shoes: 'shoes', acc: 'hat' };
 const subsOf = st => SUBS[st] || [];
 
 $('#stepSeg').innerHTML = STEPS.map(([k, t], i) => `<button type="button" data-step="${k}"><small>${i + 1}</small>${t}</button>`).join('');
@@ -270,17 +274,26 @@ $('#opts').addEventListener('click', e => {
   const b = e.target.closest('[data-v]');
   if (!b) return;
   draft[b.dataset.k] = +b.dataset.v;
+  if (b.dataset.k === 'gender') fitGender(draft);   // 성별을 바꾸면 그쪽에 없는 종류는 없음으로
   paintMaker();
+});
+/* 컬러피커 — 미는 동안은 칸을 다시 그리지 않는다 (피커가 닫힌다). 다시 입히기는 한 화면에 한 번 */
+let wearSoon = 0;
+$('#opts').addEventListener('input', e => {
+  const p = e.target.closest('input[type=color]');
+  if (!p) return;
+  draft[p.dataset.c] = parseInt(p.value.slice(1), 16);
+  const tag = p.parentNode.querySelector('em');
+  if (tag) tag.textContent = p.value.toUpperCase();
+  if (!wearSoon) wearSoon = requestAnimationFrame(() => { wearSoon = 0; wear(draft); });
 });
 $('#nickIn').addEventListener('input', () => { draft.nick = $('#nickIn').value; $('#makerMsg').textContent = ''; });
 
-const sw = (k, list) => list.map((col, i) =>
-  `<button type="button" class="sw${draft[k] === i ? ' on' : ''}" data-k="${k}" data-v="${i}" aria-label="${i + 1}"><i style="background:${hex(col)}"></i></button>`).join('');
-const names = (k, list) => list.map((t, i) =>
-  `<button type="button" class="${draft[k] === i ? 'on' : ''}" data-k="${k}" data-v="${i}"><span>${t}</span></button>`).join('');
+const picker = (ck, off) => `<label class="pick${off ? ' off' : ''}"><b>색상</b>
+  <input type="color" value="${hex(draft[ck])}" data-c="${ck}" aria-label="색상"${off ? ' disabled' : ''}><em>${hex(draft[ck]).toUpperCase()}</em></label>`;
 
 function paintMaker(){
-  draft = { ...cleanChar({ ...draft, v: 3 }), nick: draft.nick || '' };
+  draft = { ...cleanChar({ ...draft, v: 4 }), nick: draft.nick || '' };
   const i = STEPS.findIndex(s => s[0] === step);
   for (const b of $('#stepSeg').children) b.classList.toggle('on', b.dataset.step === step);
   const subs = subsOf(step);
@@ -289,14 +302,21 @@ function paintMaker(){
   sb.style.setProperty('--cols', subs.length);
   sb.innerHTML = subs.map(([k, t]) => `<button type="button" data-sub="${k}" class="${sub[step] === k ? 'on' : ''}">${t}</button>`).join('');
   const o = $('#opts');
-  const [k, , list] = subs.find(x => x[0] === sub[step]);
-  let kind;
-  if (typeof list[0] === 'number'){ kind = 'colors'; o.style.setProperty('--cols', list.length > 12 ? 10 : Math.ceil(list.length / 2)); o.innerHTML = sw(k, list); }
-  else { kind = 'names'; o.innerHTML = names(k, list); }
-  o.className = 'opts ' + kind;
+  const [k, , list, ck] = subs.find(x => x[0] === sub[step]);
+  if (!list){                                                         // 색만 — 피부 · 입
+    o.className = 'opts solo';
+    o.innerHTML = picker(k);
+  } else {
+    const shown = (OPTIONS[draft.gender][k] || list.map((_, v) => v));
+    const cols = Math.min(5, Math.ceil(shown.length / (ck ? 2 : 1)));
+    o.className = 'opts ' + (ck ? 'mix' : 'names');
+    o.style.setProperty('--cols', ck ? Math.max(cols, Math.ceil(shown.length / 2)) : shown.length);
+    o.innerHTML = shown.map(v => `<button type="button" class="${draft[k] === v ? 'on' : ''}" data-k="${k}" data-v="${v}"><span>${list[v]}</span></button>`).join('')
+      + (ck ? picker(ck, !draft[k]) : '');
+  }
   $('#makerPrev').hidden = i === 0;
   $('#makerBtn').textContent = i < STEPS.length - 1 ? '다음 ›' : makerFrom === 'world' ? '완료 · 무지개 정원으로' : '저장';
-  zoomTo = step === 'face' || step === 'hair' ? 1 : 0;
+  zoomTo = NEAR.has(sub[step]) ? 1 : 0;
   wear(draft);
 }
 $('#makerPrev').onclick = () => {
@@ -307,7 +327,7 @@ $('#makerPrev').onclick = () => {
 function openMaker(){
   $('#nickIn').value = account ? account.user.id : '';     // 캐릭터 이름 = 로그인 아이디 (고칠 수 없다)
   $('#makerMsg').textContent = '';
-  step = 'face';
+  step = 'base';
   paintMaker();
   show('maker');
 }
