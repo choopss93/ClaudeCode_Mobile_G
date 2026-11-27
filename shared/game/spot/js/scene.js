@@ -200,7 +200,38 @@ const T = {
     art: o => L('M-12 -2L10 -6M-10 -6L12 -2', '#8A5A3C', 4) + (o.shape ? Pa('M0 -32Q10 -18 7 -8Q4 -2 0 -2Q-4 -2 -7 -8Q-10 -18 0 -32Z', o.c) + Pa('M0 -20Q5 -12 3 -6H-3Q-5 -12 0 -20Z', '#FFE680')
       : Pa('M0 -22Q7 -12 5 -6Q3 -2 0 -2Q-3 -2 -5 -6Q-7 -12 0 -22Z', o.c) + Pa('M0 -13Q3 -8 2 -5H-2Q-3 -8 0 -13Z', '#FFE680')) },
   pebbles: { layer: 2, lb: () => [-13, -7, 13, 1], colors: P.stone, nocolor: true, rm: true,
-    art: o => E(-7, -3, 5, 3.5, o.c) + E(3, -2.5, 4, 3, o.c) + E(9, -4, 3.5, 3, '#ffffff', ' opacity=".55"') + E(-2, -5, 3, 2, '#00000014') }
+    art: o => E(-7, -3, 5, 3.5, o.c) + E(3, -2.5, 4, 3, o.c) + E(9, -4, 3.5, 3, '#ffffff', ' opacity=".55"') + E(-2, -5, 3, 2, '#00000014') },
+  windmill: { layer: 2, lb: () => [-31, -80, 31, 2], colors: P.wall, shapes: 2, sw: 30, scales: true,
+    art: o => { const n = o.shape ? 3 : 4, a0 = o.ba || 20; let b = '';
+      for (let i = 0; i < n; i++){ const a = (a0 + i * 360 / n) * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+        b += Pa(`M${f1(ca * 4)} ${f1(-48 + sa * 4)}L${f1(ca * 30 - sa * 4)} ${f1(-48 + sa * 30 + ca * 4)}L${f1(ca * 30 + sa * 4)} ${f1(-48 + sa * 30 - ca * 4)}Z`, '#F5EBDD', ' stroke="#B07A4E" stroke-width="1"'); }
+      return Pa('M-10 0L-6 -46H6L10 0Z', o.c) + Pa('M-8 -45L0 -54L8 -45Z', '#D9614E') + R(-3, -12, 6, 12, '#8A5A3C', 2) + C(0, -30, 2.4, '#BFE6FF') + b + C(0, -48, 2.6, '#6E4A33'); } },
+  hay: { layer: 2, lb: () => [-16, -21, 16, 2], colors: ['#F2C14E', '#E8B04A', '#F5D27A'], sw: 32, scales: true, rm: true,
+    art: o => R(-16, -20, 32, 20, o.c, 7) + L('M-10 -10a6 6 0 1 1 6 6M2 -14q6 4 10 0M-12 -3H12', '#B08A35', 1.2) },
+  birdhouse: { layer: 2, lb: () => [-11, -48, 11, 2], colors: ['#5C7ACF', '#D9614E', '#4E9E6E', '#F2C14E'], sw: 12, rm: true, dets: { birdie: [4, -46, 14, -38] },
+    art: o => R(-1.5, -30, 3, 30, '#8A5A3C') + R(-8, -40, 16, 12, o.c, 1) + Pa('M-11 -39L0 -47L11 -39Z', '#8A5A3C') + C(0, -34, 2.6, '#3E4A5C')
+      + (o.birdie ? E(9, -41, 4, 3, '#FFC93C') + C(11, -43, 2, '#FFC93C') + Pa('M13 -43L15 -42L13 -41Z', '#FF8A3C') : '') },
+  fountain: { layer: 2, lb: () => [-25, -40, 25, 2], shapes: 2, sw: 46, rm: true, colors: ['#BFD9FF', '#B8ECEA', '#E6D3F5'],
+    art: o => E(0, -4, 24, 6, '#B8B2A6') + E(0, -6, 20, 4, o.c) + R(-3, -24, 6, 18, '#C9C2B4') + E(0, -24, 10, 3, '#B8B2A6')
+      + (o.shape ? L('M0 -26Q-10 -40 -16 -8M0 -26Q10 -40 16 -8M0 -26V-38', '#7FC8F0', 2) : L('M0 -26V-40M0 -40Q-6 -36 -9 -26M0 -40Q6 -36 9 -26', '#7FC8F0', 2)) },
+  gnome: { layer: 2, lb: () => [-9, -32, 9, 2], colors: ['#FF5D6C', '#4E9BFF', '#3CC48A', '#9B6BFF'], sw: 16, rm: true,
+    art: o => R(-6, -10, 12, 10, o.c2, 2) + Pa('M-6 -14Q0 -2 6 -14Z', '#fff') + C(0, -16, 4.5, '#F2C7A5') + C(0, -14, 1.6, '#E0707A') + Pa('M-7 -18L0 -32L7 -18Z', o.c) },
+  log: { layer: 2, lb: () => [-23, -18, 23, 2], colors: P.wood, flips: true, sw: 42, rm: true, scales: true,
+    art: o => R(-18, -12, 36, 12, o.c, 2) + E(18, -6, 5, 6, '#E8C99A') + L('M18 -6m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0', '#B07A4E', 1) + L('M-12 -9H6M-8 -4H10', '#00000022', 1.2) + Pa('M-6 -12L-3 -17L0 -12Z', '#5DBB63') },
+  bucket: { layer: 2, lb: () => [-11, -19, 16, 2], colors: P.pop, flips: true, sw: 20, rm: true,
+    art: o => Pa('M-9 -14H9L7 0H-7Z', o.c) + L('M-9 -14Q0 -24 9 -14', '#555', 1.4) + R(-9, -15, 18, 2, '#ffffff66') + L('M10 0L13 -12', '#B07A4E', 1.6) + Pa('M11 -12L15 -12L14 -17L12 -17Z', '#9AA3AD') },
+  buoy: { layer: 2, lb: () => [-10, -26, 10, 4], colors: ['#FF5D6C', '#FF8A3C', '#FFC93C'], rm: true,
+    art: o => E(0, 2, 10, 2, '#ffffff66') + Pa('M-7 0Q-8 -14 0 -18Q8 -14 7 0Z', o.c) + R(-7.5, -10, 15, 4, '#fff') + L('M0 -18V-24', '#555', 1.4) + C(0, -24, 1.8, '#FFE680') },
+  octopus: { layer: 1, lb: () => [-17, -19, 17, 18], colors: ['#FF7A8A', '#C78BFF', '#FF9F4E'], rm: true, scales: true,
+    art: o => [-12, -7, -2, 3, 8, 13].map((x, i) => L(`M${f1(x * 0.6)} 2q${i % 2 ? 4 : -4} 8 ${f1(x - x * 0.6)} 14`, o.c, 3)).join('') + E(0, -6, 13, 12, o.c) + C(-4, -6, 2.2, '#fff') + C(4, -6, 2.2, '#fff') + C(-4, -6, 1, '#222') + C(4, -6, 1, '#222') + HL(-5, -13, 4, 2.5) },
+  clam: { layer: 2, lb: () => [-15, -19, 15, 3], colors: ['#F4B9C4', '#E6D3F5', '#FFD9C2'], sw: 26, rm: true, dets: { pearl: [-5, -10, 5, -1] },
+    art: o => Pa('M-14 -2Q0 6 14 -2Q12 -8 0 -6Q-12 -8 -14 -2Z', o.c) + Pa('M-14 -6Q-12 -20 0 -18Q12 -20 14 -6Q0 -10 -14 -6Z', o.c, ' opacity=".95"') + L('M-6 -16L-4 -8M0 -18V-9M6 -16L4 -8', '#00000022', 1) + (o.pearl ? C(0, -5, 4, '#FFFFFF') + HL(-1, -6.5, 1.4, 1) : '') },
+  sub: { layer: 1, lb: () => [-35, -22, 31, 11], colors: ['#FFC93C', '#FF8A3C', '#5EC2F0'], flips: true, rm: true,
+    art: o => R(-28, -8, 56, 18, o.c, 9) + R(-6, -16, 14, 9, o.c, 3) + L('M2 -16V-21H8', '#555', 1.6) + [-14, -2, 10].map(x => C(x, 1, 3.5, '#BFE6FF', ' stroke="#555" stroke-width="1"')).join('') + Pa('M-28 0L-34 -6V6Z', o.c) },
+  zeppelin: { layer: 1, lb: () => [-37, -14, 31, 15], colors: ['#E6D3F5', '#C9D8F5', '#FFE3A8', '#F4B9C4'], flips: true, rm: true,
+    art: o => Pa('M-28 -2L-36 -12V8Z', o.c2) + E(0, -2, 30, 11, o.c) + L('M-22 -2H24', '#00000018', 1.4) + R(-7, 9, 14, 5, '#8A5A3C', 2) + C(-3, 11.5, 1.2, '#FFE680') + C(3, 11.5, 1.2, '#FFE680') },
+  rowboat: { layer: 2, lb: () => [-23, -10, 23, 6], colors: ['#C99566', '#E8574F', '#5C7ACF'], flips: true, rm: true,
+    art: o => E(0, 3, 22, 2.5, '#ffffff55') + Pa('M-20 -6H20L15 2H-15Z', o.c) + R(-17, -7, 34, 2, '#6E4A33') + L('M-6 -6L-20 2M6 -6L20 2', '#8A5A3C', 1.6) }
 };
 
 /* ─────────── 자리 ─────────── */
@@ -209,6 +240,8 @@ export function boxOf(o, lb = T[o.type].lb(o)){
   const [x0, y0, x1, y1] = o.flip ? [-lb[2], lb[1], -lb[0], lb[3]] : lb;
   return [o.x + x0 * s, o.y + y0 * s, o.x + x1 * s, o.y + y1 * s];
 }
+/** 앞뒤로 조금 겹치는 것은 괜찮다 (원근) — 작은 쪽 넓이의 20% 까지 */
+const tooClose = (a, b) => { const w = Math.min(a[2], b[2]) - Math.max(a[0], b[0]), h = Math.min(a[3], b[3]) - Math.max(a[1], b[1]); if (w <= 0 || h <= 0) return false; const area = q => (q[2] - q[0]) * (q[3] - q[1]); return w * h > 0.2 * Math.min(area(a), area(b)); };
 const overlap = (a, b, pad = 0) => !(a[2] + pad < b[0] || b[2] + pad < a[0] || a[3] + pad < b[1] || b[3] + pad < a[1]);
 const shadowOf = o => { const w = T[o.type].sw * o.s; return E(o.x + w * 0.18, o.y + 1, w * 0.55, Math.max(3, w * 0.09), 'rgba(40,30,20,.28)'); };
 function drawObj(o){
@@ -223,34 +256,44 @@ const grad = (id, a, b) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="
 const SKIES = [['#A9DCFF', '#EAF7FF'], ['#BFD9FF', '#F2F8FF'], ['#B8ECEA', '#F0FBF7'], ['#FFC98E', '#FFEBD2'], ['#D7C6FF', '#FBEFFF']];
 const TH = {
   field: {
+    hz: 165,
     bg(r){ const sky = pick(r, SKIES), g = pick(r, [['#9BD27F', '#7CBF66'], ['#A8D98A', '#86C470'], ['#B5DE8A', '#92C96B']]); const path = r() < 0.6;
       const hills = Array.from({ length: 3 }, (_, i) => E(40 + i * 150 + r() * 60, 168, 65 + r() * 45, 40 + r() * 35, pick(r, ['#8FC7A0', '#A5CFB0', '#9DB8D9', '#B7C9A5']))).join('');
-      return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'), front: hills + grad('gr', ...g) + R(0, 162, W, 138, 'url(#gr)') + (path ? Pa('M150 300C180 250 230 215 250 162L262 162C250 215 215 260 205 300Z', '#EBD9B4', ' opacity=".85"') : '') }; },
+      let far = '';   // 멀리 지평선의 작은 나무 · 집 (꾸밈 — 틀린 곳으로 쓰지 않는다)
+      for (let i = 0; i < 14; i++){ const x = 8 + r() * 384, h = 5 + r() * 5; far += r() < 0.75 ? R(x - 0.6, 163 - h * 0.4, 1.2, h * 0.4, '#7a6a55') + C(x, 163 - h * 0.6, h * 0.45, pick(r, ['#6DAE6E', '#5E9E64', '#86C06E'])) : R(x - 3, 159, 6, 4, '#F5EBDD') + Pa(`M${f1(x - 3.6)} 159L${f1(x)} 156L${f1(x + 3.6)} 159Z`, pick(r, P.roof)); }
+      return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'), front: hills + grad('gr', ...g) + R(0, 162, W, 138, 'url(#gr)') + far + (path ? Pa('M150 300C180 250 230 215 250 162L262 162C250 215 215 260 205 300Z', '#EBD9B4', ' opacity=".85"') : '') }; },
     items: [['sun', 1, [40, 360], [32, 52]], ['cloud', [2, 4], [30, 370], [25, 95]], ['bird', [3, 5], [25, 375], [25, 115]], ['balloon', [1, 2], [30, 370], [50, 110]], ['kite', 1, [40, 360], [45, 95]], ['butterfly', [1, 2], [30, 370], [130, 200]],
       ['house', [2, 3], [45, 355], [190, 222]], ['tree', [3, 5], [20, 380], [182, 272]], ['bush', [2, 3], [20, 380], [200, 285]], ['fence', [1, 2], [30, 370], [205, 270]], ['sign', [0, 1], [20, 380], [215, 280]], ['lamp', [0, 1], [20, 380], [210, 275]],
-      ['pet', [1, 2], [40, 360], [245, 290]], ['car', 1, [50, 350], [262, 292]], ['mailbox', 1, [30, 370], [225, 280]], ['flower', [6, 9], [12, 388], [228, 298]], ['tuft', [5, 8], [10, 390], [175, 298]], ['pebbles', [1, 2], [16, 384], [240, 298]]]
+      ['pet', [1, 2], [40, 360], [245, 290]], ['car', 1, [50, 350], [262, 292]], ['mailbox', 1, [30, 370], [225, 280]], ['flower', [6, 9], [12, 388], [228, 298]], ['tuft', [5, 8], [10, 390], [175, 298]], ['pebbles', [1, 2], [16, 384], [240, 298]], ['windmill', [0, 1], [30, 370], [166, 186]], ['hay', [1, 3], [20, 380], [180, 275]], ['flower', [0, 1], [30, 370], [286, 298], () => ({ big: true })], ['bush', [0, 1], [20, 380], [288, 298], () => ({ big: true })]]
   },
   mountain: {
+    hz: 200,
     bg(r){ const sky = pick(r, SKIES.slice(0, 3)); let m = '';
       for (let i = 0; i < 4; i++){ const x = -40 + i * 130 + r() * 40, h = 90 + r() * 60, w = 110 + r() * 50; const c = pick(r, ['#8FA7C9', '#9DB3CF', '#A3A8C9']);
         m += Pa(`M${f1(x - w)} 200L${f1(x)} ${f1(200 - h)}L${f1(x + w)} 200Z`, c) + Pa(`M${f1(x - w * .24)} ${f1(200 - h * .76)}L${f1(x)} ${f1(200 - h)}L${f1(x + w * .24)} ${f1(200 - h * .76)}L${f1(x + w * .1)} ${f1(200 - h * .7)}L${f1(x)} ${f1(200 - h * .78)}L${f1(x - w * .1)} ${f1(200 - h * .7)}Z`, '#fff'); }
       const hill = Pa(`M0 210Q100 ${f1(170 + r() * 20)} 200 200T400 ${f1(190 + r() * 15)}V300H0Z`, '#7FBF6A');
-      return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'), front: m + Pa('M0 200H400V300H0Z', '#8CC976') + hill }; },
+      let forest = '';   // 산기슭의 작은 숲 (멀리 있어 작다)
+      for (let i = 0; i < 26; i++){ const x = r() * 400, y = 197 + r() * 6, h = 7 + r() * 6; forest += Pa(`M${f1(x)} ${f1(y - h)}L${f1(x + h * 0.4)} ${f1(y)}H${f1(x - h * 0.4)}Z`, pick(r, ['#4F8F5E', '#5E9E64', '#3F7F52'])); }
+      return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'), front: m + Pa('M0 200H400V300H0Z', '#8CC976') + forest + hill }; },
     items: [['sun', 1, [40, 360], [30, 48]], ['cloud', [2, 4], [30, 370], [22, 85]], ['bird', [3, 5], [25, 375], [25, 105]],
       ['cabin', 1, [60, 340], [225, 255]], ['tent', [1, 2], [40, 360], [235, 285]], ['campfire', [0, 1], [30, 370], [255, 292]], ['tree', [5, 8], [15, 385], [205, 292], () => ({ shape: 1 })], ['bush', [1, 3], [20, 380], [215, 292]],
       ['rock', [2, 4], [18, 382], [235, 297]], ['sign', [0, 1], [20, 380], [230, 290]], ['mushroom', [2, 4], [15, 385], [250, 297]], ['flower', [3, 5], [14, 386], [248, 298]], ['pet', [0, 1], [40, 360], [255, 292]],
-      ['tuft', [5, 8], [10, 390], [212, 298]], ['pebbles', [1, 3], [14, 386], [245, 298]], ['snail', [0, 1], [20, 380], [270, 298]]]
+      ['tuft', [5, 8], [10, 390], [212, 298]], ['pebbles', [1, 3], [14, 386], [245, 298]], ['snail', [0, 1], [20, 380], [270, 298]], ['log', [1, 2], [25, 375], [235, 296]], ['rock', [0, 1], [30, 370], [288, 298], () => ({ big: true })], ['mushroom', [0, 1], [20, 380], [290, 298], () => ({ big: true })]]
   },
   sea: {
+    hz: 212,
+    depth: o => (o.type === 'boat' || o.type === 'buoy') ? 0.45 + 0.6 * Math.min(1, Math.max(0, (o.y - 130) / 75)) : 0,
     bg(r){ const sky = pick(r, SKIES); const hz = 125 + Math.floor(r() * 15); let waves = '';
       for (let i = 0; i < 14; i++){ const x = 15 + ((i * 53) % 380), y = hz + 12 + ((i * 29) % 60); waves += L(`M${x} ${y}q5 -4 10 0q5 4 10 0`, '#fff', 1.6, ' opacity=".55"'); }
       return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'),
-        front: grad('se', '#5AB6E8', '#2E86C9') + R(0, hz, W, 300 - hz, 'url(#se)') + waves + Pa(`M0 ${hz + 85}Q120 ${hz + 70} 220 ${hz + 82}T400 ${hz + 76}V300H0Z`, '#F2DDA9') + Pa(`M0 ${hz + 85}Q120 ${hz + 70} 220 ${hz + 82}T400 ${hz + 76}`, 'none', ' stroke="#fff" stroke-width="3" opacity=".8"') }; },
+        front: grad('se', '#5AB6E8', '#2E86C9') + R(0, hz, W, 300 - hz, 'url(#se)')
+          + (r() < 0.7 ? Pa(`M${f1(30 + r() * 220)} ${hz}q20 -14 40 -10q14 -10 30 0q12 2 20 10Z`, '#7FA88A', ' opacity=".8"') : '') + waves + Pa(`M0 ${hz + 85}Q120 ${hz + 70} 220 ${hz + 82}T400 ${hz + 76}V300H0Z`, '#F2DDA9') + Pa(`M0 ${hz + 85}Q120 ${hz + 70} 220 ${hz + 82}T400 ${hz + 76}`, 'none', ' stroke="#fff" stroke-width="3" opacity=".8"') }; },
     items: [['sun', 1, [40, 360], [30, 50]], ['cloud', [2, 4], [30, 370], [22, 85]], ['bird', [3, 5], [25, 375], [25, 105], () => ({ c: '#5a6472' })],
       ['boat', [1, 3], [35, 365], [156, 192]], ['lighthouse', [0, 1], [20, 60], [218, 222]], ['palm', [1, 3], [18, 382], [235, 262]], ['umbrella', [1, 2], [40, 360], [242, 278]], ['surfboard', [1, 2], [20, 380], [248, 290]],
-      ['ball', 1, [30, 370], [255, 292]], ['castle', 1, [50, 350], [262, 292]], ['crab', [1, 3], [25, 375], [258, 297]], ['star', [2, 3], [16, 384], [258, 298]], ['shell', [3, 5], [14, 386], [252, 298]], ['pebbles', [1, 3], [14, 386], [250, 298]]]
+      ['ball', 1, [30, 370], [255, 292]], ['castle', 1, [50, 350], [262, 292]], ['crab', [1, 3], [25, 375], [258, 297]], ['star', [2, 3], [16, 384], [258, 298]], ['shell', [3, 5], [14, 386], [252, 298]], ['pebbles', [1, 3], [14, 386], [250, 298]], ['bucket', [1, 2], [20, 380], [250, 296]], ['buoy', [1, 2], [20, 380], [150, 200]], ['shell', [0, 1], [30, 370], [288, 298], () => ({ big: true })], ['crab', [0, 1], [30, 370], [290, 298], () => ({ big: true })]]
   },
   garden: {
+    hz: 175,
     bg(r){ const sky = pick(r, SKIES); let fence = '';
       for (let x = 4; x < 400; x += 16) fence += Pa(`M${x} 182V166L${x + 5} 160L${x + 10} 166V182Z`, '#FFFFFF', ' opacity=".95"');
       return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'),
@@ -258,9 +301,10 @@ const TH = {
           + Pa('M170 300Q200 240 205 185H215Q222 240 250 300Z', '#E7D3B0', ' opacity=".9"') }; },
     items: [['sun', 1, [40, 360], [30, 50]], ['cloud', [2, 3], [30, 370], [22, 80]], ['butterfly', [2, 4], [25, 375], [80, 200]], ['bee', [1, 3], [25, 375], [90, 210]], ['bird', [1, 3], [25, 375], [25, 100]],
       ['house', 1, [60, 340], [180, 186]], ['tree', [2, 4], [18, 382], [195, 262]], ['bush', [2, 4], [20, 380], [195, 290]], ['bench', 1, [40, 360], [215, 262]], ['lamp', [1, 2], [18, 382], [210, 280]], ['can', 1, [30, 370], [240, 290]],
-      ['mushroom', [1, 3], [18, 382], [248, 297]], ['snail', [1, 2], [18, 382], [258, 298]], ['pet', [1, 2], [40, 360], [245, 292]], ['flower', [8, 12], [12, 388], [200, 298]], ['mailbox', [0, 1], [30, 370], [215, 262]], ['tuft', [3, 6], [10, 390], [195, 298]]]
+      ['mushroom', [1, 3], [18, 382], [248, 297]], ['snail', [1, 2], [18, 382], [258, 298]], ['pet', [1, 2], [40, 360], [245, 292]], ['flower', [8, 12], [12, 388], [200, 298]], ['mailbox', [0, 1], [30, 370], [215, 262]], ['tuft', [3, 6], [10, 390], [195, 298]], ['birdhouse', [0, 1], [20, 380], [205, 270]], ['fountain', [0, 1], [50, 350], [220, 270]], ['gnome', [1, 2], [16, 384], [240, 296]], ['flower', [0, 2], [20, 380], [286, 298], () => ({ big: true })]]
   },
   pond: {
+    hz: 112,
     bg(r){ const sky = pick(r, SKIES); const cx = 175 + r() * 50, cy = 208, rx = 140 + r() * 20, ry = 56 + r() * 10;
       const far = Array.from({ length: 9 }, (_, i) => C(i * 50 + r() * 20, 112, 22 + r() * 12, pick(r, ['#6DAE6E', '#5E9E64', '#7DBB72']))).join('');
       return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'), pond: [cx, cy, rx, ry],
@@ -270,26 +314,30 @@ const TH = {
       ['lily', [4, 7], [55, 345], [172, 258], null, 'pond'], ['lotus', [1, 3], [65, 335], [178, 252], null, 'pond'], ['duck', [1, 3], [75, 325], [188, 252], null, 'pond'],
       ['frog', [1, 2], [25, 375], [268, 297], null, 'land'], ['reed', [2, 4], [8, 392], [148, 297], null, 'land'], ['tree', [1, 3], [18, 382], [138, 166], null, 'land'], ['bush', [1, 2], [18, 382], [140, 170], null, 'land'],
       ['rock', [1, 3], [18, 382], [258, 297], null, 'land'], ['flower', [3, 5], [14, 386], [262, 298], null, 'land'], ['snail', [0, 1], [18, 382], [272, 298], null, 'land'], ['lamp', [0, 1], [18, 382], [150, 170], null, 'land'],
-      ['tuft', [4, 7], [8, 392], [128, 298], null, 'land'], ['pebbles', [1, 2], [14, 386], [262, 298], null, 'land']]
+      ['tuft', [4, 7], [8, 392], [128, 298], null, 'land'], ['pebbles', [1, 2], [14, 386], [262, 298], null, 'land'], ['rowboat', [0, 1], [90, 310], [195, 245], null, 'pond'], ['reed', [0, 1], [10, 390], [288, 298], () => ({ big: true }), 'land'], ['frog', [0, 1], [20, 380], [290, 298], () => ({ big: true }), 'land']]
   },
   sky: {
+    hz: 258,
     bg(r){ const sky = pick(r, [['#6FB8F2', '#DDF0FF'], ['#8FC4FF', '#F3F8FF'], ['#FFB38A', '#FFE9D2'], ['#B49CF0', '#FBE7FF']]);
       return { back: grad('sk', ...sky) + R(0, 0, W, HH, 'url(#sk)'), front: Pa(`M0 262Q100 ${f1(236 + r() * 14)} 200 258T400 ${f1(250 + r() * 10)}V300H0Z`, '#8CCB72') + Pa('M0 282Q140 266 260 280T400 276V300H0Z', '#77BD60') }; },
     items: [['sun', 1, [40, 360], [30, 55]], ['rainbow', [0, 1], [90, 310], [175, 185]], ['cloud', [5, 7], [18, 382], [25, 215]], ['hab', [2, 3], [28, 372], [45, 205]], ['plane', 1, [40, 360], [28, 125]], ['parachute', [1, 2], [28, 372], [40, 200]],
       ['bird', [3, 6], [18, 382], [25, 225]], ['balloon', [2, 3], [18, 382], [55, 215]], ['kite', [0, 1], [40, 360], [60, 170]], ['bee', [0, 1], [25, 375], [200, 240]],
-      ['tree', [2, 4], [18, 382], [268, 294]], ['bush', [1, 2], [18, 382], [272, 296]], ['house', [0, 1], [50, 350], [278, 286], () => ({ s: 0.8 })], ['tuft', [2, 4], [10, 390], [270, 298]]]
+      ['tree', [2, 4], [18, 382], [268, 294]], ['bush', [1, 2], [18, 382], [272, 296]], ['house', [0, 1], [50, 350], [278, 286], () => ({ s: 0.8 })], ['tuft', [2, 4], [10, 390], [270, 298]], ['zeppelin', [0, 1], [40, 360], [40, 160]], ['cloud', [0, 1], [40, 360], [190, 230], () => ({ big: true })], ['balloon', [0, 1], [30, 370], [160, 220], () => ({ big: true })]]
   },
   under: {
+    hz: 238,
     bg(r){ const top = pick(r, ['#5CC6EE', '#4FB8E8', '#62D0E0']); let rays = '';
       for (let i = 0; i < 4; i++){ const x = 30 + i * 100 + r() * 40; rays += Pa(`M${f1(x)} 0L${f1(x + 26)} 0L${f1(x + 90)} 240L${f1(x + 40)} 240Z`, '#ffffff', ' opacity=".09"'); }
+      for (let i = 0; i < 7; i++){ const x = 20 + r() * 360, y = 40 + r() * 160, k = 0.35 + r() * 0.3, f = r() < 0.5 ? 1 : -1;   // 멀리 헤엄치는 물고기 그림자
+        rays += `<g transform="translate(${f1(x)} ${f1(y)}) scale(${f1(f * k)} ${f1(k)})" opacity=".18">${Pa('M-12 0L-21 -9V9Z', '#0E3E73')}${E(2, 0, 16, 10, '#0E3E73')}</g>`; }
       return { back: grad('uw', top, '#1F5FA8') + R(0, 0, W, HH, 'url(#uw)') + rays,
         front: Pa(`M0 245Q70 ${f1(228 + r() * 10)} 150 242T300 ${f1(236 + r() * 8)}T400 240V300H0Z`, '#E8D29C') + Pa('M0 268Q120 258 240 270T400 264V300H0Z', '#DCC28A') }; },
     items: [['fish', [6, 9], [22, 378], [28, 215]], ['jelly', [1, 3], [25, 375], [28, 155]], ['turtle', [0, 1], [50, 350], [60, 170]], ['seahorse', [1, 2], [20, 380], [60, 220]], ['bubbles', [2, 4], [18, 382], [50, 225]],
       ['weed', [3, 5], [10, 390], [252, 298]], ['coral', [2, 4], [22, 378], [256, 298]], ['crab', [1, 2], [25, 375], [266, 298]], ['star', [1, 3], [18, 382], [262, 298]], ['anchor', [0, 1], [30, 370], [262, 296]],
-      ['shell', [2, 3], [14, 386], [266, 298]], ['chest', [0, 1], [50, 350], [268, 296]], ['rock', [1, 3], [18, 382], [258, 298]], ['pebbles', [2, 3], [14, 386], [262, 298]]]
+      ['shell', [2, 3], [14, 386], [266, 298]], ['chest', [0, 1], [50, 350], [268, 296]], ['rock', [1, 3], [18, 382], [258, 298]], ['pebbles', [2, 3], [14, 386], [262, 298]], ['octopus', [0, 1], [30, 370], [80, 200]], ['clam', [1, 2], [20, 380], [262, 296]], ['sub', [0, 1], [40, 360], [40, 150]], ['coral', [0, 1], [25, 375], [292, 299], () => ({ big: true })], ['star', [0, 1], [20, 380], [290, 298], () => ({ big: true })]]
   }
 };
-const SHADOW_FREE = new Set(['bee', 'seahorse', 'parachute', 'fish', 'jelly', 'turtle', 'bubbles', 'bird', 'balloon', 'kite', 'plane', 'hab', 'butterfly', 'dragonfly', 'cloud', 'sun', 'rainbow', 'lily', 'lotus', 'duck', 'boat']);
+const SHADOW_FREE = new Set(['buoy', 'octopus', 'sub', 'zeppelin', 'rowboat', 'bee', 'seahorse', 'parachute', 'fish', 'jelly', 'turtle', 'bubbles', 'bird', 'balloon', 'kite', 'plane', 'hab', 'butterfly', 'dragonfly', 'cloud', 'sun', 'rainbow', 'lily', 'lotus', 'duck', 'boat']);
 
 /** 기본 색 · 덧붙일 값 — 종류마다 */
 function defaults(type, r){
@@ -311,7 +359,18 @@ function defaults(type, r){
   if (type === 'palm') o.nuts = r() < 0.75;
   if (type === 'pet') o.collar = r() < 0.55;
   if (type === 'tuft') o.g = pick(r, ['#4FA466', '#3F8F5A', '#6DBB6A']);
+  if (type === 'windmill') o.ba = Math.round(r() * 90);
+  if (type === 'birdhouse') o.birdie = r() < 0.5;
+  if (type === 'clam') o.pearl = r() < 0.7;
+  if (type === 'gnome') o.c2 = pick(r, ['#3E4A5C', '#5C7ACF', '#4E9E6E']);
   return o;
+}
+
+/** 원근 배율 — 지평선(hz)에서 0.5배, 그림 맨 아래에서 1.4배. 테마가 따로 정하면 그것으로 (바다의 배 등) */
+function depthOf(th, o){
+  if (th.depth){ const d = th.depth(o); if (d) return d; }
+  const t = Math.min(1, Math.max(0, (o.y - th.hz) / (HH - th.hz)));
+  return 0.5 + 0.9 * t;
 }
 
 /** 씨앗 → 그림 { theme, bg, objs } */
@@ -323,16 +382,22 @@ export function makeScene(seed){
   const objs = [];
   const inPond = (x, y, pad) => { if (!bg.pond) return true; const [cx, cy, rx, ry] = bg.pond; return ((x - cx) / (rx - pad)) ** 2 + ((y - cy) / (ry - pad * 0.5)) ** 2 < 1; };
   for (const [type, cnt, xr, yr, extra, zone] of th.items){
-    const n = Array.isArray(cnt) ? cnt[0] + Math.floor(r() * (cnt[1] - cnt[0] + 1)) : cnt;
+    const n0 = Array.isArray(cnt) ? cnt[0] + Math.floor(r() * (cnt[1] - cnt[0] + 1)) : cnt;
+    const n = type === 'sun' || n0 === 0 || (extra && /big/.test(String(extra))) ? n0 : Math.round(n0 * 1.25);   // 많이 (사용자 요청)
     for (let k = 0; k < n; k++){
       for (let t = 0; t < 90; t++){
-        const o = { type, x: xr[0] + r() * (xr[1] - xr[0]), y: yr[0] + r() * (yr[1] - yr[0]), s: 0.72 + r() * 0.6, ...defaults(type, r), ...(extra ? extra(r) : {}) };
+        const o = { type, x: xr[0] + r() * (xr[1] - xr[0]), y: yr[0] + r() * (yr[1] - yr[0]), s: 0.8 + r() * 0.4, ...defaults(type, r), ...(extra ? extra(r) : {}) };
+        // 원근 — 땅 위 물건은 아래(가까이)일수록 크고 지평선(멀리)일수록 작다. 하늘 · 물속에 뜬 것은 크기를 넓게 섞는다.
+        // big: 맨 앞에 크게 하나 (원근을 다시 곱하지 않는다)
+        if (o.big){ o.s = 1.5 + r() * 0.45; delete o.big; }
+        else if (T[type].layer === 2) o.s *= depthOf(th, o);
+        else if (type !== 'sun' && type !== 'rainbow') o.s *= 0.65 + r() * 0.75;
         o.shadow = !!T[type].sw && !SHADOW_FREE.has(type);
         const b = boxOf(o);
         if (b[0] < 3 || b[2] > W - 3 || b[1] < 3 || b[3] > HH - 1) continue;
         if (zone === 'pond' && !(inPond(b[0], o.y, 4) && inPond(b[2], o.y, 4))) continue;
         if (zone === 'land' && bg.pond && (inPond(b[0], b[3], -10) || inPond(b[2], b[3], -10) || inPond(o.x, b[3], -10))) continue;
-        if (objs.some(p => overlap(b, boxOf(p), 2))) continue;
+        if (objs.some(p => tooClose(b, boxOf(p)))) continue;
         objs.push(o); break;
       }
     }
@@ -417,7 +482,7 @@ export function makeDiffs(seed){
   const order = KINDS.slice();
   for (let i = order.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
   const used = new Set(), diffs = [], regions = [];
-  const SMALL = new Set(['flower', 'bird', 'shell', 'star', 'bubbles', 'butterfly', 'dragonfly', 'tuft', 'pebbles', 'bee', 'snail']);
+  const SMALL = new Set(['flower', 'bird', 'shell', 'star', 'bubbles', 'butterfly', 'dragonfly', 'tuft', 'pebbles', 'bee', 'snail', 'gnome', 'bucket', 'buoy']);
   for (const kind of [...order, ...order, ...order]){
     if (diffs.length >= 5) break;
     const cands = sc.objs.filter(o => !used.has(o.id));
