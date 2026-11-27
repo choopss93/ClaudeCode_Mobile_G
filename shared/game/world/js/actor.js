@@ -511,6 +511,9 @@ export function createPet(spec){
        전에 잰 상자. 둘이 있어야 "상자 안의 몇 할" 로 적을 수 있다. */
     inner,
     box: innerBox,
+    /** 코끝 바로 밑(입) 의 세상 자리 — 공을 물 때 쓴다. 품종마다 머리 크기 · 주둥이 길이 · 배율이 달라서
+        자리를 숫자로 박아 두면 작은 아이는 공이 얼굴에 박힌다 (사용자 지적). */
+    mouthAt(v){ head.updateWorldMatrix(true, false); return head.localToWorld(v.set(0, -headR * 0.32, headR * 0.76 + mz * 0.95)); },
 
     /** 주인을 만났을 때. 평소 꼬리질과 확실히 달라야 한다. */
     startGreet(){ greetLeft = GREET_TIME; },

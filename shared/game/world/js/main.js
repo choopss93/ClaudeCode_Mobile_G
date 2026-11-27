@@ -857,6 +857,7 @@ function begin(myName, petName, petSpec, friends, myLook){
   /* 공도 맡은 사람이 혼자 움직인다. 그래서 공 목록은 `pickDriver` 보다
      먼저 있어야 한다 — 손님이 들어올 때 벌써 불리기 때문이다. */
   const BALL_R = 0.12;
+  const mouthV = new THREE.Vector3();      // 아이 입 자리를 받아 둘 그릇
   const BALL_MODES = ['none', 'fly', 'rest', 'held'];
   const balls = [];
 
@@ -1175,10 +1176,11 @@ function begin(myName, petName, petSpec, friends, myLook){
       }
     } else if (b.mode === 'held' && myPet){
       // 입에 물고 있다 — 주둥이 앞쪽에 붙인다
-      const g = myPet.actor.group;
-      p.set(g.position.x + Math.sin(g.rotation.y) * 0.24,
-            Math.max(BALL_R, myPet.actor.headTop * 0.58),
-            g.position.z + Math.cos(g.rotation.y) * 0.24);
+      // 입 자리에서 공 반지름만큼 앞으로 — 얼굴 속에 박히지 않게 (품종마다 입 자리가 다르다)
+      const g = myPet.actor.group, m = myPet.actor.mouthAt(mouthV);
+      p.set(m.x + Math.sin(g.rotation.y) * BALL_R * 0.85,
+            Math.max(BALL_R, m.y - BALL_R * 0.25),
+            m.z + Math.cos(g.rotation.y) * BALL_R * 0.85);
     }
   }
 
