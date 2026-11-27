@@ -9,23 +9,8 @@ function seeded(seed){
 
 export const WORLD_RADIUS = 44;   // 거닐 맛이 나도록 넓게
 
-/* 무지개 다리 — 정원으로 들어서는 길.
-   처음 들어서면 여기 바깥 끝에 서 있고, 앞으로 쭉 건너가면 들판이다.
-   카메라가 처음 보는 쪽이 -Z 이므로 다리는 +Z 쪽에 둔다. 그래야 가만히
-   앞으로만 밀어도 정원 쪽으로 걷는다. */
-export const BRIDGE = {
-  half: 2.1,                        // 난간 사이 반너비
-  near: WORLD_RADIUS - 3,           // 들판 쪽 끝 — 잔디에 조금 걸친다
-  far:  WORLD_RADIUS + 22,          // 바깥 끝 — 작은 섬에 닿는다
-  gap: 0.16                         // 산울타리를 터 놓는 각도
-};
-
-/* 다리 뒤의 아주 작은 섬. 여기서 시작한다.
-   안개가 끼어 있고, 사람만 올 수 있다 — 반려동물은 들판에서 논다. */
-export const ISLE = { x: 0, z: BRIDGE.far + 4, r: 5.2 };
-
-/** 처음 서는 자리. 작은 섬 위, 다리를 마주 보고 선다. */
-export const START = { x: 0, z: ISLE.z + 2 };
+/** 처음 서는 자리 — 들판 섬의 +Z 쪽, 한가운데를 마주 본다. (무지개 다리와 다리 뒤의 작은 섬은 사용자 요청으로 걷어냈다) */
+export const START = { x: 0, z: WORLD_RADIUS - 16 };
 
 const SEA_Y = -0.9;               // 구름 바다 바닥 판의 높이
 const SEA_REACH = 128;            // 구름을 까는 범위 — 안개가 지우는 거리까지만
@@ -306,129 +291,19 @@ export function createWorld(){
   tufts.instanceColor.needsUpdate = true;
   group.add(tufts);
 
-  /* ── 바깥 울타리: 둥근 산울타리 ──
-     다리가 닿는 자리는 터 놓는다. 막아 두면 다 건너와서 벽을 만난다.
-     토러스는 각도 0 에서 시작하므로, 먼저 제자리에서 돌려 트인 곳을
-     +Z 쪽(= 지역 각도 -π/2)에 오게 한 뒤 눕힌다. */
-  const hedgeAt = new THREE.Group();
-  const hedge = new THREE.Mesh(
-    new THREE.TorusGeometry(WORLD_RADIUS, 0.75, 7, 64, Math.PI * 2 - BRIDGE.gap),
-    toon(0x94DE83)
-  );
-  hedge.rotation.z = -Math.PI / 2 + BRIDGE.gap / 2;
-  hedgeAt.add(hedge);
-  hedgeAt.rotation.x = -Math.PI / 2;
-  hedgeAt.position.y = 0.45;
-  group.add(hedgeAt);
+  /* ── 바깥 울타리: 둥근 산울타리 (빈틈 없이 한 바퀴) ── */
+  const hedge = new THREE.Mesh(new THREE.TorusGeometry(WORLD_RADIUS, 0.75, 7, 64), toon(0x94DE83));
+  hedge.rotation.x = -Math.PI / 2;
+  hedge.position.y = 0.45;
+  group.add(hedge);
 
-  /* ── 무지개 다리 · 작은 섬 · 구름 바다 ── */
-  group.add(makeBridge());
-  group.add(makeIsle());
+  /* ── 구름 바다 ── */
   group.add(makeCloudSea());
-  group.add(makeHaze());
 
-  return { group, colliders, radius: WORLD_RADIUS, bridge: BRIDGE, isle: ISLE };
+  return { group, colliders, radius: WORLD_RADIUS };
 }
 
-/* 무지개 다리. 바닥은 땅에 닿게 두고, 난간과 양옆의 구름으로 "건너는
-   것" 처럼 보이게 한다. 바닥을 띄우면 사람·반려동물·다른 접속자의 높이를
-   모두 따로 다뤄야 해서, 얻는 것에 비해 손댈 데가 너무 많아진다. */
-function makeBridge(){
-  const g = new THREE.Group();
-  const len = BRIDGE.far - BRIDGE.near;
-  const midZ = (BRIDGE.far + BRIDGE.near) / 2;
-  const w = BRIDGE.half * 2;
-
-  // 일곱 빛깔을 길이 방향으로 나란히 깐다
-  const bandW = w / RAINBOW.length;
-  RAINBOW.forEach((c, i) => {
-    const band = new THREE.Mesh(new THREE.BoxGeometry(bandW, 0.16, len), toon(c));
-    band.position.set(-BRIDGE.half + bandW * (i + 0.5), 0.05, midZ);
-    g.add(band);
-  });
-
-  // 난간 — 가로대 둘에 기둥을 세운다. 흰색으로 두어 무지개는 바닥에만.
-  for (const side of [-1, 1]){
-    for (const y of [0.72, 0.46]){
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, len), toon(0xFFFFFF));
-      rail.position.set(side * BRIDGE.half, y, midZ);
-      g.add(rail);
-    }
-  }
-
-  const dummy = new THREE.Object3D();
-  const posts = Math.max(2, Math.round(len / 2.4)) + 1;
-  const post = new THREE.InstancedMesh(
-    new THREE.CylinderGeometry(0.075, 0.075, 0.84, 6), toon(0xFFFFFF), posts * 2);
-  let n = 0;
-  for (let i = 0; i < posts; i++){
-    const z = BRIDGE.near + (len * i) / (posts - 1);
-    for (const side of [-1, 1]){
-      dummy.position.set(side * BRIDGE.half, 0.42, z);
-      dummy.updateMatrix();
-      post.setMatrixAt(n++, dummy.matrix);
-    }
-  }
-  post.instanceMatrix.needsUpdate = true;
-  g.add(post);
-
-  return g;
-}
-
-/* 다리 뒤의 아주 작은 섬 — 여기서 시작한다.
-   안개가 낮게 깔려 있고, 들판이 저 멀리 보인다. */
-function makeIsle(){
-  const g = new THREE.Group();
-  // ball · rod 은 createWorld 안에만 있다. 여기서는 따로 만든다.
-  const ball = new THREE.SphereGeometry(1, 12, 9);
-  const rod  = new THREE.CylinderGeometry(1, 1, 1, 6);
-
-  // 여기도 윗면을 겹치지 않게 내린다 (들판 섬과 같은 까닭)
-  const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(ISLE.r + 0.12, ISLE.r * 0.5, 4.4, 28), toon(0x8FCE82));
-  body.position.set(ISLE.x, -2.32, ISLE.z);
-  g.add(body);
-
-  const top = new THREE.Mesh(new THREE.CircleGeometry(ISLE.r, 28), toon(0xBEE8AE));
-  top.rotation.x = -Math.PI / 2;
-  top.position.set(ISLE.x, 0.02, ISLE.z);
-  g.add(top);
-
-  // 작은 꽃 몇 송이. 많이 두면 들판처럼 보여서 몇 송이만.
-  const rnd = seeded(31337);
-  for (let i = 0; i < 7; i++){
-    const a = rnd() * Math.PI * 2;
-    const d = 1.4 + rnd() * (ISLE.r - 2.2);
-    const x = ISLE.x + Math.cos(a) * d, z = ISLE.z + Math.sin(a) * d;
-    const stem = new THREE.Mesh(rod, toon(0x79C06A));
-    stem.position.set(x, 0.13, z); stem.scale.set(0.03, 0.26, 0.03);
-    g.add(stem);
-    const head = new THREE.Mesh(ball, toon(RAINBOW[Math.floor(rnd() * RAINBOW.length)]));
-    head.position.set(x, 0.28, z); head.scale.set(0.1, 0.07, 0.1);
-    g.add(head);
-  }
-
-  /* 안개 — 낮게 깔린 뽀얀 기운. 비치는 재질이라 겹칠수록 짙어진다.
-     깊이를 쓰지 않아야(depthWrite:false) 서로 지우지 않는다. */
-  for (let i = 0; i < 9; i++){
-    const a = rnd() * Math.PI * 2;
-    const d = rnd() * ISLE.r;
-    const r = 1.6 + rnd() * 2.4;
-    const mist = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({
-      color: 0xFFFFFF, transparent: true, opacity: 0.1, depthWrite: false
-    }));
-    // 낮게 깔아야 안개다. 높이 띄우면 섬 전체가 뿌옇게 바래 보인다.
-    mist.position.set(ISLE.x + Math.cos(a) * d, 0.12 + rnd() * 0.26,
-                      ISLE.z + Math.sin(a) * d);
-    mist.scale.set(r, r * 0.2, r);
-    mist.renderOrder = 2;
-    g.add(mist);
-  }
-
-  return g;
-}
-
-/* 구름 바다 — 섬도 다리도 이 위에 떠 있다.
+/* 구름 바다 — 들판 섬이 이 위에 떠 있다.
    바닥 판 하나로 빈틈을 막고, 그 위에 덩이를 흩뿌린다. 같은 모양이
    천 개가 넘으므로 반드시 InstancedMesh 로 묶는다.
 
@@ -452,34 +327,13 @@ function makeCloudSea(){
   g.add(floor);
 
   // 뭍에서 얼마나 떨어졌는지
-  function offLand(x, z){
-    const a = Math.hypot(x, z) - WORLD_RADIUS;
-    const b = Math.hypot(x - ISLE.x, z - ISLE.z) - ISLE.r;
-    const onBridgeZ = z > BRIDGE.near - 1 && z < BRIDGE.far + 1;
-    const c = onBridgeZ ? Math.abs(x) - BRIDGE.half : Infinity;
-    return Math.min(a, b, c);
-  }
-
-  // 작은 섬 뒤쪽은 구름이 아니라 안개다 (makeHaze). 거기엔 두지 않는다.
-  const behind = z => z >= ISLE.z - 0.5;
+  const offLand = (x, z) => Math.hypot(x, z) - WORLD_RADIUS;
 
   // 가장자리 한 자리. rnd()*rnd() 를 쓰면 뭍에 바짝 붙은 쪽이 촘촘해진다.
   function rimSpot(){
-    const r = rnd();
-    if (r < 0.45){                                   // 들판 섬 둘레
-      const a = rnd() * Math.PI * 2;
-      const out = WORLD_RADIUS + 0.5 + rnd() * rnd() * 17;
-      return [Math.cos(a) * out, Math.sin(a) * out];
-    }
-    if (r < 0.8){                                    // 다리 양옆
-      const side = rnd() < 0.5 ? -1 : 1;
-      const z = BRIDGE.near - 1.5 + rnd() * (BRIDGE.far - BRIDGE.near + 3);
-      const out = BRIDGE.half + 0.45 + rnd() * rnd() * 15;
-      return [side * out, z];
-    }
-    const a = rnd() * Math.PI * 2;                   // 작은 섬 둘레
-    const out = ISLE.r + 0.45 + rnd() * rnd() * 11;
-    return [ISLE.x + Math.cos(a) * out, ISLE.z + Math.sin(a) * out];
+    const a = rnd() * Math.PI * 2;
+    const out = WORLD_RADIUS + 0.5 + rnd() * rnd() * 17;
+    return [Math.cos(a) * out, Math.sin(a) * out];
   }
 
   const RIM = 1100, OPEN = 1500;
@@ -499,7 +353,7 @@ function makeCloudSea(){
 
   for (let i = 0, tries = 0; i < RIM && tries < RIM * 20; tries++){
     const [x, z] = rimSpot();
-    if (offLand(x, z) < 0.4 || behind(z)) continue;
+    if (offLand(x, z) < 0.4) continue;
     place(x, z, 0.75 + rnd() * 1.7, 0.34 - rnd() * 0.9);
     i++;
   }
@@ -509,7 +363,7 @@ function makeCloudSea(){
     const d = Math.sqrt(rnd()) * SEA_REACH;          // 넓은 바깥까지 고르게
     const x = Math.cos(a) * d, z = Math.sin(a) * d;
     const off = offLand(x, z);
-    if (off < 1.2 || behind(z)) continue;
+    if (off < 1.2) continue;
     /* 멀수록 높이 쌓는다. 다 같은 높이로 깔면 위에서 내려다보는 꼴이 되어
        연잎이 떠 있는 못처럼 보인다 — 한 번 그렇게 만들어 봤다. 멀리서
        솟아올라야 사방이 구름으로 둘러싸인 것이 된다. */
@@ -521,56 +375,6 @@ function makeCloudSea(){
   puff.count = n;
   puff.instanceMatrix.needsUpdate = true;
   g.add(puff);
-
-  return g;
-}
-
-/* 작은 섬 뒤쪽의 안개.
-   구름처럼 덩이로 두면 "넘어갈 데가 있나" 싶어 보인다. 저쪽은 갈 수 없는
-   곳이니 아예 뿌옇게 지워 버리는 편이 낫다.
-
-   비치는 흰 막을 여러 겹 겹친다. 한 겹을 짙게 하면 벽처럼 딱딱해지고,
-   옅은 겹을 포개면 멀수록 자연스럽게 짙어져 안개가 된다.
-   - 다리 쪽(-Z)은 비워 둔다. 거기는 건너갈 길이라 가리면 안 된다.
-   - 깊이를 쓰지 않아야(depthWrite:false) 겹끼리 서로 지우지 않는다.
-   - 빛을 받는 재질(toonUnique)이라야 밤에 같이 어두워진다. 안 그러면
-     깜깜한 밤에 흰 벽만 환하게 남는다. */
-function makeHaze(){
-  const g = new THREE.Group();
-  /* 낮게 두면 안개 **위로** 하늘이 보여 가로줄이 생긴다. 넉넉히 높인다. */
-  const H = 30;
-  const ARC = Math.PI;                // 반 바퀴, 섬 뒤쪽만
-  const SHELLS = [7, 10, 14, 19, 25, 33, 43];
-
-  SHELLS.forEach((r, i) => {
-    // 겹마다 끝나는 각도를 조금씩 어긋나게 — 같은 자리에서 끝나면
-    // 가장자리가 포개져 세로줄로 도드라진다.
-    const m = new THREE.Mesh(
-      new THREE.CylinderGeometry(r, r, H, 28, 1, true,
-                                 -Math.PI / 2 - i * 0.05, ARC + i * 0.1),
-      toonUnique(0xFFFFFF, {
-        transparent: true,
-        opacity: 0.22 + i * 0.02,
-        depthWrite: false,
-        side: THREE.DoubleSide
-      })
-    );
-    m.position.set(ISLE.x, H / 2 - 6, ISLE.z);
-    m.renderOrder = 3;
-    g.add(m);
-  });
-
-  /* 바닥 쪽 — 겹 사이로 아래가 들여다보이지 않게 뿌연 바닥을 깐다 */
-  /* 원판은 실린더와 각도 기준이 다르다. 눕히고 나면 +Z 쪽 반원은
-     thetaStart = -π 다 (실린더는 -π/2). 같은 값을 쓰면 엉뚱한 쪽이 덮인다. */
-  const floor = new THREE.Mesh(
-    new THREE.CircleGeometry(46, 36, -Math.PI, ARC),
-    toonUnique(0xFFFFFF, { transparent: true, opacity: 0.9, depthWrite: false })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(ISLE.x, -0.75, ISLE.z);
-  floor.renderOrder = 2;
-  g.add(floor);
 
   return g;
 }
@@ -587,43 +391,9 @@ export function resolve(world, x, z, bodyRadius = 0.26){
       z = c.z + (dz / d) * min;
     }
   }
-  /* 걸을 수 있는 데는 세 곳뿐이다 — 들판 섬, 무지개 다리, 다리 뒤의 작은
-     섬. 나머지는 전부 구름이다.
-
-     어느 곳에도 속하지 않으면 **가장 가까운 곳의 가장자리**로 되민다.
-     곳마다 따로 따지면 경계에서 엉킨다 — 예전에 z 만 보고 다리라고 판단해
-     들판 저쪽 끝에 선 사람이 다리 입구로 끌려간 적이 있다. */
+  /* 걸을 수 있는 데는 들판 섬뿐이다 — 밖은 전부 구름. 넘으면 가장자리로 되민다 */
   const edge = world.radius - bodyRadius - 0.8;
-  const here = [];
-
   const dg = Math.hypot(x, z);
   if (dg <= edge) return { x, z };
-  here.push({ x: (x / dg) * edge, z: (z / dg) * edge });
-
-  const b = world.bridge;
-  if (b){
-    const lim = b.half - bodyRadius - 0.1;
-    const bx = Math.max(-lim, Math.min(lim, x));
-    const bz = Math.max(b.near, Math.min(b.far, z));
-    if (bx === x && bz === z) return { x, z };
-    here.push({ x: bx, z: bz });
-  }
-
-  const isle = world.isle;
-  if (isle){
-    const lim = isle.r - bodyRadius - 0.4;
-    const di = Math.hypot(x - isle.x, z - isle.z);
-    if (di <= lim) return { x, z };
-    if (di > 1e-6){
-      here.push({ x: isle.x + ((x - isle.x) / di) * lim,
-                  z: isle.z + ((z - isle.z) / di) * lim });
-    }
-  }
-
-  let best = here[0], bd = Infinity;
-  for (const c of here){
-    const d = Math.hypot(c.x - x, c.z - z);
-    if (d < bd){ bd = d; best = c; }
-  }
-  return best;
+  return { x: (x / dg) * edge, z: (z / dg) * edge };
 }

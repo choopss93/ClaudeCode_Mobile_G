@@ -689,7 +689,7 @@ function begin(myName, petName, petSpec, friends, myLook){
   // 등불 빛은 내 캐릭터에만 단다 (actor.js 의 lamp 설명 참고)
   const me = createActor(MY_CHAR ? { lamp: true, style: MY_CHAR }
                           : { lamp: true, color: colorFor(myName), hair: hairFor(myName), long: myLook === 'long' });
-  // 무지개 다리 바깥 끝에서 시작한다. 앞으로 쭉 건너가면 들판이다.
+  // 들판 섬의 +Z 쪽에서 한가운데를 보고 시작한다 (다리 · 작은 섬은 걷어냈다).
   me.group.position.set(START.x, 0, START.z);
   me.group.rotation.y = Math.PI;
   scene.add(me.group);
