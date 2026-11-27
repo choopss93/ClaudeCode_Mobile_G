@@ -1635,6 +1635,54 @@ function begin(myName, petName, petSpec, friends, myLook){
     }
   }
 
+  /* ── 작은 전체 지도 (사용자 요청) ──
+     들판 섬 · 연못 · 나무 같은 막는 것들은 처음 한 번만 그려 두고, 나 · 내 아이 · 다른 사람만 다시 그린다.
+     위가 -Z (들어설 때 보는 쪽). 0.2초마다 — 매 프레임 그릴 일이 아니다. */
+  const mini = $('minimap'), mctx = mini.getContext('2d');
+  let miniBg = null, miniAt = 0, miniPx = 0;
+  function drawMinimap(now){
+    if (now - miniAt < 200) return;
+    miniAt = now;
+    const px = Math.round(mini.clientWidth * Math.min(2, devicePixelRatio || 1));
+    if (!px) return;
+    const R = world.radius + 3, sc = px / 2 / R, c = px / 2;
+    const X = x => c + x * sc, Y = z => c + z * sc;
+    if (px !== miniPx){
+      miniPx = px; mini.width = mini.height = px;
+      miniBg = document.createElement('canvas'); miniBg.width = miniBg.height = px;
+      const g = miniBg.getContext('2d');
+      g.fillStyle = 'rgba(255,255,255,0.85)'; g.beginPath(); g.arc(c, c, c, 0, Math.PI * 2); g.fill();   // 구름
+      g.fillStyle = '#A9D98E'; g.beginPath(); g.arc(c, c, world.radius * sc, 0, Math.PI * 2); g.fill();  // 들판
+      g.strokeStyle = '#6FB862'; g.lineWidth = Math.max(1, px / 60); g.stroke();                         // 산울타리
+      for (const k of world.colliders){
+        g.fillStyle = k.r > 2 ? '#8EDCF0' : '#5E9E58';
+        g.beginPath(); g.arc(X(k.x), Y(k.z), Math.max(k.r * sc, px / 90), 0, Math.PI * 2); g.fill();
+      }
+    }
+    mctx.clearRect(0, 0, px, px);
+    mctx.drawImage(miniBg, 0, 0);
+    const dot = (o, col, r) => { mctx.fillStyle = col; mctx.beginPath(); mctx.arc(X(o.x), Y(o.z), r, 0, Math.PI * 2); mctx.fill(); };
+    for (const p of peers.values()) dot(p.actor.group.position, '#7A8CF0', px / 28);
+    if (myPet) dot(myPet.actor.group.position, '#F0A04B', px / 30);
+    // 나 — 보는 쪽을 가리키는 삼각형
+    const m = me.group.position, a = me.group.rotation.y, fx = Math.sin(a), fz = Math.cos(a), s = px / 11;
+    mctx.save(); mctx.translate(X(m.x), Y(m.z));
+    mctx.rotate(Math.atan2(fz, fx) - Math.PI / 2);
+    mctx.fillStyle = '#E8445A'; mctx.strokeStyle = '#fff'; mctx.lineWidth = Math.max(1, px / 70);
+    mctx.beginPath(); mctx.moveTo(0, s * 1.2); mctx.lineTo(s * 0.8, -s * 0.7); mctx.lineTo(-s * 0.8, -s * 0.7); mctx.closePath();
+    mctx.fill(); mctx.stroke(); mctx.restore();
+  }
+  /* 머리 단추줄 밑에 둔다. 단추줄이 두 줄로 접혀 둘째 줄 오른쪽이 비어 있으면 그 자리(둘째 줄 높이)에 —
+     낮은 폰에서 밑으로 내리면 재주 단추와 겹친다 */
+  function placeMinimap(){
+    const b = $('hud').getBoundingClientRect(), last = $('codeOpen').getBoundingClientRect(), w = mini.getBoundingClientRect();
+    const wrapped = last.top > $('when').getBoundingClientRect().bottom - 2;
+    mini.style.top = Math.round(wrapped && last.right + 10 < w.left ? $('count').getBoundingClientRect().top : b.bottom + 8) + 'px';
+  }
+  placeMinimap();
+  addEventListener('resize', placeMinimap);
+  new ResizeObserver(placeMinimap).observe($('hud'));
+
   function frame(now){
     const dt = Math.min((now - last) / 1000, 0.05);
     last = now;
@@ -2015,6 +2063,7 @@ function begin(myName, petName, petSpec, friends, myLook){
       place(p.label, p.actor.headTop, p.actor.group);
     }
 
+    drawMinimap(now);
     if (first){ first = false; $('loading').hidden = true; }
     requestAnimationFrame(frame);
   }
