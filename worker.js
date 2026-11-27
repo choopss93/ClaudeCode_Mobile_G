@@ -7,8 +7,8 @@ import { handleApi } from './api.js';
 export { Presence } from './presence.js';   // 접속자 (Durable Object)
 
 export default {
-  fetch(request, env){
-    if (new URL(request.url).pathname.startsWith('/api/')) return handleApi(request, env);
+  fetch(request, env, ctx){
+    if (new URL(request.url).pathname.startsWith('/api/')) return handleApi(request, env, ctx);
     return guard(request, env, () => env.ASSETS.fetch(request));
   }
 };

@@ -80,15 +80,19 @@ export function cleanChar(c){
     const n = c[k];
     out[k] = Number.isInteger(n) && n >= 0 && n <= max ? n : d[k];
   }
+  if (typeof c.mid === 'string' && MID_RE.test(c.mid)) out.mid = c.mid;   // 사진으로 만든 모델 (blocky.js 의 modelOf · 서버 gen.js)
   return fitGender(out);
 }
+export const MID_RE = /^[a-z0-9]{12}$/;
 
 /** 접속 인사에 싣는 배열 — 앞에 판 번호 4. 옛 판 클라이언트는 읽지 않는다 */
-export const packChar = c => [4, ...KEYS.map(([k]) => c[k])];
+/* 사진 모델 번호(mid)는 **끝에** 붙인다 — 옛 판은 그 자리를 읽지 않고 종류 · 색으로 그린다 */
+export const packChar = c => [4, ...KEYS.map(([k]) => c[k]), ...(c.mid ? [c.mid] : [])];
 export function unpackChar(a){
   if (!Array.isArray(a) || a[0] !== 4) return null;
   const c = { v: 4 };
   KEYS.forEach(([k], i) => { c[k] = a[i + 1]; });
+  if (typeof a[KEYS.length + 1] === 'string') c.mid = a[KEYS.length + 1];
   return cleanChar(c);
 }
 

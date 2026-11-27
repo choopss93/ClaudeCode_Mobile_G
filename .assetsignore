@@ -11,3 +11,4 @@ wrangler.jsonc
 functions
 _routes.json
 /presence.js
+/gen.js

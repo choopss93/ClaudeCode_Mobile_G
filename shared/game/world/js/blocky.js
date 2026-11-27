@@ -74,7 +74,24 @@ const HAIR = [
 ];
 
 /* 조각 목록 짓기 — [무리, 색, 가운데 x y z, 폭 높이 깊이, 둥글기, z 회전]. 팔 · 다리 조각은 s(-1 왼쪽 · 1 오른쪽)마다 */
+/* 사진으로 만든 모델 (사용자 요청 — Studio 의 '사진으로 만들기', 서버 gen.js) — 맨몸 위에 덧입힐 조각 목록.
+   캐릭터에 `mid` 가 있으면 머리칼 · 상하의 · 신발 · 소품 종류는 모두 쓰지 않고 이 조각을 입힌다 (성별 · 피부 · 체형은 그대로).
+   조각은 처음 쓸 때 /api/model 에서 받아 기억해 두고, 받고 나면 'blocky-model' 을 알려 쓰는 쪽이 다시 입히게 한다. */
+const MODELS = new Map(), wanted = new Set();
+export const putModel = m => { if (m && m.id && Array.isArray(m.parts)) MODELS.set(m.id, m); };
+export function modelOf(id){
+  const m = MODELS.get(id);
+  if (m || !id || wanted.has(id) || typeof fetch !== 'function') return m || null;
+  wanted.add(id);
+  fetch('/api/model?id=' + encodeURIComponent(id)).then(r => r.ok ? r.json() : null).then(m => {
+    if (m && m.parts){ MODELS.set(id, m); dispatchEvent(new CustomEvent('blocky-model', { detail: id })); }
+  }).catch(() => {});
+  return null;
+}
+
 function build(c){
+  const cm = c.mid ? modelOf(c.mid) : null;
+  if (cm) c = { ...c, gender: cm.gender, hairColor: cm.hairColor, hair: 0, top: 0, bottom: 0, shoes: 0, hat: 0, face: 0, neck: 0, back: 0 };
   const out = [];
   const C = (g, col, x, y, z, w, h, d, r = 0.01, rz = 0) => out.push([g, col, x, y, z, w, h, d, r, rz]);
   const B = (g, col, x1, y1, z1, x2, y2, z2, r = 0.01, rz = 0) =>
@@ -459,6 +476,7 @@ function build(c){
     case 3: C('body', kc, 0, 0.55, F2 + 0.03, 0.2, 0.08, 0.06, 0.03); B('body', k1, -(TW / 2 + 0.02), 0.535, -(F2 + 0.005), TW / 2 + 0.02, 0.555, F2 + 0.005, 0.005); break;   // 허리가방
     case 4: C('armL', kc, -AX, 0.37, 0, 0.06, 0.15, 0.2, 0.025); B('armL', k1, -AX - 0.006, 0.44, -0.05, -AX + 0.006, 0.52, 0.05, 0.004); break;   // 숄더백 — 왼손에 든다
   }
+  if (cm) for (const p of cm.parts) out.push(p.slice(0, 10));   // [무리, 색, x y z, 폭 높이 깊이, 둥글기, z 회전] — 위 조각과 같은 꼴
   return shape(out, c, AX, LX);
 }
 

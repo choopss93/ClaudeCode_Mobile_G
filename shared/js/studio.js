@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s20';
-import { GENDERS, HAIRS, TOPS, BOTTOMS, SHOES, HATS, FACES, NECKS, BACKS, FINISHES, OPTIONS, BODY, SLIDER, hex, cleanChar, blankChar, fitGender } from './character.js?v=c9';
+import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s21';
+import { GENDERS, HAIRS, TOPS, BOTTOMS, SHOES, HATS, FACES, NECKS, BACKS, FINISHES, OPTIONS, BODY, SLIDER, hex, cleanChar, blankChar, fitGender } from './character.js?v=c10';
 import { readAccount, refresh, signup, login, logout, logoutAll, deleteAccount, saveChar, recover, newRecovery, checkId, renameId } from './account.js?v=s9';
 import { trackPresence } from './presence.js?v=p2';
 import { serverNow } from './clock.js?v=k1';
 import { createLogo } from './logo.js?v=l2';
-import { readPhoto, charFromPhoto, summary } from './photo.js?v=f4';
+import { putModel } from '../game/world/js/blocky.js?v=b10';   // actor.js 와 **같은 주소**여야 모델 기억이 하나다
 
 /*
  * Metaversal Studio — 시작 → 가입·로그인 → 캐릭터 꾸미기 → 메뉴.
@@ -282,6 +282,8 @@ $('#opts').addEventListener('click', e => {
   const b = e.target.closest('[data-v]');
   if (!b) return;
   draft[b.dataset.k] = +b.dataset.v;
+  // 옷 · 머리 종류나 성별을 고르면 사진 모델은 벗는다 (사진 모델은 그 모양 통째라 종류와 섞이지 않는다)
+  if (draft.mid && b.dataset.k !== 'finish') delete draft.mid;
   if (b.dataset.k === 'gender') fitGender(draft);   // 성별을 바꾸면 그쪽에 없는 종류는 없음으로
   paintMaker();
 });
@@ -439,59 +441,196 @@ $('#catMake').onclick = () => {
   if (ch){ draft = { ...ch }; makerFrom = 'cat'; } else { draft = blankChar(); makerFrom = 'world'; }   // 없으면 새 캐릭터부터
   openMaker();
 };
-/* 📷 사진으로 만들기 (사용자 요청) — 따로 열리는 화면. 사진을 올리면 머리 길이 · 소매 · 바지/치마 · 겉옷과 색을 어림해
-   (`photo.js`) 오른쪽에 그 캐릭터를 세운다. 성별을 바꾸면 같은 사진으로 그 성별 목록에서 다시 고른다.
-   '이 캐릭터로' 는 꾸미기를 열어 다듬고 저장하게 한다. 사진은 이 기기 밖으로 나가지 않는다 */
-let photoRead = null, photoBase = null;
+/* 📷 사진으로 만들기 (사용자 요청) — 올린 사진을 AI(Claude, 서버 gen.js)가 보고 머리 · 상하의 · 신발 · 소품을 그대로 지어
+   블록 캐릭터에 입힌다 (blocky.js 의 사진 모델 `mid`). 회원마다 2번 무료, 그 뒤는 추가 구매(지금은 마스터 충전).
+   사진은 긴 변 640px JPEG 로 줄여 보내고, 서버는 그 사진과 모델을 남긴다 — 지우지 못하고 숨기기만 된다. */
+let photoB64 = '', photoMade = null, genInfo = null, genBusy = false;
+const photoBase = () => { const ch = charOf(account); return ch ? { ...ch } : blankChar(); };
+function paintLeft(){
+  $('#photoLeft').innerHTML = genInfo ? `남은 횟수 <b>${Math.max(0, genInfo.left)}</b>회` : '남은 횟수 –';
+}
+function paintUse(){
+  const u = $('#photoUse');
+  if (genBusy){ u.disabled = true; u.textContent = '짓는 중…'; return; }
+  if (photoMade){ u.disabled = false; u.textContent = '이 캐릭터로 저장 ›'; return; }
+  u.disabled = !photoB64 || !!(genInfo && genInfo.left <= 0);
+  u.textContent = !photoB64 ? '사진을 골라 주세요' : genInfo && genInfo.left <= 0 ? '남은 횟수가 없어요' : '✨ AI 로 만들기 · 1회';
+}
+async function loadGens(all){
+  try { genInfo = await getJson('/api/gens' + (all ? '?all=1' : '')); } catch (e){ genInfo = genInfo || null; throw e; }
+  paintLeft(); paintUse();
+  return genInfo;
+}
 function openPhoto(){
-  photoRead = null;
-  const ch = charOf(account);
-  photoBase = ch ? { ...ch } : blankChar();
+  photoB64 = ''; photoMade = null;
   $('#photoPick').classList.remove('has');
-  $('#photoUse').disabled = true;
-  $('#photoWait').hidden = false;
-  $('#photoSum').innerHTML = '사진 속 머리 길이 · 소매 · 바지/치마와 색을 읽어 비슷하게 입혀요.<br>사진은 이 폰 밖으로 보내지 않아요.';
-  paintSex();
+  $('#photoSum').classList.remove('busy');
+  $('#photoSum').innerHTML = 'AI 가 사진 속 머리 · 상하의 · 신발 · 소품까지 그대로 지어 입혀요.<br>한 번에 1~2분 걸려요.';
   spin = 0.25; held = false; zoomTo = 0;
   show('photo');
-  if (actor) actor.group.visible = false;
+  const ch = charOf(account);
+  if (ch && ch.mid){ $('#photoWait').hidden = true; wear(ch); }     // 지금 입은 사진 모델
+  else { $('#photoWait').hidden = false; if (actor) actor.group.visible = false; }
+  paintUse();
+  loadGens().catch(e => { $('#photoSum').textContent = e.message; });
 }
-function paintSex(){ for (const b of $('#photoSex').children) b.classList.toggle('on', +b.dataset.g === photoBase.gender); }
-function photoChar(){
-  draft = charFromPhoto({ ...photoBase }, photoRead);
+/* 사진 → 긴 변 640px JPEG (base64) */
+function shrink(file){
+  return new Promise((ok, no) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const k = Math.min(1, 640 / Math.max(img.naturalWidth, img.naturalHeight));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
+      const x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height); x.drawImage(img, 0, 0, cv.width, cv.height);
+      ok(cv.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); no(new Error('사진을 읽지 못했어요')); };
+    img.src = url;
+  });
+}
+/* 만든 모델을 입힌다 — 성별 · 피부 · 머리칼 색은 모델의 것, 체형 밀대 · 입 · 겉면은 지금 캐릭터의 것 */
+function wearModel(m){
+  putModel(m);
+  photoMade = m;
+  draft = { ...photoBase(), mid: m.id, gender: m.gender, skin: m.skin, hairColor: m.hairColor };
+  $('#photoWait').hidden = true;
   wear(draft);
-  $('#photoSum').innerHTML = summary(draft) + (photoRead.found ? '' : '<br>사람을 또렷이 못 찾았어요 — 온몸이 나온 사진이 좋아요.');
+  paintUse();
 }
 $('#catPhoto').onclick = () => openPhoto();
 $('#photoBack').onclick = () => openCat('world');
-$('#photoPick').onclick = $('#photoAgain').onclick = () => { $('#photoIn').value = ''; $('#photoIn').click(); };
-$('#photoSex').addEventListener('click', e => {
-  const b = e.target.closest('[data-g]');
-  if (!b) return;
-  photoBase.gender = +b.dataset.g; photoBase = fitGender(photoBase); paintSex();
-  if (photoRead) photoChar();
-});
+$('#photoPick').onclick = $('#photoAgain').onclick = () => { if (genBusy) return; $('#photoIn').value = ''; $('#photoIn').click(); };
 $('#photoIn').onchange = async () => {
   const f = $('#photoIn').files[0];
   if (!f) return;
   try {
-    photoRead = await readPhoto(f);
-    // 사진 미리보기 — 찾은 사람 상자를 금빛 테두리로
-    const pv = $('#photoPrev'), src = photoRead.img;
-    pv.width = src.width * 2; pv.height = src.height * 2;
-    const x = pv.getContext('2d'); x.imageSmoothingEnabled = true; x.drawImage(src, 0, 0, pv.width, pv.height);
-    if (photoRead.found){ const [a, b, c, d] = photoRead.box; x.strokeStyle = '#E8B04B'; x.lineWidth = 3; x.strokeRect(a * 2, b * 2, (c - a + 1) * 2, (d - b + 1) * 2); }
+    photoB64 = await shrink(f);
+    photoMade = null;
+    $('#photoPrev').src = photoB64;
     $('#photoPick').classList.add('has');
-    // 캐릭터가 아직 없으면 사진으로 성별을 어림한다 (긴 머리 · 치마면 여자) — 버튼으로 바꿀 수 있다
-    if (!charOf(account)){ photoBase.gender = photoRead.shape.girlish ? 1 : 0; paintSex(); }
-    $('#photoWait').hidden = true;
-    photoChar();
-    $('#photoUse').disabled = false;
-  } catch (err){
-    $('#photoSum').textContent = err.message;
-  }
+    $('#photoSum').classList.remove('busy');
+    $('#photoSum').innerHTML = '이 사진으로 만들까요? 아래 <b>✨ AI 로 만들기</b> 를 누르면 횟수 1회를 써요.';
+  } catch (err){ $('#photoSum').textContent = err.message; }
+  paintUse();
 };
-$('#photoUse').onclick = () => { makerFrom = charOf(account) ? 'cat' : 'world'; openMaker(); };
+$('#photoUse').onclick = async () => {
+  if (photoMade){                                   // 저장
+    $('#photoUse').disabled = true;
+    try { account = await saveChar(cleanChar({ ...draft, nick: account.user.id })); openCat('world'); }
+    catch (err){ $('#photoSum').textContent = err.message; paintUse(); }
+    return;
+  }
+  if (!photoB64 || genBusy) return;
+  genBusy = true; paintUse();
+  const t0 = performance.now(), sum = $('#photoSum');
+  sum.classList.add('busy');
+  const tick = setInterval(() => { sum.innerHTML = `AI 가 캐릭터를 짓는 중이에요… <b>${Math.round((performance.now() - t0) / 1000)}초</b><br>1~2분 걸려요. 이 화면을 닫아도 '내 모델' 에 남아요.`; }, 1000);
+  try {
+    const r = await fetch('/api/gen', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session': account.token },
+                                        body: JSON.stringify({ img: photoB64 }) });
+    const d = JSON.parse((await r.text()).trim() || '{}');    // 기다리는 동안 서버가 빈칸을 흘려 보낸다
+    if (!r.ok || d.error) throw new Error(d.error || '만들지 못했어요');
+    if (genInfo) genInfo.left = d.left;
+    wearModel(d.model);
+    sum.classList.remove('busy');
+    sum.innerHTML = `<b>${esc(d.model.name || '새 모델')}</b> — ${esc(d.model.summary || '')}<br>마음에 들면 저장하세요. 사진 모델은 나와 마스터만 입을 수 있어요.`;
+  } catch (err){
+    sum.classList.remove('busy');
+    sum.textContent = err.message || '만들지 못했어요';
+  } finally { clearInterval(tick); genBusy = false; paintLeft(); paintUse(); }
+};
+$('#photoBuy').onclick = () => { $('#buySheet').hidden = false; };
+$('#buySheet').addEventListener('click', e => { if (e.target.id === 'buySheet' || e.target.closest('[data-close]')) $('#buySheet').hidden = true; });
+
+/* 내 모델 — 한 장에 여섯. 누르면 입어 보기, '숨기기' 로 감춘다 (지우기는 없다). 숨긴 것은 '숨긴 것' 탭에서. 마스터는 '모든 회원' 도 */
+const gper = () => innerHeight < 640 && innerWidth < innerHeight ? 3 : 6;   // 키 낮은 세로 폰은 한 줄 (창 안이 넘치지 않게)
+let genTab = 'show', genPage = 0, genAll = false;
+const thumbs = new Map();                         // 사진은 표가 있어야 받으므로 blob 주소로 바꿔 둔다
+async function thumb(id){
+  if (thumbs.has(id)) return thumbs.get(id);
+  const p = fetch('/api/gimg?id=' + id, { headers: { 'X-Session': account.token } }).then(r => r.ok ? r.blob() : null).then(b => b ? URL.createObjectURL(b) : '');
+  thumbs.set(id, p); return p;
+}
+function drawGens(){
+  const B = $('#genBody'), items = ((genInfo && genInfo.items) || []).filter(it => genTab === 'hid' ? it.hidden : !it.hidden);
+  const GPER = gper(), pages = Math.max(1, Math.ceil(items.length / GPER)); genPage = Math.min(genPage, pages - 1);
+  const cur = charOf(account), mine = items.slice(genPage * GPER, genPage * GPER + GPER);
+  $('#genSheetT').textContent = genAll ? '모든 회원의 모델' : '내 모델';
+  B.innerHTML = `<div class="gtabs seg"><button type="button" data-gt="show" class="${genTab === 'show' ? 'on' : ''}">보이는 것</button><button type="button" data-gt="hid" class="${genTab === 'hid' ? 'on' : ''}">숨긴 것</button>${isAdmin() ? `<button type="button" data-gt="all" class="${genAll ? 'on' : ''}">모든 회원</button>` : ''}</div>`
+    + (mine.length ? '<div class="gens">' + mine.map(it => `<div class="g${it.hidden ? ' hid' : ''}"><button type="button" class="pic${cur && cur.mid === it.id ? ' on' : ''}" data-gw="${it.id}" aria-label="${esc(it.name || '모델')} 입어 보기"></button>`
+      + `<small>${esc(it.name || '모델')}${genAll ? ' · ' + esc(it.owner) : ''}</small><button type="button" class="hide" data-gh="${it.id}" data-h="${it.hidden ? 0 : 1}">${it.hidden ? '다시 보이기' : '숨기기'}</button></div>`).join('') + '</div>'
+      : `<p class="sub2">${genTab === 'hid' ? '숨긴 모델이 없어요.' : '아직 만든 모델이 없어요.'}</p>`);
+  $('#genBtns').innerHTML = pages > 1 ? `<button class="btn" type="button" data-gp="-1" ${genPage ? '' : 'disabled'}>‹</button><span class="sub2">${genPage + 1} / ${pages}</span><button class="btn" type="button" data-gp="1" ${genPage < pages - 1 ? '' : 'disabled'}>›</button>` : '';
+  for (const it of mine) thumb(it.id).then(u => { const b = B.querySelector(`[data-gw="${it.id}"]`); if (b && u) b.style.backgroundImage = `url(${u})`; });
+}
+$('#photoMine').onclick = async () => {
+  $('#genSheet').hidden = false; genPage = 0; genTab = 'show'; genAll = false;
+  $('#genBody').innerHTML = '<p class="sub2">불러오는 중…</p>'; $('#genBtns').innerHTML = '';
+  try { await loadGens(); drawGens(); } catch (e){ $('#genBody').innerHTML = `<p class="sub2">${esc(e.message)}</p>`; }
+};
+$('#genSheet').addEventListener('click', async e => {
+  if (e.target.id === 'genSheet' || e.target.closest('[data-close]')){ $('#genSheet').hidden = true; return; }
+  const t = e.target.closest('[data-gt],[data-gw],[data-gh],[data-gp]');
+  if (!t) return;
+  if (t.dataset.gt){
+    if (t.dataset.gt === 'all'){ genAll = !genAll; genPage = 0; try { await loadGens(genAll); } catch (_){} }
+    else { genTab = t.dataset.gt; genPage = 0; }
+    return drawGens();
+  }
+  if (t.dataset.gp){ genPage += +t.dataset.gp; return drawGens(); }
+  if (t.dataset.gw){
+    try {
+      const m = await (await fetch('/api/model?id=' + t.dataset.gw)).json();
+      if (!m.parts) throw new Error(m.error || '불러오지 못했어요');
+      $('#genSheet').hidden = true;
+      const it = genInfo.items.find(x => x.id === m.id) || {};
+      const u = await thumb(m.id);
+      if (u){ $('#photoPrev').src = u; $('#photoPick').classList.add('has'); }
+      photoB64 = '';
+      wearModel(m);
+      $('#photoSum').innerHTML = `<b>${esc(it.name || '모델')}</b> — ${esc(it.summary || '')}<br>마음에 들면 저장하세요.`;
+    } catch (err){ $('#genSub').textContent = err.message; }
+    return;
+  }
+  if (t.dataset.gh){
+    t.disabled = true;
+    try {
+      const d = await (await fetch('/api/ghide', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session': account.token },
+                                                   body: JSON.stringify({ id: t.dataset.gh, hidden: t.dataset.h === '1' }) })).json();
+      if (d.error) throw new Error(d.error);
+      const it = genInfo.items.find(x => x.id === d.id); if (it) it.hidden = d.hidden;
+    } catch (err){ $('#genSub').textContent = err.message; }
+    drawGens();
+  }
+});
+/* 사진 모델은 처음 볼 때 서버에서 받아 온다 (blocky.js 의 modelOf) — 받고 나면 지금 서 있는 캐릭터를 다시 입힌다 */
+addEventListener('blocky-model', e => {
+  const showing = !$('#maker').hidden || !$('#photo').hidden ? draft : charOf(account);
+  if (showing && showing.mid === e.detail && actor && actor.group.visible) wear(showing);
+});
+
+/* 횟수 충전 — 마스터만 (결제를 붙이기 전까지) */
+let creditAdd = 5;
+function openCredit(){ $('#creditId').value = ''; $('#creditMsg').textContent = ''; $('#creditSheet').hidden = false; $('#creditId').focus(); }
+$('#creditSheet').addEventListener('click', e => {
+  if (e.target.id === 'creditSheet' || e.target.closest('[data-close]')){ $('#creditSheet').hidden = true; return; }
+  const b = e.target.closest('[data-add]');
+  if (b){ creditAdd = +b.dataset.add; for (const x of $('#creditAdd').children) x.classList.toggle('on', x === b); }
+});
+$('#creditId').oninput = () => { $('#creditId').value = $('#creditId').value.toUpperCase(); };
+$('#creditForm').onsubmit = async e => {
+  e.preventDefault();
+  $('#creditGo').disabled = true;
+  try {
+    const d = await (await fetch('/api/credit', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session': account.token },
+                                                  body: JSON.stringify({ id: $('#creditId').value, add: creditAdd }) })).json();
+    if (d.error) throw new Error(d.error);
+    $('#creditMsg').textContent = `${d.id} 님 남은 횟수 ${d.left}회`;
+  } catch (err){ $('#creditMsg').textContent = err.message; }
+  $('#creditGo').disabled = false;
+};
 
 $('#catList').addEventListener('click', e => {
   const a = e.target.closest('a[href="game/world/"]');
@@ -722,7 +861,7 @@ function drawMy(){
     T.textContent = '마이페이지';
     Sub.textContent = `@${account.user.id}`;
     B.innerHTML = '<div class="mylist">'
-      + (isAdmin() ? '<p class="grp">관리</p><div class="mygrid"><button type="button" data-my="online"><span>접속자</span> ›</button><button type="button" data-my="log"><span>접속 기록</span> ›</button></div>' : '')
+      + (isAdmin() ? '<p class="grp">관리</p><div class="mygrid"><button type="button" data-my="online"><span>접속자</span> ›</button><button type="button" data-my="log"><span>접속 기록</span> ›</button><button type="button" data-my="credit"><span>사진 횟수 충전</span> ›</button></div>' : '')
       + '<p class="grp">내 계정</p><div class="mygrid">'
       + '<button type="button" data-my="idchg"><span>아이디 변경</span></button>'
       + '<button type="button" data-my="rec"><span>복구 코드</span></button>'
@@ -787,6 +926,7 @@ mySheet.addEventListener('click', e => {
   else if (a === 'unit'){ stUnit = b.dataset.u; loadStats(); }
   else if (a === 'sprev') stShift(-1);
   else if (a === 'snext') stShift(1);
+  else if (a === 'credit'){ closeMy(); openCredit(); }
   else if (a === 'idchg'){ closeMy(); openIdSheet(); }
   else if (a === 'rec'){ closeMy(); newCode(); }
   else if (a === 'out'){ closeMy(); openOut(); }

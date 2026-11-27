@@ -15,7 +15,7 @@ import { trackPresence } from '../../../js/presence.js?v=p2';
 /* 접속 알림 (마스터의 '접속자') — 정원에 들어선 뒤가 게임 중 */
 let walking = false;
 const pres = trackPresence(() => ({ state: walking ? 'game' : 'wait', place: '무지개 정원' }));
-import { cleanChar, colorsOf, longOf, packChar, unpackChar } from '../../../js/character.js?v=c9';
+import { cleanChar, colorsOf, longOf, packChar, unpackChar } from '../../../js/character.js?v=c10';
 import { createLiveNet } from '#live';
 import { SKY, colorFor, hairFor, wind, toon } from '#look';
 
@@ -903,6 +903,16 @@ function begin(myName, petName, petSpec, friends, myLook){
     : Array.isArray(info.colors)
     ? { color: info.colors[0], hair: info.colors[1], skin: info.colors[2], long: info.look === 'long' }
     : { color: colorFor(info.name), hair: hairFor(info.name), long: info.look === 'long' };
+  /* 사진으로 만든 모델은 처음 볼 때 서버에서 받아 온다 (blocky.js 의 modelOf) — 받고 나면 그 모델을 입은 사람을 다시 입힌다 */
+  let myStyle = MY_CHAR;
+  addEventListener('blocky-model', e => {
+    const id = e.detail;
+    if (myStyle && myStyle.mid === id) restyle(me, createActor({ lamp: true, style: myStyle }));
+    for (const p of peers.values()){
+      const l = p.info && peerLook(p.info);
+      if (l && l.style && l.style.mid === id) restyle(p.actor, createActor(l));
+    }
+  });
 
   const handlers = {
     onJoin(id, info){
@@ -918,7 +928,7 @@ function begin(myName, petName, petSpec, friends, myLook){
         ? { mix: null, ...info.pet, paint: fixPaint(info.pet.paint),
             sprays: fixSprays(info.pet.sprays), name: info.dog }
         : null;
-      const entry = { id, actor, label: makeLabel(info.name),
+      const entry = { id, actor, info, label: makeLabel(info.name),
                       s: { x:0, y:0, z:0, ry:0, speed:0 },
                       started: false,
                       tossSeen: 0,
@@ -987,6 +997,7 @@ function begin(myName, petName, petSpec, friends, myLook){
     onLook(id, info){
       const p = peers.get(id);
       if (!p) return;
+      p.info = info;
       restyle(p.actor, createActor(peerLook(info)));
       p.label.remove();
       p.label = makeLabel(info.name);
@@ -1052,6 +1063,7 @@ function begin(myName, petName, petSpec, friends, myLook){
       const c = (x => x ? { ...x, nick: a.user.id } : null)(a && cleanChar(a.user.char));
       if (!c || JSON.stringify(c) === mySig) return;
       mySig = JSON.stringify(c);
+      myStyle = c;
       restyle(me, createActor({ lamp: true, style: c }));
       myLabel.remove();
       myLabel = makeLabel(c.nick);

@@ -69,14 +69,24 @@
   .phrow{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1fr);gap:8px}
   .phrow .stage{min-height:0}
   .phpic{all:unset;cursor:pointer;position:relative;border-radius:20px;border:1px dashed var(--line);background:var(--surface);overflow:hidden;display:grid;place-items:center;min-height:0}
-  .phpic canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+  .phpic img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:none}
   .phpic span{position:relative;text-align:center;color:var(--muted);font-size:14px;font-weight:700;line-height:1.5}
   .phpic span small{display:block;font-size:11.5px;font-weight:500;color:var(--faint)}
-  .phpic.has{border-style:solid}
-  .phpic.has span{display:none}
-  #photoSex{flex:none}
+  .phpic.has{border-style:solid} .phpic.has img{display:block} .phpic.has span{display:none}
   .phsum{margin:0;flex:none;min-height:38px;font-size:12.5px;line-height:1.55;color:var(--muted);text-align:center}
-  .phsum b{color:var(--ink)}
+  .phsum b{color:var(--ink)} .phsum.busy{color:var(--accent)}
+  .phbar{display:flex;align-items:center;gap:6px;flex:none}
+  .phbar span{flex:1;font-size:13px;color:var(--muted)} .phbar span b{color:var(--accent)}
+  .phbar .btn{min-height:36px;padding:0 12px;font-size:12.5px}
+  /* 내 모델 창 — 한 장에 여섯 (넘겨 보지 않는다, ‹ › 로) */
+  .gens{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .gens .g{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .gens .g button.pic{all:unset;cursor:pointer;aspect-ratio:1;border-radius:12px;border:1px solid var(--line);background:var(--surface-2) center/cover no-repeat;position:relative}
+  .gens .g button.pic.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+  .gens .g.hid button.pic{opacity:.4}
+  .gens .g small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gens .g .hide{all:unset;cursor:pointer;font-size:11px;color:var(--faint);text-align:center;min-height:24px}
+  .gtabs{display:flex;gap:6px;margin-bottom:8px} .gtabs button{flex:1}
   /* 정사각형이 좁으면(가로 · 낮은 폰) 글을 줄인다 — '수정 ›' · '📷 사진' */
   @container (max-width:380px) { #cat .stagectas .lg{display:none} }
   @container (max-height:380px) { #cat .stagectas .lg{display:none} }
@@ -293,10 +303,11 @@
     #menu > .menu{grid-row:1 / span 2;align-self:center}
     #menu.nostage > .menu,#cat.nostage > .menu{align-self:start}
     #menu > .links{grid-row:3}
+    .gens{grid-template-columns:repeat(6,minmax(0,1fr))} .gens .g small{display:none} .gtabs{margin-bottom:4px}
     #photo{grid-template-rows:auto 1fr;align-content:stretch}
     #photo > .top{grid-column:1;grid-row:1}
     #photo > .phrow{grid-column:1;grid-row:2}
-    #photoSex{grid-row:1;align-self:end} #photo > .phsum{grid-row:2;align-self:center} #photo > .mkbtns{grid-row:2;align-self:end}
+    #photo > .phsum{grid-row:1;align-self:end} #photo > .phbar{grid-row:2;align-self:center} #photo > .mkbtns{grid-row:2;align-self:end}
     #cat{grid-template-rows:auto auto 1fr;align-content:stretch}
     #cat > .top{grid-column:1;grid-row:1}
     #cat > .hello{grid-column:1;grid-row:2}
@@ -411,17 +422,18 @@
     <div class="row mkbtns"><button class="btn" id="makerPrev" type="button">‹ 이전</button><button class="btn primary big" id="makerBtn" type="button">다음 ›</button></div>
   </section>
 
-  <!-- 4-1. 사진으로 캐릭터 만들기 (사용자 요청) — 올린 사진의 색 덩어리로 머리 · 옷 모양과 색을 어림해 입힌다 -->
+  <!-- 4-1. 사진으로 캐릭터 만들기 (사용자 요청) — 올린 사진을 AI(Claude)가 보고 머리 · 상하의 · 신발 · 소품을 그대로 지어 입힌다.
+       회원마다 2번 무료, 그 뒤는 추가 구매(지금은 마스터 충전). 사진은 지우지 못하고 숨기기만 된다. 서버는 뿌리의 gen.js -->
   <section class="screen" id="photo" hidden>
     <div class="top"><button class="back" id="photoBack" type="button">← 뒤로</button><span class="spacer"></span><span class="crumb">META WORLD › <b>사진으로 만들기</b></span></div>
     <div class="phrow">
-      <button class="phpic" id="photoPick" type="button" aria-label="사진 고르기"><canvas id="photoPrev"></canvas><span id="photoHint">📷<br>사진 올리기<small>온몸이 나온 사진</small></span></button>
+      <button class="phpic" id="photoPick" type="button" aria-label="사진 고르기"><img id="photoPrev" alt=""><span id="photoHint">📷<br>사진 올리기<small>온몸이 나온 사진</small></span></button>
       <div class="stage" data-stage><p class="stagemsg" id="photoWait">사진을 올리면<br>여기에 캐릭터가 나와요</p></div>
     </div>
-    <div class="seg" id="photoSex"><button type="button" data-g="0">남자</button><button type="button" data-g="1">여자</button></div>
-    <p class="phsum" id="photoSum">사진 속 머리 길이 · 소매 · 바지/치마와 색을 읽어 비슷하게 입혀요.<br>사진은 이 폰 밖으로 보내지 않아요.</p>
+    <p class="phsum" id="photoSum">AI 가 사진 속 머리 · 상하의 · 신발 · 소품까지 그대로 지어 입혀요.<br>한 번에 1~2분 걸려요.</p>
+    <div class="phbar"><span id="photoLeft">남은 횟수 –</span><button class="btn" id="photoMine" type="button">내 모델 ›</button><button class="btn" id="photoBuy" type="button">＋ 추가</button></div>
     <input type="file" id="photoIn" accept="image/*" hidden>
-    <div class="row mkbtns"><button class="btn" id="photoAgain" type="button">📷 다른 사진</button><button class="btn primary big" id="photoUse" type="button" disabled>이 캐릭터로 ›</button></div>
+    <div class="row mkbtns"><button class="btn" id="photoAgain" type="button">📷 사진</button><button class="btn primary big" id="photoUse" type="button" disabled>사진을 골라 주세요</button></div>
   </section>
 
   <!-- 5. 갈래 목록 — Metaversal Studio › META WORLD / META PROJECT › 게임 -->
@@ -504,6 +516,40 @@
   </form>
 </div>
 
+<!-- 내 모델 — 사진으로 만든 모델 목록 (입어 보기 · 숨기기). 마스터는 모든 회원 것 -->
+<div class="sheet" id="genSheet" hidden role="dialog" aria-modal="true" aria-labelledby="genSheetT">
+  <div class="card2">
+    <div class="grip"></div>
+    <header><h2 id="genSheetT">내 모델</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+    <p class="sub2" id="genSub">사진은 지울 수 없고 숨기기만 돼요.</p>
+    <div class="body" id="genBody"></div>
+    <div class="btns" id="genBtns"></div>
+  </div>
+</div>
+<!-- 추가 구매 — 4,900원에 5번 (결제는 준비 중 — 지금은 마스터가 충전) -->
+<div class="sheet" id="buySheet" hidden role="dialog" aria-modal="true" aria-labelledby="buySheetT">
+  <div class="card2">
+    <div class="grip"></div>
+    <header><h2 id="buySheetT">사진 업로드 추가</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+    <div class="body"><p class="sub2"><b>4,900원</b>에 사진 업로드 <b>5회</b>를 더할 수 있어요.<br>회원마다 처음 2회는 무료예요.</p>
+      <p class="sub2">결제는 준비 중이에요. 지금은 마스터에게 문의하면 충전해 드려요.</p></div>
+    <div class="btns"><button class="btn" type="button" data-close>닫기</button><button class="btn primary" type="button" disabled>4,900원 결제 (준비 중)</button></div>
+  </div>
+</div>
+<!-- 횟수 충전 — 마스터만 -->
+<div class="sheet" id="creditSheet" hidden role="dialog" aria-modal="true" aria-labelledby="creditSheetT">
+  <form class="card2" id="creditForm" autocomplete="off">
+    <div class="grip"></div>
+    <header><h2 id="creditSheetT">사진 업로드 횟수 충전</h2><button class="x" type="button" data-close aria-label="닫기">✕</button></header>
+    <div class="body form">
+      <input class="field" id="creditId" aria-label="회원 아이디" autocapitalize="characters" spellcheck="false" maxlength="16" placeholder="회원 아이디">
+      <div class="seg" id="creditAdd" role="radiogroup"><button type="button" data-add="5" class="on">+5</button><button type="button" data-add="1">+1</button><button type="button" data-add="-1">−1</button></div>
+      <p class="msg" id="creditMsg" role="alert"></p>
+    </div>
+    <div class="btns"><button class="btn" type="button" data-close>닫기</button><button class="btn primary" id="creditGo" type="submit">충전</button></div>
+  </form>
+</div>
+
 <!-- 마이페이지 — 누구에게나. 목록 → 접속자(접속 · 게임 중 · 대기 중) → 그 사람들 -->
 <div class="sheet" id="mySheet" hidden role="dialog" aria-modal="true" aria-labelledby="mySheetT">
   <div class="card2">
@@ -514,6 +560,6 @@
     <div class="btns" id="myBtns"></div>
   </div>
 </div>
-<script type="module" src="js/studio.js?v=s55"></script>
+<script type="module" src="js/studio.js?v=s56"></script>
 </body>
 </html>

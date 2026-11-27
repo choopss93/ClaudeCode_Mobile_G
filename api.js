@@ -30,6 +30,8 @@
  *   사이트 공용 비밀(SESSION_SECRET)이 새어도 계정열쇠 없이는 표를 지을 수 없다.
  * - 일련번호는 표마다 새로 뽑는 128비트 무작위 값이다.
  *
+ * 사진으로 캐릭터 만들기(/api/gen · gens · gimg · ghide · model · credit)는 gen.js 에 따로 있다.
+ *
  * 머리글은 `Authorization` 이 아니라 `X-Session` 을 쓴다. 잠긴 페이지의
  * 비밀번호(Basic 인증)가 `Authorization` 을 쓰기 때문이다.
  */
@@ -37,6 +39,8 @@
 /* 아이디는 **대문자**로 받고 적고 쓴다 (사용자 요청). 무엇을 쳐 와도 대문자로 펴서 본다.
    대문자로 바꾸기 전에 만든 계정은 소문자 열쇠(`user:choo`)에 있다 — getUser 가 찾아
    대문자 자리로 옮겨 준다. 그래서 중복 확인도 두 자리를 다 본다. */
+import { handleGen, checkMid } from './gen.js';
+
 const ID_RE = /^[A-Z0-9_]{3,16}$/;
 const normId = v => String(v || '').trim().toUpperCase();
 const ID_WHY = '아이디는 영문 대문자 · 숫자 · _ 로 3~16자예요';
@@ -163,6 +167,7 @@ function cleanChar(c){
     const max = isColorKey(k) ? 0xFFFFFF : 63;
     out[k] = Number.isInteger(c[k]) && c[k] >= 0 && c[k] <= max ? c[k] : (BODY_KEYS.includes(k) ? 10 : 0);   // 체형 밀대는 10 이 기본
   }
+  if (typeof c.mid === 'string' && /^[a-z0-9]{12}$/.test(c.mid)) out.mid = c.mid;   // 사진으로 만든 모델 (gen.js) — 입을 수 있는지는 checkMid 가 따진다
   return out;
 }
 /* 열쇠 · 해시는 절대 내보내지 않는다. 캐릭터 이름은 **늘 로그인 아이디**다 (사용자 요청 —
@@ -182,7 +187,7 @@ async function body(request){
   try { return await request.json(); } catch (_){ return {}; }
 }
 
-export async function handleApi(request, env){
+export async function handleApi(request, env, ctx){
   /* 서버 시각 — Metaversal Studio 의 모든 화면이 이 시계 하나를 쓴다 (shared/js/clock.js).
      폰마다 시계가 달라도 모두 같은 시간대(밤낮)와 같은 순서를 보게 하려는 것이다.
      계정 저장소가 없어도 답한다. */
@@ -191,6 +196,11 @@ export async function handleApi(request, env){
   const path = new URL(request.url).pathname;
   const method = request.method;
   const ip = request.headers.get('CF-Connecting-IP') || 'local';
+
+  /* 사진으로 캐릭터 만들기 (gen.js) */
+  const g = await handleGen(request, env, ctx, { path, method, readUser: () => readToken(env, request.headers.get('X-Session')),
+    saveUser, getUser, isAdmin: id => ADMINS.includes(id), json, fail, body });
+  if (g) return g;
 
   if (path === '/api/check' && method === 'POST'){
     if (tooMany(ip, 120)) return fail('잠시 뒤에 다시 해 주세요', 429);
@@ -337,6 +347,7 @@ export async function handleApi(request, env){
     if (method === 'PUT'){
       const char = cleanChar({ ...((await body(request)).char || {}), nick: user.id });   // 이름은 아이디
       if (!char) return fail('캐릭터를 다시 골라 주세요');
+      await checkMid(env, user, char, id => ADMINS.includes(id));   // 남의 사진 모델은 입지 못한다
       user.char = char;
       await saveUser(env, user);
       return json({ user: publicUser(user) });
