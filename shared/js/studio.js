@@ -5,7 +5,7 @@ import { readAccount, refresh, signup, login, logout, logoutAll, deleteAccount, 
 import { trackPresence } from './presence.js?v=p2';
 import { serverNow } from './clock.js?v=k1';
 import { createLogo } from './logo.js?v=l2';
-import { readPhoto, charFromPhoto, summary } from './photo.js?v=f3';
+import { readPhoto, charFromPhoto, summary } from './photo.js?v=f4';
 
 /*
  * Metaversal Studio — 시작 → 가입·로그인 → 캐릭터 꾸미기 → 메뉴.
