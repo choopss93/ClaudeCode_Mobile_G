@@ -36,6 +36,7 @@ const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 50);
 /* 캐릭터마다 키가 다르다 (스타일 · 다리길이) — 입힐 때마다 다시 잰다 */
 let H = HEAD_TOP, LOOK_Y = H * 0.55, HEAD_C = H - 0.36, NEAR_Z = 1.6;
 let zoom = 0, zoomTo = 0;                 // 0 온몸 · 1 머리
+let far = 1, farTo = 1;                   // META WORLD 목록에서는 두 배 멀리 — 캐릭터를 반 크기로 (사용자 요청)
 let farZ = 2.4;
 camera.position.set(0, LOOK_Y + 0.15, farZ);
 camera.lookAt(0, LOOK_Y, 0);
@@ -103,8 +104,9 @@ function frame(t){
   actor.group.rotation.y = spin;
   actor.update(dt, 0);
   zoom += (zoomTo - zoom) * Math.min(1, dt * 6);
+  far += (farTo - far) * Math.min(1, dt * 6);
   const y = LOOK_Y + (HEAD_C - LOOK_Y) * zoom;
-  camera.position.set(0, y + 0.15 * (1 - zoom) + 0.05 * zoom, farZ + (Math.min(farZ * 0.8, NEAR_Z) - farZ) * zoom);
+  camera.position.set(0, y + 0.15 * (1 - zoom) + 0.05 * zoom, farZ * far + (Math.min(farZ * 0.8, NEAR_Z) - farZ * far) * zoom);
   camera.lookAt(0, y, 0);
   renderer.render(scene, camera);
 }
@@ -117,6 +119,7 @@ function show(name){
   // META WORLD 목록에는 늘 내 캐릭터 — 아직 없으면 만들 캐릭터를 미리 보여 준다 (사용자 요청).
   // META PROJECT 목록에는 캐릭터를 쓰지 않으므로 자리를 비운다.
   showLogo = name === 'intro';
+  farTo = name === 'cat' ? 2 : 1; if (name === 'cat') far = 2;
   const slot = $('#' + name + ' [data-stage]');
   const bare = name === 'menu' || (name === 'cat' && catKey !== 'world');
   $('#' + name).classList.toggle('nostage', bare);
