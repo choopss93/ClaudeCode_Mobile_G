@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s19';
+import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s20';
 import { GENDERS, HAIRS, TOPS, BOTTOMS, SHOES, HATS, FACES, NECKS, BACKS, FINISHES, OPTIONS, BODY, SLIDER, hex, cleanChar, blankChar, fitGender } from './character.js?v=c9';
 import { readAccount, refresh, signup, login, logout, logoutAll, deleteAccount, saveChar, recover, newRecovery, checkId, renameId } from './account.js?v=s9';
 import { trackPresence } from './presence.js?v=p2';

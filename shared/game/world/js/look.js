@@ -56,16 +56,20 @@ function blobTexture(){
 
 let blobGeo = null;
 /** 캐릭터 발밑에 까는 부드러운 그림자 원. */
+/* 발밑 그림자 높이 — 잔디(0)와 가운데 깎은 풀밭(0.03)보다 위. 같은 높이에 두면 걸을 때 깜빡인다 */
+export const BLOB_Y = 0.05;
 export function makeBlob(radius){
   if (!blobGeo) blobGeo = new THREE.PlaneGeometry(1, 1);
   const m = new THREE.Mesh(blobGeo, new THREE.MeshBasicMaterial({
     map: blobTexture(),
     transparent: true,
-    depthWrite: false
+    depthWrite: false,
+    // 땅과 깊이를 다투지 않게 앞으로 당겨 그린다 (걸을 때 그림자가 깜빡였다 — 사용자 지적)
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4
   }));
   m.rotation.x = -Math.PI / 2;
   m.scale.setScalar(radius * 2);
-  m.position.y = 0.015;
+  m.position.y = BLOB_Y;
   m.renderOrder = -1;
   return m;
 }

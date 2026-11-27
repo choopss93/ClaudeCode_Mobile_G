@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { makeBlob } from '#look';
+import { makeBlob, BLOB_Y } from '#look';
 
 /*
  * 블록 캐릭터 (v4) — 사용자가 준 블렌더 모델(핑크 소녀)의 결을 따른 둥근 상자 캐릭터.
@@ -634,7 +634,8 @@ export function createBlocky(c, { lamp = false } = {}){
       /* 공중 (점프) — 한 다리는 앞으로 접고 팔은 벌려 든다. 발밑 그림자는 땅에 남기고 작아진다 */
       // 높이는 세상 기준으로 읽는다 — 갈아입히면(restyle) 바깥 그릇이 움직이고 이 몸은 그 안에 있다. 땅은 어디나 y = 0
       const gy = Math.max(0, group.matrixWorld.elements[13]), air = gy > 0.02, ta = Math.min(1, dt * 16);
-      blob.position.y = -gy; blob.scale.setScalar(Math.max(0.5, 1 - gy * 0.6));
+      // 그림자 높이를 0 으로 두면 잔디와 같은 높이라 걸을 때 깜빡였다 (BLOB_Y)
+      blob.position.y = BLOB_Y - gy; blob.scale.setScalar(Math.max(0.5, 1 - gy * 0.6));
       if (air && !wasAir){ let n; do n = Math.floor(Math.random() * JUMPS.length); while (n === jumpPose && JUMPS.length > 1); jumpPose = n; }
       wasAir = air;
       const P = JUMPS[jumpPose], e = air ? ta : t;
