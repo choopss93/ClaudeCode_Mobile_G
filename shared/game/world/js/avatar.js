@@ -194,7 +194,7 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
     const o1 = o.N ? { ...o, N: Math.max(1, Math.round(o.N * 0.6)) } : o, o2 = { ...(o.N ? { ...o, N: Math.max(1, o.N - o1.N) } : o), back: L.back };   // 종아리 불룩을 옷도 따라야 살이 안 비친다
     if (a < 1){
       seg(L.root, L.r[0], L.r[1], L.l[0], mat, k, a, Math.min(1, b), L.b[0], 0, o1);
-      if (a === 0) ballAt(L.root, L.r[0] * Math.max(k * 1.04, 1.12), mat);   // 관절 구보다 커야 덮인다
+      if (a === 0) ballAt(L.root, L.r[0] * Math.max(k * 0.98, 1.1), mat);    // 관절 구보다 조금만 크게 — 많이 키우면 어깨가 공처럼 부푼다
     }
     if (a < 1 && b > 1) ballAt(L.mid, L.r[1] * Math.max(k * 1.05, 1.2), mat);
     if (b > 1) seg(L.mid, L.r[1], L.r[2], L.l[1], mat, k, Math.max(0, a - 1), b - 1, L.b[1], flare, o2);
@@ -344,15 +344,15 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   /* ── 팔 — 어깨 · 팔꿈치 · 손목 관절, 그 밑에 손 (손바닥 · 네 손가락 · 엄지) ── */
   const handLen = armR * 2.5;
   const upL = (armLen - handLen) * 0.52, foreL = (armLen - handLen) * 0.48;
-  const shY = neckY - torsoH * 0.07, shX = torsoW * 0.86 * (puffer ? 1.12 : 1) + armR * 0.35;
+  const shY = neckY - torsoH * 0.07, shX = torsoW * 0.8 * (puffer ? 1.08 : 1) + armR * 0.2;   // 어깨 관절은 몸통 비탈에 반쯤 묻는다
   const sleeveB = { 0: 0.6, 5: 0 }[c.top] ?? 1.94;
-  const sleeveK = puffer ? 1.6 : 1.25;
+  const sleeveK = puffer ? 1.42 : 1.18;
   const tm = toon(top);
   const arms = [-1, 1].map(s => {
     const a = new THREE.Group();
     a.position.set(s * shX, shY, 0);
     group.add(a);
-    const L = limb(a, [armR * 1.18, armR * 0.85, armR * 0.62], [upL, foreL], [armR * 0.18, armR * 0.12]);
+    const L = limb(a, [armR * 0.98, armR * 0.82, armR * 0.6], [upL, foreL], [armR * 0.18, armR * 0.12]);
     const w = L.end;
     put(w, ballS, skin, 0, -armR * 0.95, 0, armR * 0.64, armR * 0.9, armR * 0.34);                        // 손바닥
     const fr = armR * 0.16;

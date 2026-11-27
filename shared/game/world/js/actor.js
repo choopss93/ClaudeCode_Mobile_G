@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { toon, makeBlob, makeSpray, sprayCap } from '#look';
 import { PAINTS, fixPaint, fixSprays, sprayRadius } from '#pets';
-import { createAvatar } from './avatar.js?v=a4';
+import { createAvatar } from './avatar.js?v=a5';
 
 /** 뿌린 자국을 살갗에서 띄우는 거리 (m). 깜빡이지 않을 만큼만. */
 const SPRAY_LIFT = 0.0015;
