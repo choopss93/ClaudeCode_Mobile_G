@@ -212,6 +212,10 @@
     box-shadow:0 4px 14px rgba(110,120,140,.22);
   }
   #acts button:hover{background:#FFF}
+  /* 공 던지기는 누르는 동안 힘이 찬다 — 단추 아래부터 색이 차오른다 */
+  #acts #actBall, #acts #actBall:hover{--charge:0%;background:linear-gradient(0deg, rgba(143,217,182,.95) var(--charge), rgba(255,255,255,.92) var(--charge));
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  #acts #actBall.charging{transform:scale(.96)}
   #acts button:active{transform:scale(.94)}
   @media (hover:none) and (pointer:coarse){
     #acts button{min-width:68px;min-height:52px}
@@ -604,18 +608,18 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-27p",
-    "#world": "./js/world.js?v=2026-11-27p",
-    "#actor": "./js/actor.js?v=2026-11-27p",
-    "#controls": "./js/controls.js?v=2026-11-27p",
-    "#net": "./js/net.js?v=2026-11-27p",
-    "#pets": "./js/pets.js?v=2026-11-27p",
-    "#petcode": "./js/petcode.js?v=2026-11-27p",
-    "#channel": "./js/channel.js?v=2026-11-27p",
-    "#daylight": "./js/daylight.js?v=2026-11-27p",
-    "#mqtt": "./js/mqtt.js?v=2026-11-27p",
-    "#live": "./js/live.js?v=2026-11-27p",
-    "#paint": "./js/paint.js?v=2026-11-27p"
+    "#look": "./js/look.js?v=2026-11-27r",
+    "#world": "./js/world.js?v=2026-11-27r",
+    "#actor": "./js/actor.js?v=2026-11-27r",
+    "#controls": "./js/controls.js?v=2026-11-27r",
+    "#net": "./js/net.js?v=2026-11-27r",
+    "#pets": "./js/pets.js?v=2026-11-27r",
+    "#petcode": "./js/petcode.js?v=2026-11-27r",
+    "#channel": "./js/channel.js?v=2026-11-27r",
+    "#daylight": "./js/daylight.js?v=2026-11-27r",
+    "#mqtt": "./js/mqtt.js?v=2026-11-27r",
+    "#live": "./js/live.js?v=2026-11-27r",
+    "#paint": "./js/paint.js?v=2026-11-27r"
   }
 }
 </script>
@@ -755,7 +759,7 @@
     <button type="submit">정원으로 들어가기</button>
     </div>
     <p class="note foot"><span class="txt">서두를 것도, 지는 것도 없는 곳이에요.</span>
-      <span class="ver">2026-11-27p</span></p>
+      <span class="ver">2026-11-27r</span></p>
   </form>
 </div>
 
@@ -826,6 +830,6 @@
   </div>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-27p"></script>
+<script type="module" src="./js/main.js?v=2026-11-27r"></script>
 </body>
 </html>

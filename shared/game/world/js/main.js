@@ -876,7 +876,7 @@ function begin(myName, petName, petSpec, friends, myLook){
       /* 받아서 놓기만 하던 공들은 날아가던 속도를 모른다. 바닥에
          내려놓고 멈춘다 — 공중에 멈춰 선 공이 남으면 안 된다. */
       for (const b of balls){
-        if (b.mode === 'fly'){ b.mode = 'rest'; b.mesh.position.y = BALL_R; }
+        if (b.mode === 'fly'){ b.mode = 'rest'; b.mesh.position.y = b.ry; }
         b.v.set(0, 0, 0);
       }
       myPet.rest = 0.4;
@@ -1080,11 +1080,34 @@ function begin(myName, petName, petSpec, friends, myLook){
   let tossWait = 0;            // 연달아 누르는 것을 막는다
   let lastCi = -1;             // 바로 앞과 같은 빛깔은 피한다
 
+  /* 모양 (사용자 요청) — 대개 동그란 공, 가끔 뼈다귀 · 별. 모양은 빛깔 번호에 함께 접어 보낸다 (ci + 16 × 모양) —
+     꾸러미를 늘리지 않아도 되고, 옛 판은 빛깔만 읽어 동그란 공으로 본다. 바닥에 닿는 높이(ry)가 모양마다 다르다. */
+  const SHAPE_RY = [BALL_R, 0.022, 0.014];
+  const boneParts = [
+    [new THREE.CylinderGeometry(0.016, 0.016, 0.1, 10), 0, 0, Math.PI / 2],
+    ...[[-0.05, -0.014], [-0.05, 0.014], [0.05, -0.014], [0.05, 0.014]].map(([x, y]) => [new THREE.SphereGeometry(0.022, 10, 8), x, y, 0])
+  ];
+  const starGeo = (() => {
+    const sh = new THREE.Shape();
+    for (let i = 0; i < 10; i++){
+      const a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.028 : 0.066;
+      i ? sh.lineTo(Math.cos(a) * r, Math.sin(a) * r) : sh.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    const g = new THREE.ExtrudeGeometry(sh, { depth: 0.02, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 2 });
+    g.translate(0, 0, -0.01);
+    return g;
+  })();
+  const shapeOf = code => (code >> 4) % 3;
+  function nextShape(){ const r = Math.random(); return r < 0.7 ? 0 : r < 0.85 ? 1 : 2; }
   function makeBall(ci){
     // 재질은 toon() 이 빛깔마다 하나씩 나눠 쓴다. 그래서 버리지 않는다.
-    const mesh = new THREE.Mesh(ballGeo, toon(BALL_COLORS[ci % BALL_COLORS.length]));
+    const mat = toon(BALL_COLORS[(ci & 15) % BALL_COLORS.length]), sh = shapeOf(ci);
+    let mesh;
+    if (sh === 1){ mesh = new THREE.Group(); for (const [g, x, y, rz] of boneParts){ const m = new THREE.Mesh(g, mat); m.position.set(x, 0, y); m.rotation.z = rz; mesh.add(m); } }   // 혹은 옆(z)으로 — 바닥에 납작하게 눕는다
+    else if (sh === 2){ mesh = new THREE.Group(); const m = new THREE.Mesh(starGeo, mat); m.rotation.x = -Math.PI / 2; mesh.add(m); }
+    else mesh = new THREE.Mesh(ballGeo, mat);
     scene.add(mesh);
-    return { mesh, ci, mode: 'rest', v: new THREE.Vector3(), done: false };
+    return { mesh, ci, sh, ry: SHAPE_RY[sh], mode: 'rest', v: new THREE.Vector3(), done: false };
   }
 
   function removeBall(b){
@@ -1136,7 +1159,9 @@ function begin(myName, petName, petSpec, friends, myLook){
     return ci;
   }
 
-  function throwBall(){
+  /* 오래 누를수록 멀리 (사용자 요청) — 누른 시간 0~1.2초를 힘 0~1 로. 힘 0 이 가까이(약 2m), 1 이 멀리(약 11m) */
+  const CHARGE_MS = 1200;
+  function throwBall(power = 0.4){
     if (tossWait > 0) return;
     const from = me.group.position;
     /* 다리나 작은 섬에서 던지면 아이가 가져다줄 수가 없다 — 아이는
@@ -1149,8 +1174,8 @@ function begin(myName, petName, petSpec, friends, myLook){
     // 캐릭터가 바라보는 쪽 앞으로 (사용자 요청 — 예전엔 카메라가 보는 쪽이었다). 걸을 때 rotation.y = atan2(x, z)
     const ry = me.group.rotation.y, dx = Math.sin(ry), dz = Math.cos(ry);
     const req = { x: from.x + dx * 0.35, y: 0.78 + from.y, z: from.z + dz * 0.35,
-                  vx: dx * 7.6, vy: 5.0, vz: dz * 7.6,
-                  ci: nextCi() };
+                  vx: dx * (3 + 8.5 * power), vy: 3.6 + 2.8 * power, vz: dz * (3 + 8.5 * power),
+                  ci: nextCi() + 16 * nextShape() };
     me.toss();                   // 던지는 동작이 보인다
     tossSeq++;                   // 남의 화면에서도 보이게
     if (driver) net.toss(req);   // 맡은 사람이 띄운다
@@ -1169,18 +1194,29 @@ function begin(myName, petName, petSpec, friends, myLook){
         p.x = at.x; p.z = at.z;
         b.v.x *= -0.4; b.v.z *= -0.4;
       }
-      if (p.y <= BALL_R){
-        p.y = BALL_R;
-        if (Math.abs(b.v.y) < 1.4){ b.mode = 'rest'; b.v.set(0, 0, 0); }
-        else { b.v.y = -b.v.y * 0.45; b.v.x *= 0.72; b.v.z *= 0.72; }
+      // 물체에 맞으면 튕긴다 (사용자 요청) — 막는 것들(나무 · 덤불 · 버섯 · 등불). 연못(아주 큰 동그라미)은 물이라 빼고, 높이 날면 넘어간다
+      if (p.y < 1.6) for (const c of world.colliders){
+        if (c.r > 2) continue;
+        const ox = p.x - c.x, oz = p.z - c.z, d = Math.hypot(ox, oz), lim = c.r + BALL_R;
+        if (d >= lim || d < 1e-4) continue;
+        const nx = ox / d, nz = oz / d, vn = b.v.x * nx + b.v.z * nz;
+        p.x = c.x + nx * lim; p.z = c.z + nz * lim;
+        if (vn < 0){ b.v.x -= 1.6 * vn * nx; b.v.z -= 1.6 * vn * nz; }
+      }
+      if (b.sh) b.mesh.rotation.x += dt * 9;                 // 뼈다귀 · 별은 날며 돈다
+      if (p.y <= b.ry){
+        p.y = b.ry;
+        if (Math.abs(b.v.y) < 1.4){ b.mode = 'rest'; b.v.set(0, 0, 0); b.mesh.rotation.x = 0; }
+        else { b.v.y = -b.v.y * 0.5; b.v.x *= 0.75; b.v.z *= 0.75; }   // 바닥에 맞고 튀어 오른다
       }
     } else if (b.mode === 'held' && myPet){
       // 입에 물고 있다 — 주둥이 앞쪽에 붙인다
       // 입 자리에서 공 반지름만큼 앞으로 — 얼굴 속에 박히지 않게 (품종마다 입 자리가 다르다)
       const g = myPet.actor.group, m = myPet.actor.mouthAt(mouthV);
       p.set(m.x + Math.sin(g.rotation.y) * BALL_R * 0.85,
-            Math.max(BALL_R, m.y - BALL_R * 0.25),
+            Math.max(b.ry, m.y - BALL_R * 0.25),
             m.z + Math.cos(g.rotation.y) * BALL_R * 0.85);
+      if (b.sh) b.mesh.rotation.set(0, g.rotation.y + Math.PI / 2, 0);   // 뼈다귀 · 별은 입에 가로로 문다
     }
   }
 
@@ -1292,7 +1328,17 @@ function begin(myName, petName, petSpec, friends, myLook){
   /* 오른쪽 단추 넷 */
   $('actFeed').addEventListener('click', feedPet);
   $('jumpBtn').addEventListener('pointerdown', e => { e.preventDefault(); jump.want = true; });
-  $('actBall').addEventListener('click', throwBall);
+  /* 공 던지기 단추 — 누르는 동안 힘이 찬다 (단추에 차오르는 색으로 보인다), 떼면 던진다 */
+  {
+    const btn = $('actBall');
+    let t0 = 0, raf = 0;
+    const fill = () => { const k = Math.min(1, (performance.now() - t0) / CHARGE_MS); btn.style.setProperty('--charge', (k * 100).toFixed(0) + '%'); raf = requestAnimationFrame(fill); };
+    const stop = () => { cancelAnimationFrame(raf); raf = 0; t0 = 0; btn.style.setProperty('--charge', '0%'); btn.classList.remove('charging'); };
+    btn.addEventListener('pointerdown', e => { e.preventDefault(); t0 = performance.now(); btn.classList.add('charging'); btn.setPointerCapture(e.pointerId); fill(); });
+    btn.addEventListener('pointerup', () => { if (!t0) return; const k = Math.min(1, (performance.now() - t0) / CHARGE_MS); stop(); throwBall(k); });
+    btn.addEventListener('pointercancel', stop);
+    btn.addEventListener('contextmenu', e => e.preventDefault());    // 오래 누르면 뜨는 메뉴 막기
+  }
   $('actSit').addEventListener('click', () => orderKind('sit'));
   $('actPaw').addEventListener('click', () => orderKind('paw'));
 
@@ -1700,7 +1746,7 @@ function begin(myName, petName, petSpec, friends, myLook){
           if (e.ball.mode !== 'fly'){ e.ball.mode = 'held'; e.fetch = 'back'; }
         } else {
           e.ball.mode = 'rest';
-          e.ball.mesh.position.y = BALL_R;
+          e.ball.mesh.position.y = e.ball.ry;
           e.ball.done = true;              // 이 공은 가져다주었다
           e.actor.group.rotation.y =
             Math.atan2(me.group.position.x - at.x, me.group.position.z - at.z);
