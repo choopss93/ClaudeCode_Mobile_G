@@ -15,7 +15,7 @@ import { trackPresence } from '../../../js/presence.js?v=p2';
 /* 접속 알림 (마스터의 '접속자') — 정원에 들어선 뒤가 게임 중 */
 let walking = false;
 const pres = trackPresence(() => ({ state: walking ? 'game' : 'wait', place: '무지개 정원' }));
-import { cleanChar, colorsOf, packChar, unpackChar } from '../../../js/character.js?v=c6';
+import { cleanChar, colorsOf, longOf, packChar, unpackChar } from '../../../js/character.js?v=c7';
 import { createLiveNet } from '#live';
 import { SKY, colorFor, hairFor, wind, toon } from '#look';
 
@@ -119,7 +119,7 @@ const choice = { look: 'short', kind: 'dog', breed: 3, mix: null,
    로그인하지 않았어도(초대 링크로 바로 온 사람) 예전처럼 들어올 수 있다. */
 const ACCOUNT = readAccount();
 // 캐릭터 이름은 늘 로그인 아이디 (사용자 요청) — 예전에 따로 지은 이름이 남아 있어도 아이디로 쓴다
-const MY_CHAR = ACCOUNT && ACCOUNT.user.char ? { ...cleanChar(ACCOUNT.user.char), nick: ACCOUNT.user.id } : null;
+const MY_CHAR = (c => c ? { ...c, nick: ACCOUNT.user.id } : null)(ACCOUNT && cleanChar(ACCOUNT.user.char));   // 예전 판(v3 아님)은 없는 것으로 — Studio 에서 새로 만든다
 // 로그인했는데 캐릭터가 아직 없으면 — 정원에 들어가기 직전에 만들게 돼 있다 — 만들러 보낸다
 if (ACCOUNT && !MY_CHAR) location.replace('../../#make');
 
@@ -496,7 +496,7 @@ paintPetMode();
 
 if (MY_CHAR){
   nameIn.value = MY_CHAR.nick;
-  choice.look = MY_CHAR.gender === 1 ? 'long' : 'short';
+  choice.look = longOf(MY_CHAR) ? 'long' : 'short';
   nameIn.required = false;                 // 숨긴 칸에 required 를 남기면 폼이 막힌다
   const gender = $('gender');
   for (const el of [nameIn.previousElementSibling, nameIn, gender.previousElementSibling, gender]) el.hidden = true;
@@ -1046,13 +1046,13 @@ function begin(myName, petName, petSpec, friends, myLook){
     let mySig = JSON.stringify(MY_CHAR);
     const checkMine = async () => {
       const a = await refresh();
-      const c = a && a.user.char ? { ...cleanChar(a.user.char), nick: a.user.id } : null;
+      const c = (x => x ? { ...x, nick: a.user.id } : null)(a && cleanChar(a.user.char));
       if (!c || JSON.stringify(c) === mySig) return;
       mySig = JSON.stringify(c);
       restyle(me, createActor({ lamp: true, style: c }));
       myLabel.remove();
       myLabel = makeLabel(c.nick);
-      net.setMe({ name: c.nick, look: c.gender === 1 ? 'long' : 'short', colors: colorsOf(c), style: null, pack: packChar(c) });
+      net.setMe({ name: c.nick, look: longOf(c) ? 'long' : 'short', colors: colorsOf(c), style: null, pack: packChar(c) });
     };
     setInterval(checkMine, 30000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) checkMine(); });

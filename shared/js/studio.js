@@ -1,7 +1,6 @@
 import * as THREE from 'three';
-import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s12';
-import { STYLES, GENDERS, PALETTE, SKINS, HAIR_COLORS, EYE_COLORS, GLOWS, LIPS, HAIRS, BROWS, EYES, NOSES, MOUTHS, CHINS,
-  EYE_SHAPES, FACE_SHAPES, TOPS, BOTTOMS, SHOES, HATS, ACCS, SLIDER, STYLE_PRESET, hasFace, hex, cleanChar, randomChar } from './character.js?v=c6';
+import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s13';
+import { PALETTE, SKINS, HAIR_COLORS, LIPS, HAIRS, ONOFF, FINISHES, hex, cleanChar, blankChar } from './character.js?v=c7';
 import { readAccount, refresh, signup, login, logout, logoutAll, deleteAccount, saveChar, recover, newRecovery, checkId, renameId } from './account.js?v=s9';
 import { trackPresence } from './presence.js?v=p2';
 import { serverNow } from './clock.js?v=k1';
@@ -53,7 +52,7 @@ function wear(char){
   if (actor.headTop !== H){
     H = actor.headTop; LOOK_Y = H * 0.55;
     HEAD_C = actor.headY != null ? actor.headY - 0.04 : H - 0.36;      // 얼굴을 고를 때 다가갈 자리
-    NEAR_Z = Math.max(0.75, (H - HEAD_C) * 5.2);                        // 작은 머리일수록 더 다가간다
+    NEAR_Z = actor.nearZ ?? Math.max(0.75, (H - HEAD_C) * 5.2);         // 작은 머리일수록 더 다가간다 (캐릭터가 거리를 알려 주면 그대로)
     fit();
   }
   actor.group.rotation.y = spin;
@@ -135,7 +134,7 @@ let account = readAccount();
    그래서 계정에 캐릭터가 없을 수 있다 (user.char === null). */
 const charOf = a => (a && a.user && a.user.char ? cleanChar(a.user.char) : null);
 const nameOf = a => a.user.id;   // 화면에 쓰는 이름은 늘 로그인 아이디 (사용자 요청)
-let draft = charOf(account) || randomChar();   // 꾸미는 중인 캐릭터
+let draft = charOf(account) || blankChar();   // 꾸미는 중인 캐릭터
 let makerFrom = 'menu';  // 꾸미기를 마치면 어디로 — 'world' 면 저장하고 무지개 정원으로, 'cat' 이면 META WORLD 목록으로, 'menu' 면 메뉴로
 
 function paintIntro(){
@@ -224,7 +223,7 @@ $('#authForm').onsubmit = async e => {
   try {
     if (mode === 'login'){
       account = await login(id, pw);
-      draft = charOf(account) || randomChar();
+      draft = charOf(account) || blankChar();
       $('#pwIn').value = '';
       openMenu();
     } else {
@@ -233,7 +232,7 @@ $('#authForm').onsubmit = async e => {
       const got = await signup(id, pw);       // 아이디 · 비밀번호만 — 캐릭터는 정원 앞에서
       account = got.account;
       $('#pwIn').value = ''; $('#pw2In').value = ''; paintMatch();
-      draft = randomChar();
+      draft = blankChar();
       showCode(got.recovery, 'signup');
     }
   } catch (err){
@@ -241,25 +240,19 @@ $('#authForm').onsubmit = async e => {
   } finally { btn.disabled = false; }
 };
 
-/* ─────────── 캐릭터 만들기 (새 판) ───────────
-   차례 (사용자 요청): 스타일 → 성별(남자 · 여자 · 무지) → 얼굴 → 옷 → 몸.
-   얼굴 칸은 스타일에 얼굴이 있는지에 따라 다르다 (얼굴 없는 스타일은 얼굴색 30색 · 눈 있음/없음 · 눈 모양 · 눈빛).
-   고를 거리 · 색은 character.js 한 곳 — 여기는 칸만 늘어놓는다. 화면은 넘기지 않는다 (칸 높이 고정). */
-const STEPS = [['style', '스타일'], ['gender', '성별'], ['face', '얼굴'], ['cloth', '옷'], ['body', '몸']];
-const ONOFF = ['없음', '있음'];
-const FACE_SUBS = [['head', '크기', 'slider'], ['faceShape', '얼굴형', FACE_SHAPES], ['skin', '피부', SKINS], ['hair', '헤어', HAIRS], ['hairColor', '머리색', HAIR_COLORS],
-  ['forehead', '이마', 'slider'], ['brow', '눈썹', BROWS], ['eye', '눈', EYES], ['eyeColor', '눈동자', EYE_COLORS],
-  ['glabella', '미간', 'slider'], ['nose', '코', NOSES], ['philtrum', '인중', 'slider'], ['mouth', '입', MOUTHS],
-  ['lip', '입술색', 'lip'], ['chin', '턱', CHINS]];
-const MASK_SUBS = [['head', '얼굴 크기', 'slider'], ['faceShape', '얼굴형', FACE_SHAPES], ['faceColor', '얼굴색', PALETTE], ['eyesOn', '눈', ONOFF],
-  ['eyeShape', '눈 모양', EYE_SHAPES], ['glow', '눈빛', GLOWS], ['hair', '헤어', HAIRS], ['hairColor', '머리색', HAIR_COLORS]];
-const CLOTH_SUBS = [['top', '상의', TOPS], ['topColor', '상의 색', PALETTE], ['bottom', '하의', BOTTOMS], ['bottomColor', '하의 색', PALETTE],
-  ['shoes', '신발', SHOES], ['shoesColor', '신발 색', PALETTE], ['hat', '모자', HATS], ['hatColor', '모자 색', PALETTE],
-  ['acc', '소품', ACCS], ['accColor', '소품 색', PALETTE]];
-const BODY_SLIDERS = [['muscle', '근육', '마름', '근육질'], ['torso', '몸길이', '짧게', '길게'], ['arm', '팔길이', '짧게', '길게'], ['leg', '다리길이', '짧게', '길게']];
-const SLIDE_ENDS = { head: ['작게', '크게'], forehead: ['좁게', '넓게'], glabella: ['좁게', '넓게'], philtrum: ['짧게', '길게'] };
-let step = 'style', sub = { face: 'head', cloth: 'top' };
-const subsOf = st => st === 'face' ? (hasFace(draft) ? FACE_SUBS : MASK_SUBS) : st === 'cloth' ? CLOTH_SUBS : [];
+/* ─────────── 캐릭터 꾸미기 (블록 캐릭터 · v3) ───────────
+   바탕은 사용자가 준 블렌더 모델(핑크 소녀) 하나 — 예전 캐릭터 고르기(스타일 · 성별 · 얼굴 · 몸)는 뺐다 (사용자 요청).
+   차례: 얼굴 → 머리 → 옷 → 소품 → 표면(유광 · 무광). 고를 거리 · 색은 character.js 한 곳 — 여기는 칸만 늘어놓는다. 화면은 넘기지 않는다. */
+const STEPS = [['face', '얼굴'], ['hair', '머리'], ['cloth', '옷'], ['acc', '소품'], ['finish', '표면']];
+const SUBS = {
+  face: [['skin', '피부', SKINS], ['lip', '입', LIPS]],
+  hair: [['hair', '헤어', HAIRS], ['hairColor', '머리색', HAIR_COLORS]],
+  cloth: [['topColor', '상의', PALETTE], ['bottomColor', '하의', PALETTE], ['shoesColor', '신발', PALETTE]],
+  acc: [['phones', '헤드폰', ONOFF], ['phonesColor', '헤드폰 색', PALETTE], ['necklace', '목걸이', ONOFF]],
+  finish: [['finish', '표면', FINISHES]]
+};
+let step = 'face', sub = { face: 'skin', hair: 'hair', cloth: 'topColor', acc: 'phones', finish: 'finish' };
+const subsOf = st => SUBS[st] || [];
 
 $('#stepSeg').innerHTML = STEPS.map(([k, t], i) => `<button type="button" data-step="${k}"><small>${i + 1}</small>${t}</button>`).join('');
 $('#stepSeg').addEventListener('click', e => {
@@ -273,65 +266,34 @@ $('#subSeg').addEventListener('click', e => {
 $('#opts').addEventListener('click', e => {
   const b = e.target.closest('[data-v]');
   if (!b) return;
-  const k = b.dataset.k, v = +b.dataset.v;
-  if (k === 'style'){                           if (draft.style !== v){                // 스타일을 바꾸면 머리 · 얼굴 바탕만 그 스타일 것으로 — 입혀 둔 옷은 그대로 (처음엔 옷이 없다)
-      const { top, topColor, bottom, bottomColor, shoes, shoesColor, hat, hatColor, acc, accColor, ...look } = STYLE_PRESET[v];
-      Object.assign(draft, { style: v }, look);
-    }
-  } else draft[k] = v;
+  draft[b.dataset.k] = +b.dataset.v;
   paintMaker();
-});
-$('#opts').addEventListener('input', e => {
-  const r = e.target.closest('input[type=range]');
-  if (!r) return;
-  draft[r.dataset.k] = +r.value;
-  wear(draft);                                // 밀대를 미는 동안은 칸을 다시 그리지 않는다 (손가락이 놓친다)
 });
 $('#nickIn').addEventListener('input', () => { draft.nick = $('#nickIn').value; $('#makerMsg').textContent = ''; });
 
-const sw = (k, list, cls = '') => list.map((col, i) => {
-  const on = draft[k] === i ? ' on' : '';
-  const bg = col == null ? hex(SKINS[draft.skin]) : hex(col);
-  return `<button type="button" class="sw${cls}${on}" data-k="${k}" data-v="${i}" aria-label="${i + 1}"><i style="background:${bg}"></i></button>`;
-}).join('');
+const sw = (k, list) => list.map((col, i) =>
+  `<button type="button" class="sw${draft[k] === i ? ' on' : ''}" data-k="${k}" data-v="${i}" aria-label="${i + 1}"><i style="background:${hex(col)}"></i></button>`).join('');
 const names = (k, list) => list.map((t, i) =>
   `<button type="button" class="${draft[k] === i ? 'on' : ''}" data-k="${k}" data-v="${i}"><span>${t}</span></button>`).join('');
-const slider = (k, label, lo, hi) => `<label class="sl"><b>${label}</b><span>${lo}</span>
-  <input type="range" min="0" max="${SLIDER}" step="1" value="${draft[k]}" data-k="${k}" aria-label="${label}"><span>${hi}</span></label>`;
 
 function paintMaker(){
-  draft = { ...cleanChar({ ...draft, v: 2 }), nick: draft.nick || '' };
+  draft = { ...cleanChar({ ...draft, v: 3 }), nick: draft.nick || '' };
   const i = STEPS.findIndex(s => s[0] === step);
   for (const b of $('#stepSeg').children) b.classList.toggle('on', b.dataset.step === step);
   const subs = subsOf(step);
-  if (subs.length && !subs.some(x => x[0] === sub[step])) sub[step] = subs[0][0];
+  if (!subs.some(x => x[0] === sub[step])) sub[step] = subs[0][0];
   const sb = $('#subSeg');
-  sb.style.setProperty('--cols', Math.max(1, Math.ceil(subs.length / 2)));
-  sb.innerHTML = subs.length ? subs.map(([k, t]) => `<button type="button" data-sub="${k}" class="${sub[step] === k ? 'on' : ''}">${t}</button>`).join('')
-    : `<p class="hint">${{ style: '어떤 느낌의 캐릭터를 만들까요?', gender: '무지 — 기계 같은 하이브리드', body: '밀어서 몸을 조절해요' }[step]}</p>`;
+  sb.style.setProperty('--cols', subs.length);
+  sb.innerHTML = subs.map(([k, t]) => `<button type="button" data-sub="${k}" class="${sub[step] === k ? 'on' : ''}">${t}</button>`).join('');
   const o = $('#opts');
-  let html = '', kind = 'names';
-  if (step === 'style'){
-    kind = 'cards';
-    html = STYLES.map((st, v) => `<button type="button" class="${draft.style === v ? 'on' : ''}" data-k="style" data-v="${v}"><span><b>${st.name}</b><small>${st.sub}</small></span></button>`).join('');
-  } else if (step === 'gender'){
-    kind = 'cards3';
-    html = GENDERS.map(([, t], v) => `<button type="button" class="${draft.gender === v ? 'on' : ''}" data-k="gender" data-v="${v}"><span><b>${t}</b></span></button>`).join('');
-  } else if (step === 'body'){
-    kind = 'sliders';
-    html = BODY_SLIDERS.map(([k, t, lo, hi]) => slider(k, t, lo, hi)).join('');
-  } else {
-    const [k, t, list] = subs.find(x => x[0] === sub[step]);
-    if (list === 'slider'){ kind = 'sliders one'; html = slider(k, t, ...SLIDE_ENDS[k]); }
-    else if (list === 'lip'){ kind = 'colors'; o.style.setProperty('--cols', 4); html = sw(k, LIPS); }
-    else if (typeof list[0] === 'number'){ kind = 'colors'; o.style.setProperty('--cols', list.length > 12 ? 10 : Math.ceil(list.length / 2)); html = sw(k, list); }
-    else { kind = 'names' + (list.length > 8 ? ' n3' : ''); html = names(k, list); }
-  }
+  const [k, , list] = subs.find(x => x[0] === sub[step]);
+  let kind;
+  if (typeof list[0] === 'number'){ kind = 'colors'; o.style.setProperty('--cols', list.length > 12 ? 10 : Math.ceil(list.length / 2)); o.innerHTML = sw(k, list); }
+  else { kind = 'names'; o.innerHTML = names(k, list); }
   o.className = 'opts ' + kind;
-  o.innerHTML = html;
   $('#makerPrev').hidden = i === 0;
   $('#makerBtn').textContent = i < STEPS.length - 1 ? '다음 ›' : makerFrom === 'world' ? '완료 · 무지개 정원으로' : '저장';
-  zoomTo = step === 'face' ? 1 : 0;
+  zoomTo = step === 'face' || step === 'hair' ? 1 : 0;
   wear(draft);
 }
 $('#makerPrev').onclick = () => {
@@ -342,7 +304,7 @@ $('#makerPrev').onclick = () => {
 function openMaker(){
   $('#nickIn').value = account ? account.user.id : '';     // 캐릭터 이름 = 로그인 아이디 (고칠 수 없다)
   $('#makerMsg').textContent = '';
-  step = 'style';
+  step = 'face';
   paintMaker();
   show('maker');
 }
@@ -373,7 +335,7 @@ function openMenu(){
   if (c) wear(c);
   show('menu');
 }
-$('#editBtn').onclick = () => { draft = charOf(account) || randomChar(); makerFrom = 'menu'; openMaker(); };
+$('#editBtn').onclick = () => { draft = charOf(account) || blankChar(); makerFrom = 'menu'; openMaker(); };
 
 /* 무지개 정원 — 캐릭터가 없으면 들어가기 직전에 만든다 */
 function toWorld(e){
@@ -443,7 +405,7 @@ $('#catBack').onclick = () => { history.replaceState(null, '', location.pathname
 /* 로그아웃 · 계정 삭제 뒤 — 첫 화면으로 */
 function signedOut(){
   pres.bye();                     // 접속 기록 — 바로 로그아웃으로 (안 알리면 100초 넘게 접속 중으로 남는다)
-  account = null; draft = randomChar();
+  account = null; draft = blankChar();
   $('#idIn').value = ''; mode = 'login'; paintMode();
   paintIntro(); show('intro');
 }
@@ -497,7 +459,7 @@ $('#recForm').onsubmit = async e => {
   try {
     const got = await recover(id, code, pw);
     account = got.account;
-    draft = charOf(account) || randomChar();
+    draft = charOf(account) || blankChar();
     showCode(got.recovery, 'recover');
   } catch (err){ msg.textContent = err.message; }
   finally { btn.disabled = false; }
