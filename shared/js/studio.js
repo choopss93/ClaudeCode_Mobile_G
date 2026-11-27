@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s7';
+import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s8';
 import { STYLES, GENDERS, PALETTE, SKINS, HAIR_COLORS, EYE_COLORS, GLOWS, LIPS, HAIRS, BROWS, EYES, NOSES, MOUTHS, CHINS,
   EYE_SHAPES, TOPS, BOTTOMS, SHOES, HATS, ACCS, SLIDER, STYLE_PRESET, hasFace, hex, cleanChar, randomChar } from './character.js?v=c4';
 import { readAccount, refresh, signup, login, logout, logoutAll, deleteAccount, saveChar, recover, newRecovery, checkId, renameId } from './account.js?v=s9';
@@ -48,7 +48,7 @@ let showLogo = true;
 let actor = null, spin = 0.5, pitch = 0.3, drag = null;   // pitch — 로고만 위아래로도 돈다
 function wear(char){
   if (actor) scene.remove(actor.group);
-  actor = createActor({ style: cleanChar(char) });
+  actor = createActor({ style: cleanChar(char), poses: false });   // 꾸미는 동안은 쉬는 자세 없이
   actor.setHand(false);
   if (actor.headTop !== H){
     H = actor.headTop; LOOK_Y = H * 0.55;

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { toon, makeBlob, makeSpray, sprayCap } from '#look';
 import { PAINTS, fixPaint, fixSprays, sprayRadius } from '#pets';
-import { createAvatar } from './avatar.js?v=a3';
+import { createAvatar } from './avatar.js?v=a4';
 
 /** 뿌린 자국을 살갗에서 띄우는 거리 (m). 깜빡이지 않을 만큼만. */
 const SPRAY_LIFT = 0.0015;
@@ -63,9 +63,9 @@ function piece(group, geo, mat, x, y, z, sx, sy, sz){
  *         있으면 그대로 입히고(outfit.js), 없으면 예전처럼 color · hair · long 으로 짓는다.
  */
 export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
-                              lamp = false, skin: skinColor = 0xFFE9D4, style = null } = {}){
+                              lamp = false, skin: skinColor = 0xFFE9D4, style = null, poses = true } = {}){
   // Metaversal Studio 캐릭터(v2)는 avatar.js 가 짓는다 — 돌려주는 모양은 아래와 같다
-  if (style && style.v === 2) return createAvatar(style, { lamp });
+  if (style && style.v === 2) return createAvatar(style, { lamp, poses });
   const group = new THREE.Group();
   const skin = toon(skinColor);
   const cloth = toon(color);

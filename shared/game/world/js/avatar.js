@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { toon, toonUnique, makeBlob } from '#look';
+import { serverNow } from '../../../js/clock.js';
 import { SLIDER, PALETTE, SKINS, HAIR_COLORS, EYE_COLORS, GLOWS, LIPS, STYLES } from '../../../js/character.js?v=c4';
 
 /*
@@ -40,6 +41,52 @@ const heartGeo = (() => {
   return new THREE.ShapeGeometry(s);
 })();
 
+/* 겉면을 직접 짓는다 — fn(v 0~1, 각 0~2π) → [x, y, z]. 둘레가 동그랗지 않은 몸통(가슴 · 엉덩이 · 날개뼈),
+   누빔(패딩), 고무단(골)처럼 회전체로는 안 되는 모양을 짓는 데 쓴다. 이음매(각 0 = 2π)의 법선은 맞춰 둔다. */
+function surface(fn, U, V, down = false){
+  const pos = [], idx = [];
+  for (let j = 0; j <= V; j++) for (let i = 0; i <= U; i++){ const q = fn(j / V, (i / U) * Math.PI * 2); pos.push(q[0], q[1], q[2]); }
+  for (let j = 0; j < V; j++) for (let i = 0; i < U; i++){
+    const a = j * (U + 1) + i, b = a + 1, c = a + U + 1, d = c + 1;
+    if (down) idx.push(a, b, c, b, d, c); else idx.push(a, c, b, b, c, d);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const n = geo.attributes.normal;
+  for (let j = 0; j <= V; j++){
+    const a = j * (U + 1), b = a + U;
+    const x = n.getX(a) + n.getX(b), y = n.getY(a) + n.getY(b), z = n.getZ(a) + n.getZ(b), l = Math.hypot(x, y, z) || 1;
+    n.setXYZ(a, x / l, y / l, z / l); n.setXYZ(b, x / l, y / l, z / l);
+  }
+  return geo;
+}
+/* 모서리가 둥근 상자 — 신발 바닥 · 몸통 · 찍찍이 끈처럼 단단한 부품 */
+function rbox(w, h, d, r, n = 6){
+  const geo = new THREE.BoxGeometry(1, 1, 1, n, n, n);        // n=2 는 작은 부품 — 모서리만 깎인다
+  const p = geo.attributes.position, v = new THREE.Vector3(), q = new THREE.Vector3();
+  const hw = w / 2, hh = h / 2, hd = d / 2;
+  r = Math.min(r, hw, hh, hd) * 0.999;
+  /* 격자를 가장자리로 몰아 둔다 — 고르게 나뉜 채로 굴리면 모서리 띠 안에 점이 없어 각이 그대로 남는다 */
+  const remap = (u, half) => {
+    const a = Math.abs(u) * 2, s = Math.sign(u);
+    return s * (a > 2 / 3 + 1e-6 ? (half - r) + (a - 2 / 3) * 3 * r : a * 1.5 * (half - r));
+  };
+  for (let i = 0; i < p.count; i++){
+    v.fromBufferAttribute(p, i);
+    v.set(remap(v.x, hw), remap(v.y, hh), remap(v.z, hd));
+    q.set(Math.max(-hw + r, Math.min(hw - r, v.x)), Math.max(-hh + r, Math.min(hh - r, v.y)), Math.max(-hd + r, Math.min(hd - r, v.z)));
+    v.sub(q);
+    if (v.lengthSq() > 1e-12) v.setLength(r);
+    v.add(q);
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+const fingerGeo = new THREE.CapsuleGeometry(1, 2.4, 3, 7);           // 손가락 하나 (지름 2 · 길이 4.4)
+
 const METAL = 0x7A808A, DARKM = 0x3A3D44, MOUTH = 0x7A3A46, WHITE = 0xFFFFFF;
 const glowCache = new Map();
 const glowMat = c => {
@@ -68,7 +115,7 @@ const BASE = [
   { headR: 0.22, torsoH: 0.27, torsoW: 0.13, torsoD: 0.1, legH: 0.26, legR: 0.05, armLen: 0.27, armR: 0.041, neck: 0.012, eye: 1.2, shoe: 1.15 },
   { headR: 0.16, torsoH: 0.38, torsoW: 0.14, torsoD: 0.1, legH: 0.5, legR: 0.054, armLen: 0.41, armR: 0.042, neck: 0.03, eye: 1, shoe: 1 },
   { headR: 0.155, torsoH: 0.41, torsoW: 0.155, torsoD: 0.11, legH: 0.54, legR: 0.06, armLen: 0.44, armR: 0.047, neck: 0.03, eye: 1, shoe: 1.1 },
-  { headR: 0.12, torsoH: 0.4, torsoW: 0.115, torsoD: 0.085, legH: 0.74, legR: 0.044, armLen: 0.5, armR: 0.031, neck: 0.045, eye: 0.85, shoe: 1 }
+  { headR: 0.12, torsoH: 0.4, torsoW: 0.115, torsoD: 0.085, legH: 0.74, legR: 0.044, armLen: 0.5, armR: 0.031, neck: 0.045, eye: 0.85, shoe: 1.3 }
 ];
 
 /* 몸통 옆모습 — [높이 0(가랑이)~1(목), 너비]. 여자는 허리가 들어가고 골반이 넓다 */
@@ -79,7 +126,7 @@ const PROF = {
 
 const HOLD = 0.9;                         // 바람개비 든 오른팔의 팔꿈치 굽힘
 
-export function createAvatar(c, { lamp = false } = {}){
+export function createAvatar(c, { lamp = false, poses = true } = {}){
   const own = [];                                   // 이 캐릭터만의 조각 · 재질 — 치울 때 버린다
   const g = geo => (own.push(geo), geo);
   const uniq = (color, opts) => { const m = toonUnique(color, opts); own.push(m); return m; };
@@ -111,41 +158,52 @@ export function createAvatar(c, { lamp = false } = {}){
   const limbMat = mech ? toon(shade(skinC, 1.0)) : skin;
 
   const group = new THREE.Group();
-  group.add(makeBlob(Math.max(0.22, torsoW * 2)));
+  const blob = makeBlob(Math.max(0.22, torsoW * 2));
+  blob.userData.blob = true;
+  group.add(blob);
 
   /* ── 마디 · 관절 ── 마디는 위아래 굵기가 다르고 가운데가 살짝 부푼 회전체(근육 · 종아리). */
-  const seg = (parent, rA, rB, len, mat, k = 1, t0 = 0, t1 = 1, bulge = 0, flare = 0) => {
-    const pts = [];
-    for (let i = 6; i >= 0; i--){                // 아래에서 위로 — 거꾸로 주면 면이 안쪽을 봐 안 보인다
-      const t = t0 + (t1 - t0) * i / 6;
-      pts.push(new THREE.Vector2((rA + (rB - rA) * t + bulge * Math.sin(Math.PI * t)) * k + flare * t, -t * len));
-    }
-    return put(parent, g(new THREE.LatheGeometry(pts, 12)), mat, 0, 0, 0, 1);
+  /* o.N — 누빔 칸 수(패딩) · o.puff 누빔 부풂 · o.rib 고무단 골 · o.back 종아리처럼 뒤로 불룩 */
+  const seg = (parent, rA, rB, len, mat, k = 1, t0 = 0, t1 = 1, bulge = 0, flare = 0, o = {}) => {
+    const fn = (v, th) => {
+      const t = t0 + (t1 - t0) * v;
+      let r = (rA + (rB - rA) * t + bulge * Math.sin(Math.PI * t)) * k + flare * t;
+      if (o.N) r *= 1 + (o.puff ?? 0.13) * Math.sqrt(Math.abs(Math.sin(Math.PI * o.N * v)));
+      if (o.rib) r *= 1 + o.rib * Math.sin(th * 22);
+      const sn = Math.sin(th);
+      let z = r * sn;
+      if (o.back && sn < 0) z += o.back * r * sn * sn * sn * Math.sin(Math.PI * Math.min(1, t * 1.4)) ;
+      return [r * Math.cos(th), -t * len, z];
+    };
+    return put(parent, g(surface(fn, 12, o.N ? 4 + o.N * 4 : 6, true)), mat, 0, 0, 0, 1);
   };
   const ballAt = (parent, r, mat, y = 0) => put(parent, ballS, mat, 0, y, 0, r);
   /* 관절 셋(위 · 가운데 · 끝)과 마디 둘. 가운데 · 끝은 그 관절에서 도는 무리다 */
-  function limb(root, r, l, b){
+  function limb(root, r, l, b, back = 0){
     ballAt(root, r[0] * 1.06, jointMat);
     seg(root, r[0], r[1], l[0], limbMat, 1, 0, 1, b[0]);
     const mid = new THREE.Group(); mid.position.y = -l[0]; root.add(mid);
     ballAt(mid, r[1] * 1.16, jointMat);
-    seg(mid, r[1], r[2], l[1], limbMat, 1, 0, 1, b[1]);
+    seg(mid, r[1], r[2], l[1], limbMat, 1, 0, 1, b[1], 0, { back });
     const end = new THREE.Group(); end.position.y = -l[1]; mid.add(end);
     ballAt(end, r[2] * 1.16, jointMat);
-    return { root, mid, end, r, l, b };
+    return { root, mid, end, r, l, b, back };
   }
   /* 옷 — 마디 위에 조금 굵게 씌운다. a · b 는 0(위 관절) ~ 1(가운데) ~ 2(끝) */
-  function cover(L, mat, a, b, k, flare = 0){
+  function cover(L, mat, a, b, k, flare = 0, o = {}){
+    const o1 = o.N ? { ...o, N: Math.max(1, Math.round(o.N * 0.6)) } : o, o2 = { ...(o.N ? { ...o, N: Math.max(1, o.N - o1.N) } : o), back: L.back };   // 종아리 불룩을 옷도 따라야 살이 안 비친다
     if (a < 1){
-      seg(L.root, L.r[0], L.r[1], L.l[0], mat, k, a, Math.min(1, b), L.b[0]);
+      seg(L.root, L.r[0], L.r[1], L.l[0], mat, k, a, Math.min(1, b), L.b[0], 0, o1);
       if (a === 0) ballAt(L.root, L.r[0] * Math.max(k * 1.04, 1.12), mat);   // 관절 구보다 커야 덮인다
     }
     if (a < 1 && b > 1) ballAt(L.mid, L.r[1] * Math.max(k * 1.05, 1.2), mat);
-    if (b > 1) seg(L.mid, L.r[1], L.r[2], L.l[1], mat, k, Math.max(0, a - 1), b - 1, L.b[1], flare);
+    if (b > 1) seg(L.mid, L.r[1], L.r[2], L.l[1], mat, k, Math.max(0, a - 1), b - 1, L.b[1], flare, o2);
   }
-  const cuff = (L, mat, k, t = 1.92) =>                                       // 소매 · 바짓단 고무
+  const cuff = (L, mat, k, t = 1.92) =>                                       // 띠 하나 (누빔 경계 · 멜빵 같은 것)
     put(t > 1 ? L.mid : L.root, ring, mat, 0, -(t > 1 ? t - 1 : t) * L.l[t > 1 ? 1 : 0], 0,
         L.r[2] * k * 1.05, L.r[2] * k * 1.05, 0.06, Math.PI / 2);
+  /* 고무단 — 골이 진 짧은 마디 (소맷부리 · 바짓단). 끝 관절 바로 위 */
+  const rib = (L, mat, k, len = 0.14) => seg(L.mid, L.r[1], L.r[2], L.l[1], mat, k * 1.02, 1 - len, 1.02, L.b[1], 0, { rib: 0.05 });
 
   /* ── 몸통 — 회전체(가슴 · 허리 · 골반) ── */
   const prof = PROF[G === 1 ? 'f' : 'm'];
@@ -156,13 +214,24 @@ export function createAvatar(c, { lamp = false } = {}){
     }
     return 0;
   };
-  const torsoGeo = (k, t0 = 0, t1 = 1) => {
-    const pts = [];
-    for (let i = 0; i <= 14; i++){
-      const t = t0 + (t1 - t0) * i / 14;
-      pts.push(new THREE.Vector2(Math.max(0.0005, at(t) * k), t * torsoH));
-    }
-    return g(new THREE.LatheGeometry(pts, 18));
+  /* 몸통 겉면 — 단면이 둥근 네모(초타원)라 앞뒤가 납작하고 옆이 선다. 앞에 가슴, 뒤에 엉덩이 · 날개뼈.
+     o.N 누빔 칸(o.from~o.to 사이에서 센다) · o.rib 고무단 골 */
+  const bump = (t, m, w) => Math.exp(-(((t - m) / w) ** 2));
+  const torsoGeo = (k, t0 = 0, t1 = 1, o = {}) => {
+    const fn = (v, th) => {
+      const t = t0 + (t1 - t0) * v;
+      const cth = Math.cos(th), sth = Math.sin(th);
+      const ex = Math.sign(cth) * Math.abs(cth) ** 0.8, ez = Math.sign(sth) * Math.abs(sth) ** 0.8;
+      let q = k;
+      if (o.N) q *= 1 + (o.puff ?? 0.07) * Math.sqrt(Math.abs(Math.sin(Math.PI * o.N * (t - o.from) / (o.to - o.from))));
+      if (o.rib) q *= 1 + o.rib * Math.sin(th * 40);
+      const w = at(t);
+      let z = torsoD * w * ez * q;
+      if (sth > 0) z += torsoD * sth * sth * (G === 1 ? 0.05 : 0.11) * bump(t, 0.73, 0.1) * q * w;          // 가슴
+      else z -= torsoD * sth * sth * ((G === 1 ? 0.3 : 0.17) * bump(t, 0.13, 0.09) + 0.07 * bump(t, 0.8, 0.07)) * q * w;   // 엉덩이 · 날개뼈
+      return [torsoW * w * ex * q, t * torsoH, z];
+    };
+    return g(surface(fn, 24, Math.max(6, Math.round(22 * (t1 - t0))) + (o.N || 0) * 3));
   };
   const hipJ = torsoH * 0.07;
   const hipY = legH - hipJ;                       // 가랑이 높이 — 몸통 밑
@@ -170,10 +239,18 @@ export function createAvatar(c, { lamp = false } = {}){
   const midY = hipY + torsoH * 0.55;
   const puffer = c.top === 3;
   const frontZ = torsoD * (puffer ? 1.16 : 1.04);
-  const bodyAt = (geo, mat) => put(group, geo, mat, 0, hipY, 0, torsoW, 1, torsoD);
+  const WAIST = 0.44;                             // 허리 관절 — 여기서 위(가슴)와 아래(골반)가 갈린다
+  const waistY = hipY + torsoH * WAIST;
+  const bodyAt = (geo, mat, zone = 'body') => { const m = put(group, geo, mat, 0, hipY, 0, 1); m.userData.zone = zone; return m; };
+  const bodySplit = (k, t0, t1, mat, o = {}) => {         // 몸통 한 겹을 허리에서 둘로 — 허리가 굽고 돌아도 이어져 보이게 조금 겹친다
+    o = { from: t0, to: t1, ...o };
+    if (t0 < WAIST) bodyAt(torsoGeo(k, t0, Math.min(t1, WAIST + 0.03), o), mat, 'body');
+    if (t1 > WAIST) bodyAt(torsoGeo(k, Math.max(t0, WAIST - 0.03), t1, o), mat, 'chest');
+  };
   const band = (t, k, mat, h = 0.014) =>
     put(group, ring, mat, 0, hipY + t * torsoH, 0, torsoW * at(t) * k, torsoD * at(t) * k, h / 0.36, Math.PI / 2);
-  bodyAt(torsoGeo(1), mech ? dmetal : skin);
+  bodySplit(1, 0, 1, mech ? dmetal : skin);
+  put(group, ballS, mech ? metal : jointMat, 0, waistY, 0, torsoW * at(WAIST) * 0.96, torsoH * 0.09, torsoD * at(WAIST) * 0.96).userData.zone = 'body';   // 허리 관절
   if (mech) band(0.46, 1.01, metal, 0.01);                                     // 허리 이음매
 
   /* 목 */
@@ -191,7 +268,7 @@ export function createAvatar(c, { lamp = false } = {}){
     const hip = new THREE.Group();
     hip.position.set(s * hipX, legH, 0);
     group.add(hip);
-    const L = limb(hip, [legR * 1.18, legR * 0.8, legR * 0.52], [thighL, shinL], [legR * 0.06, legR * 0.2]);
+    const L = limb(hip, [legR * 1.18, legR * 0.8, legR * 0.52], [thighL, shinL], [legR * 0.06, legR * 0.12], 0.35);   // 종아리는 뒤로 불룩
     return { s, hip, knee: L.mid, ankle: L.end, L };
   });
 
@@ -225,23 +302,42 @@ export function createAvatar(c, { lamp = false } = {}){
   const footL = Math.max(0.1, legR * 2.4) * B.shoe;
   const shoeW = legR * 1.15 * B.shoe;
   const sc = toon(shoeC);
+  const part = (parent, w, h, d, r, mat, x, y, z, rx = 0, n = 6) => put(parent, g(rbox(w, h, d, r, n)), mat, x, y, z, 1, 1, 1, rx);
   for (const { ankle } of legs){
-    const fy = -shoeH * 0.55, fz = footL * 0.24;
+    /* 통통한 운동화 — 높이가 길이의 절반쯤. 발목 관절보다 위로 올라와 발목을 감싼다 */
+    const L2 = footL * 1.1, W = Math.min(shoeW * 2.3, L2 * 0.66), up = L2 * 0.46, sole = L2 * 0.2;
+    const base = -shoeH, fz = L2 * 0.2;                                    // 바닥은 땅(발목 아래 shoeH)
+    const dark = toon(shade(shoeC, 0.72)), mid = toon(shade(shoeC, 0.86));
     switch (c.shoes){
-      case 0: case 1: case 3:
-        put(ankle, ball, sc, 0, fy + shoeH * 0.1, fz, shoeW, shoeH * (c.shoes === 3 ? 0.42 : 0.6), footL * 0.55);
-        put(ankle, ball, toon(c.shoes === 3 ? shade(shoeC, 0.75) : WHITE), 0, fy - shoeH * 0.3, fz, shoeW * 1.05, shoeH * 0.24, footL * 0.58);
-        if (c.shoes !== 3) put(ankle, box, toon(c.shoes === 1 ? WHITE : shade(shoeC, 0.8)), 0, fy + shoeH * 0.5, fz + footL * 0.2, shoeW * 0.9, 0.008, footL * 0.35, 0.3);   // 끈
-        if (c.shoes === 1) put(ankle, g(new THREE.CylinderGeometry(legR * 0.85, shoeW * 0.95, shoeH * 1.6, 14)), sc, 0, shoeH * 0.4, 0, 1);
+      case 0: case 1: case 3: {                                                                   // 운동화 — 통굽 · 앞코 · 찍찍이 · 뒤축
+        const low = c.shoes === 3, uh = low ? up * 0.6 : up, y0 = base + sole * 0.75;
+        /* 참고 그림의 통통한 운동화 — 둥근 통굽 위에 불룩한 몸통 · 앞코 · 뒤꿈치, 옆 덧댐, 찍찍이 */
+        part(ankle, W * 1.1, sole, L2, sole * 0.48, toon(low ? shade(shoeC, 0.7) : WHITE), 0, base + sole / 2, fz);                 // 통굽
+        part(ankle, W * 1.08, sole * 0.32, L2 * 0.98, sole * 0.15, toon(0x3A3D44), 0, base + sole * 0.16, fz, 0, 3);                       // 바닥 고무
+        put(ankle, ballS, sc, 0, y0 + uh * 0.42, fz - L2 * 0.04, W * 0.5, uh * 0.55, L2 * 0.44);                                     // 몸통
+        put(ankle, ballS, mid, 0, y0 + uh * 0.28, fz + L2 * 0.26, W * 0.47, uh * 0.4, L2 * 0.24);                                    // 앞코
+        put(ankle, ballS, mid, 0, y0 + uh * 0.45, fz - L2 * 0.33, W * 0.44, uh * 0.5, L2 * 0.16);                                    // 뒤꿈치
+        for (const sd of [-1, 1]) part(ankle, W * 0.08, uh * 0.55, L2 * 0.62, uh * 0.04, dark, sd * W * 0.47, y0 + uh * 0.3, fz - L2 * 0.08, 0, 2);   // 옆 덧댐
+        if (!low){
+          part(ankle, W * 1.04, uh * 0.32, L2 * 0.3, uh * 0.14, dark, 0, y0 + uh * 0.8, fz + L2 * 0.02, -0.4, 3);                     // 찍찍이 끈
+          part(ankle, W * 0.55, uh * 0.42, L2 * 0.32, uh * 0.12, toon(shade(shoeC, 0.95)), 0, y0 + uh * 0.95, fz - L2 * 0.12, 0.3, 3);   // 혀
+          part(ankle, W * 0.36, uh * 0.7, L2 * 0.1, W * 0.1, dark, 0, y0 + uh * 0.95, fz - L2 * 0.44, 0, 2);                              // 뒤축 고리
+        }
+        if (c.shoes === 1){                                                                       // 하이탑 — 발목을 감싼다
+          part(ankle, W * 0.9, up * 1.1, L2 * 0.5, W * 0.3, sc, 0, base + sole + up * 1.1, -L2 * 0.08);
+          part(ankle, W * 0.96, up * 0.2, L2 * 0.54, up * 0.09, toon(WHITE), 0, base + sole + up * 1.62, -L2 * 0.08);
+        }
         break;
-      case 2:
-        put(ankle, g(new THREE.CylinderGeometry(legR * 0.82, legR * 0.78, shinL * 0.4, 14)), sc, 0, shinL * 0.2, 0, 1);
-        put(ankle, ball, sc, 0, fy + shoeH * 0.1, fz, shoeW * 1.05, shoeH * 0.62, footL * 0.55);
-        put(ankle, ball, toon(shade(shoeC, 0.6)), 0, fy - shoeH * 0.32, fz, shoeW * 1.1, shoeH * 0.2, footL * 0.57);
+      }
+      case 2:                                                                                     // 부츠 — 긴 목 · 두꺼운 굽
+        part(ankle, W * 0.92, shinL * 0.45, L2 * 0.48, W * 0.3, sc, 0, base + sole + shinL * 0.22, -L2 * 0.06);
+        part(ankle, W * 1.08, sole, L2, sole * 0.3, toon(shade(shoeC, 0.5)), 0, base + sole / 2, fz);
+        part(ankle, W, up, L2 * 0.9, Math.min(W, up) * 0.45, sc, 0, base + sole * 0.8 + up / 2, fz - L2 * 0.04);
+        part(ankle, W * 0.98, up * 0.25, L2 * 0.5, up * 0.1, dark, 0, base + sole + shinL * 0.4, -L2 * 0.06);
         break;
       default:
-        put(ankle, ball, skin, 0, fy + shoeH * 0.15, fz, shoeW * 0.8, shoeH * 0.45, footL * 0.5);
-        for (let i = 0; i < 4; i++) put(ankle, ballS, skin, (i - 1.5) * shoeW * 0.36, fy, fz + footL * 0.48, shoeW * 0.2);   // 발가락
+        put(ankle, ball, skin, 0, base + shoeH * 0.4, fz, shoeW * 0.8, shoeH * 0.45, footL * 0.5);
+        for (let i = 0; i < 4; i++) put(ankle, ballS, skin, (i - 1.5) * shoeW * 0.36, base + shoeH * 0.25, fz + footL * 0.48, shoeW * 0.2);   // 발가락
     }
   }
 
@@ -258,21 +354,28 @@ export function createAvatar(c, { lamp = false } = {}){
     group.add(a);
     const L = limb(a, [armR * 1.18, armR * 0.85, armR * 0.62], [upL, foreL], [armR * 0.18, armR * 0.12]);
     const w = L.end;
-    put(w, ballS, skin, 0, -armR * 0.95, 0, armR * 0.62, armR * 0.95, armR * 0.36);                       // 손바닥
-    put(w, ballS, skin, 0, -armR * 1.85, armR * 0.04, armR * 0.56, armR * 0.62, armR * 0.32);              // 네 손가락
-    put(w, ballS, skin, -s * armR * 0.12, -armR * 0.95, armR * 0.42, armR * 0.2, armR * 0.42, armR * 0.2, -0.5);   // 엄지
-    if (sleeveB) cover(L, tm, 0, sleeveB, sleeveK);
-    if (puffer) for (const t of [0.5, 1.45]) cuff(L, toon(shade(top, 0.88)), sleeveK * 1.05, t);
-    if ([1, 3, 4, 6].includes(c.top)) cuff(L, toon(shade(top, 0.82)), sleeveK, 1.92);
+    put(w, ballS, skin, 0, -armR * 0.95, 0, armR * 0.64, armR * 0.9, armR * 0.34);                        // 손바닥
+    const fr = armR * 0.16;
+    for (let i = 0; i < 4; i++){                                                                   // 네 손가락 — 가운데가 길고 살짝 굽었다
+      const len = [0.82, 1, 0.95, 0.75][i];
+      put(w, fingerGeo, skin, (i - 1.5) * armR * 0.3 * -s, -armR * (1.55 + 0.35 * len), armR * 0.06, fr, fr * len, fr, 0.28);
+    }
+    put(w, fingerGeo, skin, -s * armR * 0.55, -armR * 0.95, armR * 0.28, fr * 1.15, fr * 0.85, fr * 1.15, -0.6, 0, s * 0.7);   // 엄지
+    if (sleeveB) cover(L, tm, 0, sleeveB, sleeveK, 0, puffer ? { N: 5, puff: 0.12 } : {});
+    if ([1, 3, 4, 6].includes(c.top)) rib(L, toon(shade(top, 0.82)), puffer ? 1.25 : 1.15);
     return { a, elbow: L.mid, wrist: L.end };
   });
   const armL = arms[0].a, armR_ = arms[1].a;
 
   /* 상의 — 몸통 위에 한 겹 */
-  bodyAt(torsoGeo(puffer ? 1.17 : 1.055, 0.16, 0.985), tm);
+  if (puffer){                                                                                    // 패딩 — 짧게 끊어 입고, 안에 받쳐 입은 옷이 보인다
+    bodySplit(1.055, 0.16, 0.42, toon(shade(top, 0.62)));
+    bodySplit(1.17, 0.36, 0.985, tm, { N: 4, puff: 0.08 });
+  } else bodySplit(1.055, 0.16, 0.985, tm);
   if (G === 1) for (const s of [-1, 1])                                                           // 가슴
     put(group, ball, tm, s * torsoW * 0.36, hipY + torsoH * 0.72, torsoD * (puffer ? 0.75 : 0.62), torsoW * 0.3, torsoH * 0.1, torsoD * 0.42);
-  band(0.165, puffer ? 1.18 : 1.07, toon(shade(top, 0.86)), 0.016);                               // 밑단
+  if ([1, 4].includes(c.top)) bodySplit(1.075, 0.15, 0.22, toon(shade(top, 0.84)), { rib: 0.03 });   // 고무 밑단
+  else band(puffer ? 0.37 : 0.165, puffer ? 1.2 : 1.07, toon(shade(top, 0.86)), 0.016);           // 밑단
   switch (c.top){
     case 1:                                                                                       // 후디 — 주머니 · 끈 · 내린 후드
       put(group, ball, toon(shade(top, 0.92)), 0, hipY + torsoH * 0.3, frontZ * 0.86, torsoW * 0.5, torsoH * 0.11, torsoD * 0.2);
@@ -289,8 +392,8 @@ export function createAvatar(c, { lamp = false } = {}){
       for (const s of [-1, 1]) put(group, box, toon(shade(top, 0.8)), s * torsoW * 0.42, hipY + torsoH * 0.32, frontZ * 0.88, torsoW * 0.24, 0.01, 0.02, 0, s * 0.3, 0);
       break;
     case 3:                                                                                       // 패딩 — 누빔 · 높은 깃
-      for (const t of [0.36, 0.56, 0.76]) band(t, 1.19, toon(shade(top, 0.88)), 0.012);
-      band(0.97, 1.5, toon(shade(top, 0.9)), 0.05);
+      band(0.97, 1.55, tm, 0.07);                                                                   // 높이 세운 깃
+      band(1.0, 1.35, toon(shade(top, 0.8)), 0.02);
       put(group, box, toon(shade(top, 0.7)), 0, hipY + torsoH * 0.55, frontZ * 1.0, 0.006, torsoH * 0.75, 0.008);
       break;
     case 4: break;                                                                                // 맨투맨 — 밑단 · 소맷부리만
@@ -573,6 +676,69 @@ export function createAvatar(c, { lamp = false } = {}){
   }
 
   const headTop = headY + Math.max(hatTop, R * (hk === 2 || hk === 11 ? 1.35 : hk === 9 ? 1.4 : 1.05));
+
+  /* ── 뼈대 — 마네킹처럼 골반 · 허리(가슴) · 목에서 돈다 ──
+     지금까지 지은 것은 모두 `group` 좌표로 적혀 있다. 관절마다 `pivot` 을 두되 그 안의 그릇을 관절 높이만큼
+     도로 내려 두면, 옮겨 단 조각이 좌표를 고칠 필요 없이 제자리에 있고 관절에서 돈다. */
+  const pivot = (parent, y) => {
+    const p = new THREE.Group(); p.position.y = y; parent.add(p);
+    const inner = new THREE.Group(); inner.position.y = -y; p.add(inner);
+    return { p, inner };
+  };
+  armL.rotation.order = 'ZYX';                    // 왼팔: 먼저 앞뒤로 흔들고(x) · 팔을 비틀고(y) · 벌린다(z) — 허리에 손을 얹으려면 이 차례라야 팔꿈치가 몸 쪽으로 접힌다
+  const pelvis = pivot(group, hipY);              // 골반 — 앉거나 숙일 때 통째로
+  const chest = pivot(pelvis.inner, waistY);      // 허리 위 — 비틀고 굽힌다
+  const neck = pivot(chest.inner, neckY);         // 목 — 고개
+  for (const o of [...group.children]){
+    if (o === pelvis.p || o.isLight || o.userData.blob) continue;
+    if (o === head) neck.inner.add(o);
+    else if (arms.some(a => a.a === o)) chest.inner.add(o);
+    else if (legs.some(l => l.hip === o)) pelvis.inner.add(o);
+    else if (o.userData.zone === 'body') pelvis.inner.add(o);
+    else if (o.userData.zone === 'chest' || o.position.y > waistY) chest.inner.add(o);
+    else pelvis.inner.add(o);
+  }
+
+  /* ── 자세 ── 관절마다 목표 각도를 정하고, 지금 각도를 그쪽으로 부드럽게 옮긴다.
+     걷기도 서기도 쉬는 자세도 모두 같은 목표표(`T`)를 채울 뿐이다. 오른팔은 늘 바람개비를 든다. */
+  const J = {
+    drop: () => pelvis.p.position, pel: pelvis.p.rotation, ch: chest.p.rotation, nk: neck.p.rotation,
+    shL: armL.rotation, elL: arms[0].elbow.rotation, wrL: arms[0].wrist.rotation,
+    shR: armR_.rotation, elR: arms[1].elbow.rotation,
+    hipL: legs[0].hip.rotation, knL: legs[0].knee.rotation, anL: legs[0].ankle.rotation,
+    hipR: legs[1].hip.rotation, knR: legs[1].knee.rotation, anR: legs[1].ankle.rotation
+  };
+  const blank = () => ({ y: 0, pel: [0, 0, 0], ch: [0, 0, 0], nk: [0, 0, 0], shL: [0, 0, 0], elL: -0.12, wrL: 0,
+    shR: [0, 0, -0.3], elR: -HOLD, hipL: [0, 0, 0], knL: 0.03, anL: -0.02, hipR: [0, 0, 0], knR: 0.03, anR: -0.02 });
+  /* 바닥에 앉아 무릎을 끌어안는 자세 — 엉덩이 관절이 땅 가까이(legR) 오도록 허벅지 각을 거꾸로 푼다 */
+  const sitH = legR * 1.4, sitTh = Math.acos(Math.max(-1, Math.min(1, -(shinL + shoeH * 0.5 - sitH) / thighL)));
+  /* 쉬는 자세 — design/refs/character/poses 의 마네킹 자세에서 몇 개 골랐다 */
+  const POSES = [
+    t => { t.nk[1] = 0.7; t.ch[1] = 0.18; },                                                          // 오른쪽 둘러보기
+    t => { t.nk[1] = -0.7; t.ch[1] = -0.18; t.nk[0] = 0.1; },                                         // 왼쪽 둘러보기
+    t => { t.shL = [0.2, 1.4, -0.65]; t.elL = -1.7; t.wrL = 0.3; t.ch[2] = -0.05; t.hipR[2] = 0.08; t.pel[2] = 0.04; },   // 허리에 손
+    (t, k) => { t.shL = [0, 0, -2.75]; t.elL = -0.45 - 0.35 * Math.sin(k * 7); t.nk[2] = 0.08; },     // 손 흔들기
+    t => { t.shL = [-0.2, 0, -2.9]; t.elL = -0.2; t.ch[0] = -0.12; t.nk[0] = -0.25; },                // 기지개 · 하늘 보기
+    t => { t.nk[0] = 0.35; t.ch[0] = 0.08; t.shL = [-0.15, 0.4, 0.25]; t.elL = -0.9; t.hipL[1] = -0.15; t.anL = 0.05; },   // 수줍게
+    t => {                                                                                             // 앉아서 무릎 끌어안기
+      t.y = -(legH - sitH); t.ch[0] = 0.35; t.nk[0] = -0.15;
+      t.hipL = [-sitTh, 0, -0.08]; t.hipR = [-sitTh, 0, 0.08];
+      t.knL = t.knR = sitTh - 0.12; t.anL = t.anR = 0.12;
+      t.shL = [-0.7, 0, 0.1]; t.elL = -1.45;
+    }
+  ];
+  const seedOf = String(c.nick || '').split('').reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7);
+  let still = 0, forced = null;              // forced — 검사 · 화면에서 자세 하나를 정해 둘 때
+  const lerpTo = (k) => {
+    const T = target;
+    const mix = (a, b) => a + (b - a) * k;
+    J.drop().y = mix(J.drop().y - hipY, T.y) + hipY;
+    for (const key of ['pel', 'ch', 'nk', 'shL', 'shR', 'hipL', 'hipR']){
+      const r = J[key]; r.x = mix(r.x, T[key][0]); r.y = mix(r.y, T[key][1]); r.z = mix(r.z, T[key][2]);
+    }
+    for (const key of ['elL', 'wrL', 'elR', 'knL', 'anL', 'knR', 'anR']) J[key].x = mix(J[key].x, T[key]);
+  };
+  let target = blank();
   let phase = 0, idle = Math.random() * 6, reachLeft = 0, tossLeft = 0;
   const TOSS_TIME = 0.55;
   const swingK = Math.min(1, 0.3 / legH + 0.25);                                                // 긴 다리는 덜 벌린다
@@ -587,60 +753,60 @@ export function createAvatar(c, { lamp = false } = {}){
     reach(sec){ reachLeft = Math.max(reachLeft, sec || 2); },
     reaching(){ return reachLeft > 0; },
     toss(){ tossLeft = TOSS_TIME; },
+    setPose(i){ forced = i; },
+    poseCount: POSES.length,
     update(dt, speed){
       idle += dt;
       if (pinwheel.visible) vanes.rotation.z += dt * (0.5 + speed * 2.9);
-      const [L, Rg] = legs, [AL, AR] = arms;
+      const t = blank();
+      let rate = 5;
       if (speed > 0.05){
+        still = 0; rate = 14;
         phase += dt * (5.5 + speed * 1.9) * Math.min(1.25, 0.4 / legH + 0.35);
         const sw = Math.sin(phase);
-        /* 엉덩이가 앞뒤로 돌고, 다리가 뒤에서 앞으로 나올 때 무릎이 접히고, 발목은 발바닥을 땅과 나란히 */
-        for (const [l, d] of [[L, 1], [Rg, -1]]){
-          const p = phase + (d < 0 ? Math.PI : 0);
+        /* 엉덩이가 앞뒤로 돌고, 뒤에서 앞으로 나오는 다리의 무릎이 접히고, 발목은 발바닥을 땅과 나란히.
+           골반은 내딛는 쪽으로 조금 돌고 가슴은 그 반대로 — 사람이 걸을 때처럼 몸이 꼬인다 */
+        for (const [hip, kn, an, off] of [['hipL', 'knL', 'anL', 0], ['hipR', 'knR', 'anR', Math.PI]]){
+          const p = phase + off;
           const h = -Math.sin(p) * 0.6 * swingK;
           const k = (0.08 + Math.max(0, -Math.sin(p + 0.6)) * 0.95) * swingK;
-          l.hip.rotation.x = h;
-          l.knee.rotation.x = k;
-          l.ankle.rotation.x = -(h + k) * 0.7;
+          t[hip] = [h, 0, 0]; t[kn] = k; t[an] = -(h + k) * 0.7;
         }
-        armL.rotation.x = sw * 0.5;
-        AL.elbow.rotation.x = -(0.2 + Math.max(0, -sw) * 0.55);       // 앞으로 흔들 때 팔꿈치를 더 굽힌다
-        armR_.rotation.x = -sw * 0.2;
-        group.position.y = Math.abs(Math.cos(phase)) * 0.018;
-        head.position.y = headY - Math.sin(phase * 2 - 0.6) * 0.008;
-        group.scale.set(1, 1, 1);
+        t.pel[1] = sw * 0.12; t.ch[1] = -sw * 0.2; t.nk[1] = sw * 0.08; t.ch[0] = 0.04 + Math.min(0.08, speed * 0.02);
+        t.shL = [sw * 0.5, 0, 0]; t.elL = -(0.2 + Math.max(0, -sw) * 0.55);
+        t.shR = [-sw * 0.2, 0, -0.3];
+        t.y = Math.abs(Math.cos(phase)) * 0.018;
       } else {
         phase = 0;
-        const breathe = Math.sin(idle * 1.5) * 0.008;
-        group.position.y = 0;
-        group.scale.set(1 - breathe, 1 + breathe, 1 - breathe);
-        for (const l of legs){ l.hip.rotation.x = 0; l.knee.rotation.x = 0.03; l.ankle.rotation.x = -0.02; }
-        armL.rotation.x = armR_.rotation.x = 0;
-        AL.elbow.rotation.x = -0.12 - breathe * 2;
-        head.position.y = headY + breathe * 0.4;
+        still += dt;
+        t.ch[0] = Math.sin(idle * 1.5) * 0.02;                                              // 숨 — 가슴이 오르내린다
+        /* 가만히 4초 넘게 서 있으면 쉬는 자세. 무엇을 할지는 서버 시각과 이름으로 정한다 — 남의 화면에서도 같은 자세 */
+        if (forced != null) POSES[forced % POSES.length](t, idle);
+        else if (poses && still > 4){
+          const slot = Math.floor(serverNow() / 7000);
+          const i = Math.abs((slot * 2654435761 ^ seedOf) | 0) % (POSES.length + 2);
+          if (i < POSES.length) POSES[i](t, idle);
+        }
       }
-      AR.elbow.rotation.x = -HOLD;
+      target = t;
+      lerpTo(Math.min(1, dt * rate));
+      group.position.y = 0;
       group.rotation.x = 0;
       if (tossLeft > 0){
         tossLeft -= dt;
-        const t = 1 - tossLeft / TOSS_TIME;
-        armL.rotation.x = t < 0.3 ? (t / 0.3) * 1.5 - 0.1 : 1.4 - ((t - 0.3) / 0.7) * 3.3;
-        AL.elbow.rotation.x = t < 0.3 ? -1.2 * (t / 0.3) : -1.2 + 1.2 * ((t - 0.3) / 0.7);   // 젖힐 때 굽혔다 뿌리며 편다
-        group.rotation.x = t < 0.3 ? -0.12 * (t / 0.3) : -0.12 + 0.34 * ((t - 0.3) / 0.7);
+        const k = 1 - tossLeft / TOSS_TIME;
+        armL.rotation.x = k < 0.3 ? (k / 0.3) * 1.5 - 0.1 : 1.4 - ((k - 0.3) / 0.7) * 3.3;
+        arms[0].elbow.rotation.x = k < 0.3 ? -1.2 * (k / 0.3) : -1.2 + 1.2 * ((k - 0.3) / 0.7);   // 젖힐 때 굽혔다 뿌리며 편다
+        chest.p.rotation.y = k < 0.3 ? 0.35 * (k / 0.3) : 0.35 - 0.7 * ((k - 0.3) / 0.7);           // 허리를 비틀어 뿌린다
+        chest.p.rotation.x = k < 0.3 ? -0.15 * (k / 0.3) : -0.15 + 0.4 * ((k - 0.3) / 0.7);
         armL.rotation.z = -0.8;
-        armL.scale.y = 1 + 0.25 * Math.sin(t * Math.PI);
       } else if (reachLeft > 0){
         reachLeft -= dt;
         const k = Math.min(1, reachLeft / 0.3);
-        armL.rotation.x = -0.55 * k;
-        armL.rotation.z = -1.0 * k;
-        AL.elbow.rotation.x = -0.15 * k;
-        armL.scale.y = 1 + 0.15 * k;
-      } else {
-        armL.rotation.z = 0;
-        armL.scale.y = 1;
+        armL.rotation.set(-0.55 * k, 0, -1.0 * k);
+        arms[0].elbow.rotation.x = -0.15 * k;
+        chest.p.rotation.x = 0.12 * k;                                                     // 손을 내밀며 조금 숙인다
       }
-      armR_.rotation.z = -0.3;
     },
     dispose(){ for (const o of own) o.dispose(); }
   };
