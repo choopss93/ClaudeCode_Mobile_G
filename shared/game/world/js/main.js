@@ -856,7 +856,7 @@ function begin(myName, petName, petSpec, friends, myLook){
 
   /* 공도 맡은 사람이 혼자 움직인다. 그래서 공 목록은 `pickDriver` 보다
      먼저 있어야 한다 — 손님이 들어올 때 벌써 불리기 때문이다. */
-  const BALL_R = 0.12;
+  const BALL_R = 0.06;       // 공 반지름 — 지름 12cm (사용자 요청, 예전엔 24cm 라 작은 아이 머리만 했다)
   const mouthV = new THREE.Vector3();      // 아이 입 자리를 받아 둘 그릇
   const BALL_MODES = ['none', 'fly', 'rest', 'held'];
   const balls = [];
