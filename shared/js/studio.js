@@ -344,7 +344,7 @@ $('#editBtn').onclick = () => { draft = charOf(account) || blankChar(); makerFro
 function toWorld(e){
   if (charOf(account)) return;            // 있으면 링크 그대로 들어간다
   e && e.preventDefault();
-  makerFrom = 'world'; openMaker();       // 목록에서 미리 보여 준 그 캐릭터로 시작한다
+  draft = blankChar(); makerFrom = 'world'; openMaker();       // 새 캐릭터부터 만든다
 }
 
 /* ─────────── 갈래 목록 ───────────
@@ -374,9 +374,10 @@ function openCat(key){
   spin = 0.25;                                   // 앞을 보고 시작한다 (꾸미기의 front 와 같은 값) — 돌다 뒷모습으로 잡히지 않게
   const ch = charOf(account);
   if (ch) wear(ch);
-  else if (key === 'world') wear(draft);          // 아직 없으면 만들 캐릭터를 미리 보여 준다
+  else if (actor) actor.group.visible = false;   // 아직 없으면 캐릭터 자리에 '캐릭터를 생성해주세요.' 만 (사용자 요청)
+  $('#catEmpty').hidden = !!ch || key !== 'world';
   $('#catMake').hidden = key !== 'world';
-  $('#catMake').textContent = ch ? '캐릭터 수정 ›' : '이 캐릭터로 만들기 ›';
+  $('#catMake').textContent = ch ? '캐릭터 수정 ›' : '새 캐릭터 만들기 ›';
   $('#catCrumb').innerHTML = `Metaversal Studio › <b>${c.label}</b>`;
   $('#catTitle').textContent = c.name;
   $('#catSub').textContent = c.sub;
@@ -397,7 +398,7 @@ document.querySelector('#menu .menu').addEventListener('click', e => {
 /* 이미 있으면 '캐릭터 수정' — 저장하면 이 목록으로 돌아온다 (사용자 요청) */
 $('#catMake').onclick = () => {
   const ch = charOf(account);
-  if (ch){ draft = { ...ch }; makerFrom = 'cat'; } else makerFrom = 'world';
+  if (ch){ draft = { ...ch }; makerFrom = 'cat'; } else { draft = blankChar(); makerFrom = 'world'; }   // 없으면 새 캐릭터부터
   openMaker();
 };
 $('#catList').addEventListener('click', e => {
