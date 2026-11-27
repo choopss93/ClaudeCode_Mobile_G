@@ -125,7 +125,16 @@
   /* 종류 + 색 한 칸 (사용자 요청) — 위 두 줄은 종류, 맨 아래 줄은 컬러피커 */
   .opts.names{grid-template-columns:repeat(var(--cols,4),minmax(0,1fr))}
   .opts.mix{grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));grid-template-rows:1fr 1fr 30px;grid-auto-rows:0;gap:4px}
-  .opts.mix .pick{grid-column:1 / -1;grid-row:3}
+  .opts.mix .mrow{grid-column:1 / -1;grid-row:3;display:flex;gap:6px;min-width:0}
+  .opts.mix .mrow .pick{flex:1;min-width:0}
+  .pager{display:flex;align-items:center;gap:2px;flex:none}
+  .opts .pager button{width:34px;height:100%;padding:0;font-size:16px;color:var(--ink)}
+  .pager i{font-style:normal;font-size:11px;color:var(--muted);min-width:30px;text-align:center;font-variant-numeric:tabular-nums}
+  .opts.sliders{grid-template-columns:1fr;grid-auto-rows:1fr;gap:2px}
+  .sl{display:grid;grid-template-columns:62px 30px 1fr 30px;align-items:center;gap:6px;font-size:11px;color:var(--faint);min-height:0}
+  .sl b{font-size:12px;color:var(--ink)}
+  .sl span:last-child{text-align:right}
+  .sl input{width:100%;margin:0;accent-color:var(--accent);height:22px}
   .opts.solo{grid-template-columns:1fr;grid-template-rows:44px;align-content:center}
   .pick{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:11px;background:var(--surface);padding:0 10px;
     font-size:12px;color:var(--muted);min-height:0;cursor:pointer}
@@ -470,6 +479,6 @@
     <div class="btns" id="myBtns"></div>
   </div>
 </div>
-<script type="module" src="js/studio.js?v=s44"></script>
+<script type="module" src="js/studio.js?v=s46"></script>
 </body>
 </html>

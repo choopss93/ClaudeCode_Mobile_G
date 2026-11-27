@@ -15,7 +15,7 @@ import { trackPresence } from '../../../js/presence.js?v=p2';
 /* 접속 알림 (마스터의 '접속자') — 정원에 들어선 뒤가 게임 중 */
 let walking = false;
 const pres = trackPresence(() => ({ state: walking ? 'game' : 'wait', place: '무지개 정원' }));
-import { cleanChar, colorsOf, longOf, packChar, unpackChar } from '../../../js/character.js?v=c8';
+import { cleanChar, colorsOf, longOf, packChar, unpackChar } from '../../../js/character.js?v=c9';
 import { createLiveNet } from '#live';
 import { SKY, colorFor, hairFor, wind, toon } from '#look';
 

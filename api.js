@@ -151,7 +151,8 @@ async function readToken(env, token){
    {v:4, nick, gender, skin, …} — 열쇠는 CHAR_KEYS 그대로. 종류는 0~63 정수, 색(…Color · skin · lip)은 0~0xFFFFFF 정수 (컬러피커).
    예전 판(v 가 4 가 아닌 것)은 **버린다** (사용자 요청 — 새 꾸미기로 다시 만든다). */
 const CHAR_KEYS = ['gender', 'skin', 'lip', 'hair', 'hairColor', 'top', 'topColor', 'bottom', 'bottomColor', 'shoes', 'shoesColor',
-  'hat', 'hatColor', 'face', 'faceColor', 'neck', 'neckColor', 'back', 'backColor', 'finish'];
+  'hat', 'hatColor', 'face', 'faceColor', 'neck', 'neckColor', 'back', 'backColor', 'finish', 'leg', 'arm', 'torso', 'fat'];
+const BODY_KEYS = ['leg', 'arm', 'torso', 'fat'];
 const isColorKey = k => k === 'skin' || k === 'lip' || k.endsWith('Color');
 function cleanChar(c){
   if (!c || typeof c !== 'object' || c.v !== 4) return null;
@@ -160,7 +161,7 @@ function cleanChar(c){
   const out = { v: 4, nick };
   for (const k of CHAR_KEYS){
     const max = isColorKey(k) ? 0xFFFFFF : 63;
-    out[k] = Number.isInteger(c[k]) && c[k] >= 0 && c[k] <= max ? c[k] : 0;
+    out[k] = Number.isInteger(c[k]) && c[k] >= 0 && c[k] <= max ? c[k] : (BODY_KEYS.includes(k) ? 10 : 0);   // 체형 밀대는 10 이 기본
   }
   return out;
 }
