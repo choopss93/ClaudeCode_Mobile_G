@@ -5,7 +5,7 @@ import { readAccount, refresh, signup, login, logout, logoutAll, deleteAccount, 
 import { trackPresence } from './presence.js?v=p2';
 import { serverNow } from './clock.js?v=k1';
 import { createLogo } from './logo.js?v=l2';
-import { readPhoto, applyPhoto } from './photo.js?v=f1';
+import { readPhoto, charFromPhoto, summary } from './photo.js?v=f3';
 
 /*
  * Metaversal Studio — 시작 → 가입·로그인 → 캐릭터 꾸미기 → 메뉴.
@@ -17,7 +17,7 @@ import { readPhoto, applyPhoto } from './photo.js?v=f1';
  */
 
 const $ = s => document.querySelector(s);
-const screens = ['intro', 'auth', 'recover', 'codeScreen', 'maker', 'menu', 'cat'];
+const screens = ['intro', 'auth', 'recover', 'codeScreen', 'maker', 'menu', 'cat', 'photo'];
 
 /* 확대 막기 — 두 손가락 오므리기 (사파리는 viewport 를 듣지 않는다) */
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
@@ -439,25 +439,60 @@ $('#catMake').onclick = () => {
   if (ch){ draft = { ...ch }; makerFrom = 'cat'; } else { draft = blankChar(); makerFrom = 'world'; }   // 없으면 새 캐릭터부터
   openMaker();
 };
-/* 📷 사진으로 만들기 (사용자 요청) — 온몸 사진에서 머리칼 · 피부 · 상의 · 하의 · 신발 색을 뽑아 입히고 꾸미기를 연다.
-   지금 캐릭터가 있으면 그 모양에 색만 바꾸고, 없으면 새 캐릭터에 기본 종류를 골라 둔다. 사진은 이 기기 밖으로 나가지 않는다 */
-$('#catPhoto').onclick = () => { $('#photoIn').value = ''; $('#photoIn').click(); };
+/* 📷 사진으로 만들기 (사용자 요청) — 따로 열리는 화면. 사진을 올리면 머리 길이 · 소매 · 바지/치마 · 겉옷과 색을 어림해
+   (`photo.js`) 오른쪽에 그 캐릭터를 세운다. 성별을 바꾸면 같은 사진으로 그 성별 목록에서 다시 고른다.
+   '이 캐릭터로' 는 꾸미기를 열어 다듬고 저장하게 한다. 사진은 이 기기 밖으로 나가지 않는다 */
+let photoRead = null, photoBase = null;
+function openPhoto(){
+  photoRead = null;
+  const ch = charOf(account);
+  photoBase = ch ? { ...ch } : blankChar();
+  $('#photoPick').classList.remove('has');
+  $('#photoUse').disabled = true;
+  $('#photoWait').hidden = false;
+  $('#photoSum').innerHTML = '사진 속 머리 길이 · 소매 · 바지/치마와 색을 읽어 비슷하게 입혀요.<br>사진은 이 폰 밖으로 보내지 않아요.';
+  paintSex();
+  spin = 0.25; held = false; zoomTo = 0;
+  show('photo');
+  if (actor) actor.group.visible = false;
+}
+function paintSex(){ for (const b of $('#photoSex').children) b.classList.toggle('on', +b.dataset.g === photoBase.gender); }
+function photoChar(){
+  draft = charFromPhoto({ ...photoBase }, photoRead);
+  wear(draft);
+  $('#photoSum').innerHTML = summary(draft) + (photoRead.found ? '' : '<br>사람을 또렷이 못 찾았어요 — 온몸이 나온 사진이 좋아요.');
+}
+$('#catPhoto').onclick = () => openPhoto();
+$('#photoBack').onclick = () => openCat('world');
+$('#photoPick').onclick = $('#photoAgain').onclick = () => { $('#photoIn').value = ''; $('#photoIn').click(); };
+$('#photoSex').addEventListener('click', e => {
+  const b = e.target.closest('[data-g]');
+  if (!b) return;
+  photoBase.gender = +b.dataset.g; photoBase = fitGender(photoBase); paintSex();
+  if (photoRead) photoChar();
+});
 $('#photoIn').onchange = async () => {
   const f = $('#photoIn').files[0];
   if (!f) return;
-  const btn = $('#catPhoto'); btn.disabled = true;
   try {
-    const { colors, found } = await readPhoto(f);
-    const ch = charOf(account);
-    draft = applyPhoto(ch ? { ...ch } : blankChar(), colors);
-    makerFrom = ch ? 'cat' : 'world';
-    openMaker();
-    $('#makerMsg').textContent = found ? '사진에서 색을 뽑았어요. 모양은 단계마다 골라 주세요.'
-                                       : '사람을 또렷이 못 찾아 가운데 색을 썼어요. 온몸이 나온 사진이 좋아요.';
+    photoRead = await readPhoto(f);
+    // 사진 미리보기 — 찾은 사람 상자를 금빛 테두리로
+    const pv = $('#photoPrev'), src = photoRead.img;
+    pv.width = src.width * 2; pv.height = src.height * 2;
+    const x = pv.getContext('2d'); x.imageSmoothingEnabled = true; x.drawImage(src, 0, 0, pv.width, pv.height);
+    if (photoRead.found){ const [a, b, c, d] = photoRead.box; x.strokeStyle = '#E8B04B'; x.lineWidth = 3; x.strokeRect(a * 2, b * 2, (c - a + 1) * 2, (d - b + 1) * 2); }
+    $('#photoPick').classList.add('has');
+    // 캐릭터가 아직 없으면 사진으로 성별을 어림한다 (긴 머리 · 치마면 여자) — 버튼으로 바꿀 수 있다
+    if (!charOf(account)){ photoBase.gender = photoRead.shape.girlish ? 1 : 0; paintSex(); }
+    $('#photoWait').hidden = true;
+    photoChar();
+    $('#photoUse').disabled = false;
   } catch (err){
-    alert(err.message);
-  } finally { btn.disabled = false; }
+    $('#photoSum').textContent = err.message;
+  }
 };
+$('#photoUse').onclick = () => { makerFrom = charOf(account) ? 'cat' : 'world'; openMaker(); };
+
 $('#catList').addEventListener('click', e => {
   const a = e.target.closest('a[href="game/world/"]');
   if (a) toWorld(e);
