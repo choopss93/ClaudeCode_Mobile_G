@@ -31,6 +31,7 @@ import { connectMqtt } from '#mqtt';
  *          — 밥그릇은 [x, z, 남은밥] 이고, **없다는 것도 소식**이라
  *            null 로 보낸다. 맡지 않은 사람은 0 을 보내 "내가 말할
  *            처지가 아니다" 를 뜻한다.
+ *          — 열여섯째(끝)는 점프한 높이 (m). 옛 판은 보내지 않으니 0 으로 읽는다.
  *   ['b',  id, x, y, z, vx, vy, vz, 빛깔]   공을 던져 달라는 부탁
  *   ['f',  id, x, z]                        밥을 놓아 달라는 부탁
  *   ['t',  id, 한 말]
@@ -195,7 +196,7 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
         ? { x: +m[6], z: +m[7], ry: +m[8], speed: +m[9], greet: !!m[10],
             trick: typeof m[11] === 'string' ? m[11] : null } : null;
       handlers.onState(from, {
-        x: +m[2] || 0, y: 0, z: +m[3] || 0, ry: +m[4] || 0, speed: +m[5] || 0,
+        x: +m[2] || 0, y: Math.max(0, Math.min(3, +m[16] || 0)), z: +m[3] || 0, ry: +m[4] || 0, speed: +m[5] || 0,
         pet, reach: !!m[12], tossSeq: +m[13] || 0,
         balls: Array.isArray(m[14])
           ? m[14].map(b => ({ x: +b[0] || 0, y: +b[1] || 0, z: +b[2] || 0,
@@ -340,6 +341,7 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
       // 0 = 맡은 사람이 아니라 말할 처지가 아니다. null = 그릇이 없다.
       msg.push(bowl === undefined ? 0
                : (bowl ? [round(bowl.x), round(bowl.z), round(bowl.amount)] : null));
+      msg.push(round(s.y || 0));                      // 점프한 높이 — 끝에 붙였다 (옛 판은 읽지 않는다)
       link.publish(topic, JSON.stringify(msg));
     },
 

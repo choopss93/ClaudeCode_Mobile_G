@@ -168,7 +168,7 @@
 
   #help{
     position:fixed;z-index:5;
-    right:calc(14px + env(safe-area-inset-right, 0px));
+    right:calc(96px + env(safe-area-inset-right, 0px));
     bottom:calc(84px + env(safe-area-inset-bottom, 0px));
     max-width:min(210px, 44vw);text-align:right;
     font-size:11.5px;line-height:1.65;color:#6E6480;
@@ -177,6 +177,22 @@
   }
   #help b{font-weight:600;color:#5E5566}
 
+  /* ── 점프 단추 (사용자 요청) ── 오른손 엄지 자리 — 대화창 위 · 재주 단추 아래. Space 키로도 뛴다 */
+  #jumpBtn{
+    position:fixed;z-index:7;
+    right:calc(14px + env(safe-area-inset-right, 0px));
+    bottom:calc(72px + env(safe-area-inset-bottom, 0px));
+    width:70px;height:70px;border-radius:50%;border:0;
+    font:inherit;font-size:14px;font-weight:700;color:#fff;
+    background:linear-gradient(180deg,#8FD9B6,#5FBF94);
+    box-shadow:0 5px 16px rgba(80,140,110,.35);
+    cursor:pointer;touch-action:none;-webkit-tap-highlight-color:transparent;
+    transition:opacity .18s ease;
+  }
+  #jumpBtn:active{transform:scale(.92)}
+  @media (orientation:landscape) and (max-height:520px){
+    #jumpBtn{bottom:calc(14px + env(safe-area-inset-bottom, 0px));width:60px;height:60px}
+  }
   /* ── 오른쪽 재주 단추 ──
      엄지가 닿는 자리다. 조이스틱(왼쪽 아래)과 대화창(아래)을 가리지
      않도록 오른쪽에 세로로 세우고, 안내문(#help) 위에 둔다. */
@@ -410,7 +426,7 @@
   #start .ver{display:block;margin-top:4px;font-size:10.5px;color:#C0BACB}
 
   /* 키보드가 올라온 동안에는 가릴 것을 치운다 */
-  body.kb #stick, body.kb #help, body.kb #acts{opacity:0;pointer-events:none}
+  body.kb #stick, body.kb #help, body.kb #acts, body.kb #jumpBtn{opacity:0;pointer-events:none}
 
   /* ── 코드 창 ── */
   /* 아래에서 올라오는 창. 넘겨 보지 않는다 — 창 안에 맞춰 넣는다 */
@@ -575,6 +591,7 @@
   @media (hover:none) and (pointer:coarse){
     .touch-only{display:inline}
     .mouse-only{display:none}
+    #help{display:none}                 /* 손가락 화면에서는 그 자리를 점프 단추가 쓴다 */
   }
   @media (max-height:560px){
     #help{display:none}
@@ -587,18 +604,18 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-27k",
-    "#world": "./js/world.js?v=2026-11-27k",
-    "#actor": "./js/actor.js?v=2026-11-27k",
-    "#controls": "./js/controls.js?v=2026-11-27k",
-    "#net": "./js/net.js?v=2026-11-27k",
-    "#pets": "./js/pets.js?v=2026-11-27k",
-    "#petcode": "./js/petcode.js?v=2026-11-27k",
-    "#channel": "./js/channel.js?v=2026-11-27k",
-    "#daylight": "./js/daylight.js?v=2026-11-27k",
-    "#mqtt": "./js/mqtt.js?v=2026-11-27k",
-    "#live": "./js/live.js?v=2026-11-27k",
-    "#paint": "./js/paint.js?v=2026-11-27k"
+    "#look": "./js/look.js?v=2026-11-27l",
+    "#world": "./js/world.js?v=2026-11-27l",
+    "#actor": "./js/actor.js?v=2026-11-27l",
+    "#controls": "./js/controls.js?v=2026-11-27l",
+    "#net": "./js/net.js?v=2026-11-27l",
+    "#pets": "./js/pets.js?v=2026-11-27l",
+    "#petcode": "./js/petcode.js?v=2026-11-27l",
+    "#channel": "./js/channel.js?v=2026-11-27l",
+    "#daylight": "./js/daylight.js?v=2026-11-27l",
+    "#mqtt": "./js/mqtt.js?v=2026-11-27l",
+    "#live": "./js/live.js?v=2026-11-27l",
+    "#paint": "./js/paint.js?v=2026-11-27l"
   }
 }
 </script>
@@ -625,10 +642,12 @@
 </div>
 
 <p id="help">
-  <span class="mouse-only"><b>WASD</b> · <b>방향키</b> 로 걷기<br>
+  <span class="mouse-only"><b>WASD</b> · <b>방향키</b> 로 걷기 · <b>Space</b> 점프<br>
   끌어서 둘러보기 · <b>Enter</b> 로 말하기</span>
   <span class="touch-only"><b>조이스틱</b> 을 밀어 걷기<br>화면을 끌어 둘러보기</span>
 </p>
+
+<button type="button" id="jumpBtn" aria-label="점프">점프</button>
 
 <div id="acts">
   <button type="button" id="actFeed">밥주기</button>
@@ -736,7 +755,7 @@
     <button type="submit">정원으로 들어가기</button>
     </div>
     <p class="note foot"><span class="txt">서두를 것도, 지는 것도 없는 곳이에요.</span>
-      <span class="ver">2026-11-27k</span></p>
+      <span class="ver">2026-11-27l</span></p>
   </form>
 </div>
 
@@ -807,6 +826,6 @@
   </div>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-27k"></script>
+<script type="module" src="./js/main.js?v=2026-11-27l"></script>
 </body>
 </html>

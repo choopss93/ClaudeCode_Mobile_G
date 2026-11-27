@@ -527,7 +527,8 @@ const LAMP = 5, LAMP_REACH = 16, LAMP_DECAY = 1, LAMP_COLOR = 0xFFECC4;
 export function createBlocky(c, { lamp = false } = {}){
   const own = [];
   const group = new THREE.Group();
-  group.add(makeBlob(0.3));
+  const blob = makeBlob(0.3);
+  group.add(blob);
   const { out, AX, LX, hipY, shY, headY, lift } = build(c);
   const PIVOT = { body: [0, 0, 0], head: [0, headY, 0], armL: [-AX, shY, 0], armR: [AX, shY, 0], legL: [-LX, hipY, 0], legR: [LX, hipY, 0] };
   const J = {};
@@ -563,7 +564,7 @@ export function createBlocky(c, { lamp = false } = {}){
   let phase = 0, idle = Math.random() * 6, reachLeft = 0, tossLeft = 0, holding = false;
   const TOSS_TIME = 0.55;
   const ease = (o, k, v, t) => { o[k] += (v - o[k]) * t; };
-  return {
+  const api = {
     group, headTop: HEAD_TOP + lift, headY: HEAD_Y + lift, nearZ: 1.9,
     setHand(dark){
       holding = !!dark;
@@ -584,11 +585,15 @@ export function createBlocky(c, { lamp = false } = {}){
         phase += dt * (5.5 + speed * 1.9);
         sw = Math.sin(phase); bob = Math.abs(Math.cos(phase)) * 0.02;
       } else phase = 0;
-      ease(J.legL.rotation, 'x', -sw * 0.55, t);
-      ease(J.legR.rotation, 'x', sw * 0.55, t);
-      ease(J.armL.rotation, 'x', sw * 0.5, t);
-      ease(J.armR.rotation, 'x', holding ? -0.45 : -sw * 0.5, t);
-      ease(J.armL.rotation, 'z', -0.06, t); ease(J.armR.rotation, 'z', 0.06, t);
+      /* 공중 (점프) — 한 다리는 앞으로 접고 팔은 벌려 든다. 발밑 그림자는 땅에 남기고 작아진다 */
+      // 높이는 세상 기준으로 읽는다 — 갈아입히면(restyle) 바깥 그릇이 움직이고 이 몸은 그 안에 있다. 땅은 어디나 y = 0
+      const gy = Math.max(0, group.matrixWorld.elements[13]), air = gy > 0.02, ta = Math.min(1, dt * 16);
+      blob.position.y = -gy; blob.scale.setScalar(Math.max(0.5, 1 - gy * 0.6));
+      ease(J.legL.rotation, 'x', air ? -0.7 : -sw * 0.55, air ? ta : t);
+      ease(J.legR.rotation, 'x', air ? 0.25 : sw * 0.55, air ? ta : t);
+      ease(J.armL.rotation, 'x', air ? -0.5 : sw * 0.5, air ? ta : t);
+      ease(J.armR.rotation, 'x', holding ? -0.45 : air ? -0.5 : -sw * 0.5, air ? ta : t);
+      ease(J.armL.rotation, 'z', air ? -0.5 : -0.06, air ? ta : t); ease(J.armR.rotation, 'z', air ? 0.5 : 0.06, air ? ta : t);
       ease(J.head.rotation, 'y', speed > 0.05 ? sw * 0.06 : Math.sin(idle * 0.4) * 0.25, t * 0.5);
       ease(J.head.rotation, 'x', speed > 0.05 ? 0 : Math.sin(idle * 1.5) * 0.02, t);
       for (const k in J) if (k !== 'legL' && k !== 'legR') J[k].position.y = PIVOT[k][1] + bob;
@@ -605,4 +610,5 @@ export function createBlocky(c, { lamp = false } = {}){
     },
     dispose(){ for (const o of own) o.dispose(); }
   };
+  return api;
 }

@@ -20,6 +20,8 @@ import { createLiveNet } from '#live';
 import { SKY, colorFor, hairFor, wind, toon } from '#look';
 
 const SPEED = 3.1;           // 전속력으로 걸을 때 초당 거리
+const JUMP_V = 4.3;          // 뛰어오르는 빠르기 (m/s) — 0.75m 쯤 뜬다
+const GRAVITY = 12.5;        // 내려오는 힘 (m/s²)
 const TURN = 11;             // 몸이 방향을 따라 도는 빠르기
 // 거니는 빠르기는 품종마다 다르다 (pets.js 의 walkSpeed). 사람보다 늘 느리다.
 const GREET_RANGE = 4.2;     // 주인이 이만큼 가까워지면 알아본다
@@ -1286,6 +1288,7 @@ function begin(myName, petName, petSpec, friends, myLook){
 
   /* 오른쪽 단추 넷 */
   $('actFeed').addEventListener('click', feedPet);
+  $('jumpBtn').addEventListener('pointerdown', e => { e.preventDefault(); jump.want = true; });
   $('actBall').addEventListener('click', throwBall);
   $('actSit').addEventListener('click', () => orderKind('sit'));
   $('actPaw').addEventListener('click', () => orderKind('paw'));
@@ -1448,6 +1451,7 @@ function begin(myName, petName, petSpec, friends, myLook){
   });
   // 폰에는 Enter 키가 없으니 키보드 단축키는 마우스 쪽에서만 쓴다
   addEventListener('keydown', e => {
+    if (e.code === 'Space' && document.activeElement !== chatIn && !e.repeat){ e.preventDefault(); jump.want = true; return; }
     if (e.key === 'Enter' && document.activeElement !== chatIn){
       e.preventDefault(); chatIn.focus();
     } else if (e.key === 'Escape' && document.activeElement === chatIn){
@@ -1564,6 +1568,7 @@ function begin(myName, petName, petSpec, friends, myLook){
   let last = performance.now();
   let first = true;
 
+  const jump = { want: false, air: false, y: 0, vy: 0, carry: null };   // 내 점프
   function frame(now){
     const dt = Math.min((now - last) / 1000, 0.05);
     last = now;
@@ -1587,9 +1592,25 @@ function begin(myName, petName, petSpec, friends, myLook){
       const dx = cos * cam.move.x - sin * cam.move.z;
       const dz = -sin * cam.move.x - cos * cam.move.z;
       const len = Math.hypot(dx, dz);
-      mySpeed = walk(me.group, dx / len, dz / len, SPEED * Math.min(1, push), dt);
+      const sp = SPEED * Math.min(1, push);
+      mySpeed = walk(me.group, dx / len, dz / len, sp, dt);
+      if (jump.air) jump.carry = { x: dx / len, z: dz / len, s: sp };     // 공중에서도 민 쪽으로
+    } else if (jump.air && jump.carry){
+      // 손을 떼도 뛰던 쪽으로 날아간다
+      walk(me.group, jump.carry.x, jump.carry.z, jump.carry.s, dt);
     }
-    me.update(dt, mySpeed);
+    /* 점프 (사용자 요청) — 뛰는 순간 걷던 방향과 빠르기를 그대로 안고 날아간다 */
+    if (jump.want){
+      jump.want = false;
+      if (!jump.air){ jump.air = true; jump.vy = JUMP_V; jump.carry = push > 0.001 ? jump.carry : null; }
+    }
+    if (jump.air){
+      jump.vy -= GRAVITY * dt;
+      jump.y += jump.vy * dt;
+      if (jump.y <= 0){ jump.y = 0; jump.vy = 0; jump.air = false; jump.carry = null; }
+    }
+    me.group.position.y = jump.y;
+    me.update(dt, jump.air ? 0 : mySpeed);
 
     /* 반려동물 — 저마다 거닐다, 주인을 만나면 반가워한다 */
     for (const e of pets){
@@ -1850,7 +1871,7 @@ function begin(myName, petName, petSpec, friends, myLook){
        살아 있으므로, 내가 보내지 않으면 남의 화면에서는 멈춰 있다. */
     net.sendState(
       { x: me.group.position.x, z: me.group.position.z,
-        ry: me.group.rotation.y, speed: mySpeed },
+        ry: me.group.rotation.y, speed: mySpeed, y: jump.y },
       // 남이 맡고 있으면 보내지 않는다 — 둘이 같이 보내면 서로 밀친다
       (myPet && !myPet.remote) ? { x: myPet.actor.group.position.x,
                 z: myPet.actor.group.position.z,
@@ -1874,7 +1895,7 @@ function begin(myName, petName, petSpec, friends, myLook){
       const g = p.actor.group;
       g.position.x += (p.s.x - g.position.x) * k;
       g.position.z += (p.s.z - g.position.z) * k;
-      g.position.y = p.s.y;
+      g.position.y += ((p.s.y || 0) - g.position.y) * Math.min(1, dt * 18);   // 점프한 높이
 
       /* 여기서는 밀어내지 않는다. 거니는 손님은 서버 시각이 자리를 정하고
          (모두의 화면에서 같은 자리), 접속한 사람은 저쪽 기기가 자리를 정한다.
