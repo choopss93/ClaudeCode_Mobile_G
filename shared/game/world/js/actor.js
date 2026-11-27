@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { toon, makeBlob, makeSpray, sprayCap } from '#look';
 import { PAINTS, fixPaint, fixSprays, sprayRadius } from '#pets';
-import { createAvatar } from './avatar.js?v=a6';
+import { createAvatar } from './avatar.js?v=a7';
 
 /** 뿌린 자국을 살갗에서 띄우는 거리 (m). 깜빡이지 않을 만큼만. */
 const SPRAY_LIFT = 0.0015;
@@ -201,7 +201,7 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
 
     /** 어두우면 등불, 밝으면 바람개비. */
     setHand(dark){
-      pinwheel.visible = !dark;
+      pinwheel.visible = false;             // 바람개비는 뺐다 (사용자 요청) — 밤의 등불만
       lantern.visible = !!dark;
       if (glow) glow.intensity = dark ? LAMP : 0;
     },

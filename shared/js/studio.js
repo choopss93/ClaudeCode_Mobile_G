@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s10';
+import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s11';
 import { STYLES, GENDERS, PALETTE, SKINS, HAIR_COLORS, EYE_COLORS, GLOWS, LIPS, HAIRS, BROWS, EYES, NOSES, MOUTHS, CHINS,
-  EYE_SHAPES, TOPS, BOTTOMS, SHOES, HATS, ACCS, SLIDER, STYLE_PRESET, hasFace, hex, cleanChar, randomChar } from './character.js?v=c4';
+  EYE_SHAPES, TOPS, BOTTOMS, SHOES, HATS, ACCS, SLIDER, STYLE_PRESET, hasFace, hex, cleanChar, randomChar } from './character.js?v=c5';
 import { readAccount, refresh, signup, login, logout, logoutAll, deleteAccount, saveChar, recover, newRecovery, checkId, renameId } from './account.js?v=s9';
 import { trackPresence } from './presence.js?v=p2';
 import { serverNow } from './clock.js?v=k1';
@@ -274,8 +274,10 @@ $('#opts').addEventListener('click', e => {
   const b = e.target.closest('[data-v]');
   if (!b) return;
   const k = b.dataset.k, v = +b.dataset.v;
-  if (k === 'style'){                       // 스타일을 바꾸면 그 스타일의 옷차림으로 (성별 · 얼굴 생김새는 그대로)
-    if (draft.style !== v) Object.assign(draft, { style: v }, STYLE_PRESET[v]);
+  if (k === 'style'){                           if (draft.style !== v){                // 스타일을 바꾸면 머리 · 얼굴 바탕만 그 스타일 것으로 — 입혀 둔 옷은 그대로 (처음엔 옷이 없다)
+      const { top, topColor, bottom, bottomColor, shoes, shoesColor, hat, hatColor, acc, accColor, ...look } = STYLE_PRESET[v];
+      Object.assign(draft, { style: v }, look);
+    }
   } else draft[k] = v;
   paintMaker();
 });

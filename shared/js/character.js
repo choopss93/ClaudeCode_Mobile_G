@@ -57,8 +57,8 @@ export const MOUTHS  = L('미소', '활짝', '일자', '오', '시무룩', '메�
 export const CHINS   = L('동글', '뾰족', '각진', '넓은', '갸름');
 export const LIP_NAMES = L('피부색', '핑크', '코랄', '레드', '베리', '누드', '브라운', '베이비');
 export const EYE_SHAPES = L('동그라미', '세로 알약', '가로 슬릿', '반달', '네모', 'X', '하트', '별');
-export const TOPS    = L('티셔츠', '후디', '재킷', '패딩', '맨투맨', '민소매', '바람막이', '셔츠');
-export const BOTTOMS = L('반바지', '조거', '청바지', '카고', '치마', '레깅스 + 워머', '와이드', '트레이닝');
+export const TOPS    = L('티셔츠', '후디', '재킷', '패딩', '맨투맨', '민소매', '바람막이', '셔츠', '없음');
+export const BOTTOMS = L('반바지', '조거', '청바지', '카고', '치마', '레깅스 + 워머', '와이드', '트레이닝', '없음');
 export const SHOES   = L('운동화', '하이탑', '부츠', '슬립온', '맨발');
 export const HATS    = L('없음', '비니', '캡', '후드 쓰기', '버킷햇', '헤드폰');
 export const ACCS    = L('없음', '체인', '크로스백', '백팩', '목도리');
@@ -82,13 +82,13 @@ export const KEYS = [
 /* 스타일마다 처음 입는 옷 — 참고 그림의 느낌 그대로 시작한다 */
 const P = c => PALETTE.indexOf(c);
 export const STYLE_PRESET = [
-  { top: 2, topColor: P(0x4FBF6A), bottom: 0, bottomColor: P(0x2A2B2F), shoes: 0, shoesColor: P(0xFFFFFF), hat: 0, acc: 0, hatColor: P(0x2A2B2F), accColor: P(0xFFD84D),
+  { top: 8, topColor: P(0x4FBF6A), bottom: 8, bottomColor: P(0x2A2B2F), shoes: 4, shoesColor: P(0xFFFFFF), hat: 0, acc: 0, hatColor: P(0x2A2B2F), accColor: P(0xFFD84D),
     hair: 2, hairColor: 7, faceColor: 0 },
-  { top: 1, topColor: P(0xFFFFFF), bottom: 1, bottomColor: P(0xFFFFFF), shoes: 4, shoesColor: P(0xFFFFFF), hat: 3, acc: 0, hatColor: P(0xFFFFFF), accColor: P(0xC9CBD0),
+  { top: 8, topColor: P(0xFFFFFF), bottom: 8, bottomColor: P(0xFFFFFF), shoes: 4, shoesColor: P(0xFFFFFF), hat: 0, acc: 0, hatColor: P(0xFFFFFF), accColor: P(0xC9CBD0),
     hair: 0, faceColor: P(0xFFFFFF), eyesOn: 1, eyeShape: 2, glow: 0 },
-  { top: 1, topColor: P(0x111113), bottom: 7, bottomColor: P(0x55585E), shoes: 1, shoesColor: P(0xFF5A5F), hat: 1, acc: 1, hatColor: P(0x2A2B2F), accColor: P(0xC9CBD0),
+  { top: 8, topColor: P(0x111113), bottom: 8, bottomColor: P(0x55585E), shoes: 4, shoesColor: P(0xFF5A5F), hat: 0, acc: 0, hatColor: P(0x2A2B2F), accColor: P(0xC9CBD0),
     hair: 0, faceColor: P(0x111113), eyesOn: 1, eyeShape: 0, glow: 1 },
-  { top: 3, topColor: P(0xFFF0A8), bottom: 5, bottomColor: P(0x2A2B2F), shoes: 0, shoesColor: P(0xF2F2F0), hat: 2, acc: 2, hatColor: P(0x2A2B2F), accColor: P(0x8A5A3C),
+  { top: 8, topColor: P(0xFFF0A8), bottom: 8, bottomColor: P(0x2A2B2F), shoes: 4, shoesColor: P(0xF2F2F0), hat: 0, acc: 0, hatColor: P(0x2A2B2F), accColor: P(0x8A5A3C),
     hair: 5, hairColor: 1, faceColor: 0 }
 ];
 

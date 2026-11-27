@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { toon, toonUnique, makeBlob } from '#look';
 import { serverNow } from '../../../js/clock.js';
-import { SLIDER, PALETTE, SKINS, HAIR_COLORS, EYE_COLORS, GLOWS, LIPS, STYLES } from '../../../js/character.js?v=c4';
+import { SLIDER, PALETTE, SKINS, HAIR_COLORS, EYE_COLORS, GLOWS, LIPS, STYLES } from '../../../js/character.js?v=c5';
 
 /*
  * 새 캐릭터 (v2) — shared/js/character.js 의 번호를 받아 짓는다.
@@ -274,7 +274,7 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
 
   /* 하의 */
   const bm = toon(bot), bk = c.bottom;
-  if (bk !== 4) bodyAt(torsoGeo(1.07, 0, 0.27), bm);
+  if (bk !== 4 && bk !== 8) bodyAt(torsoGeo(1.07, 0, 0.27), bm);        // 8 = 하의 없음
   for (const { s, L } of legs){
     switch (bk){
       case 0: cover(L, bm, 0, 0.62, 1.32); break;                                                  // 반바지
@@ -345,7 +345,8 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   const handLen = armR * 2.5;
   const upL = (armLen - handLen) * 0.52, foreL = (armLen - handLen) * 0.48;
   const shY = neckY - torsoH * 0.07, shX = torsoW * 0.8 * (puffer ? 1.08 : 1) + armR * 0.2;   // 어깨 관절은 몸통 비탈에 반쯤 묻는다
-  const sleeveB = { 0: 0.6, 5: 0 }[c.top] ?? 1.94;
+  const bare = c.top === 8;                       // 상의 없음 (처음엔 옷을 입히지 않는다 — 사용자 요청)
+  const sleeveB = { 0: 0.6, 5: 0, 8: 0 }[c.top] ?? 1.94;
   const sleeveK = puffer ? 1.42 : 1.18;
   const tm = toon(top);
   const arms = [-1, 1].map(s => {
@@ -367,15 +368,27 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   });
   const armL = arms[0].a, armR_ = arms[1].a;
 
+  /* ── 겹치지 않게 (사용자 요청 — 손 · 팔이 옷 면 안으로 들어가지 않게) ──
+     팔은 내려뜨린 손이 골반 · 허리(옷 두께까지)의 옆면 밖에 오도록 그만큼 벌린다 (`armOut`).
+     통 넓은 바지처럼 다리가 굵으면 무릎 · 발목이 서로 파고들지 않게 다리도 살짝 벌린다 (`legOut`). */
+  let wMax = 0;
+  for (let t = 0; t <= 0.6; t += 0.02) wMax = Math.max(wMax, at(t));
+  const clothK = Math.max(c.bottom === 8 || c.bottom === 4 ? 1.02 : 1.08, bare ? 1.02 : puffer ? 1.2 : 1.08);
+  const handR = armR * (sleeveB > 1 ? 0.62 * sleeveK : 0.68);
+  const armOut = Math.asin(Math.min(0.6, Math.max(0, (torsoW * wMax * clothK + handR + 0.006 - shX) / (armLen * 0.92))));
+  const PANT_K = { 1: 1.3, 2: 1.22, 3: 1.3, 5: 1.07, 6: 1.45, 7: 1.38 }[c.bottom] ?? 1;
+  const kneeR = legR * 0.8 * PANT_K * 1.06, ankR = (legR * 0.52 * PANT_K + (c.bottom === 6 ? legR * 0.55 : 0)) * 1.06;
+  const legOut = Math.asin(Math.min(0.15, Math.max(0, (kneeR - hipX) / thighL, (ankR - hipX) / (thighL + shinL))));
+
   /* 상의 — 몸통 위에 한 겹 */
   if (puffer){                                                                                    // 패딩 — 짧게 끊어 입고, 안에 받쳐 입은 옷이 보인다
     bodySplit(1.055, 0.16, 0.42, toon(shade(top, 0.62)));
     bodySplit(1.17, 0.36, 0.985, tm, { N: 4, puff: 0.08 });
-  } else bodySplit(1.055, 0.16, 0.985, tm);
+  } else if (!bare) bodySplit(1.055, 0.16, 0.985, tm);
   if (G === 1) for (const s of [-1, 1])                                                           // 가슴
-    put(group, ball, tm, s * torsoW * 0.36, hipY + torsoH * 0.72, torsoD * (puffer ? 0.75 : 0.62), torsoW * 0.3, torsoH * 0.1, torsoD * 0.42);
+    put(group, ball, bare ? skin : tm, s * torsoW * 0.36, hipY + torsoH * 0.72, torsoD * (puffer ? 0.75 : 0.62), torsoW * 0.3, torsoH * 0.1, torsoD * 0.42);
   if ([1, 4].includes(c.top)) bodySplit(1.075, 0.15, 0.22, toon(shade(top, 0.84)), { rib: 0.03 });   // 고무 밑단
-  else band(puffer ? 0.37 : 0.165, puffer ? 1.2 : 1.07, toon(shade(top, 0.86)), 0.016);           // 밑단
+  else if (!bare) band(puffer ? 0.37 : 0.165, puffer ? 1.2 : 1.07, toon(shade(top, 0.86)), 0.016);           // 밑단
   switch (c.top){
     case 1:                                                                                       // 후디 — 주머니 · 끈 · 내린 후드
       put(group, ball, toon(shade(top, 0.92)), 0, hipY + torsoH * 0.3, frontZ * 0.86, torsoW * 0.5, torsoH * 0.11, torsoD * 0.2);
@@ -640,6 +653,7 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   hand.position.set(0, -armR * 1.3, armR * 0.2);
   hand.rotation.x = HOLD;                 // 팔꿈치를 굽혀 들었으니 자루는 도로 세운다
   arms[1].wrist.add(hand);
+  let holding = false;                    // 손에 든 것이 있나 — 바람개비는 뺐다 (사용자 요청), 밤의 등불만 든다
   const pinwheel = new THREE.Group();
   pinwheel.rotation.z = -0.26;
   hand.add(pinwheel);
@@ -708,8 +722,8 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
     hipL: legs[0].hip.rotation, knL: legs[0].knee.rotation, anL: legs[0].ankle.rotation,
     hipR: legs[1].hip.rotation, knR: legs[1].knee.rotation, anR: legs[1].ankle.rotation
   };
-  const blank = () => ({ y: 0, pel: [0, 0, 0], ch: [0, 0, 0], nk: [0, 0, 0], shL: [0, 0, 0], elL: -0.12, wrL: 0,
-    shR: [0, 0, -0.3], elR: -HOLD, hipL: [0, 0, 0], knL: 0.03, anL: -0.02, hipR: [0, 0, 0], knR: 0.03, anR: -0.02 });
+  const blank = () => ({ y: 0, pel: [0, 0, 0], ch: [0, 0, 0], nk: [0, 0, 0], shL: [0, 0, -armOut], elL: -0.12, wrL: 0,
+    shR: [0, 0, armOut], elR: holding ? -HOLD : -0.12, hipL: [0, 0, -legOut], knL: 0.03, anL: -0.02, hipR: [0, 0, legOut], knR: 0.03, anR: -0.02 });
   /* 바닥에 앉아 무릎을 끌어안는 자세 — 엉덩이 관절이 땅 가까이(legR) 오도록 허벅지 각을 거꾸로 푼다 */
   const sitH = legR * 1.4, sitTh = Math.acos(Math.max(-1, Math.min(1, -(shinL + shoeH * 0.5 - sitH) / thighL)));
   /* 쉬는 자세 — design/refs/character/poses 의 마네킹 자세에서 몇 개 골랐다 */
@@ -746,8 +760,9 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   return {
     group, headTop, headY,
     setHand(dark){
-      pinwheel.visible = !dark;
+      pinwheel.visible = false;
       lantern.visible = !!dark;
+      holding = !!dark;
       if (glow) glow.intensity = dark ? 5 : 0;
     },
     reach(sec){ reachLeft = Math.max(reachLeft, sec || 2); },
@@ -770,11 +785,12 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
           const p = phase + off;
           const h = -Math.sin(p) * 0.6 * swingK;
           const k = (0.08 + Math.max(0, -Math.sin(p + 0.6)) * 0.95) * swingK;
-          t[hip] = [h, 0, 0]; t[kn] = k; t[an] = -(h + k) * 0.7;
+          t[hip] = [h, 0, hip === 'hipL' ? -legOut : legOut]; t[kn] = k; t[an] = -(h + k) * 0.7;
         }
         t.pel[1] = sw * 0.12; t.ch[1] = -sw * 0.2; t.nk[1] = sw * 0.08; t.ch[0] = 0.04 + Math.min(0.08, speed * 0.02);
-        t.shL = [sw * 0.5, 0, 0]; t.elL = -(0.2 + Math.max(0, -sw) * 0.55);
-        t.shR = [-sw * 0.2, 0, -0.3];
+        t.shL = [sw * 0.5, 0, -armOut]; t.elL = -(0.2 + Math.max(0, -sw) * 0.55);
+        if (holding) t.shR = [-sw * 0.2, 0, armOut];
+        else { t.shR = [-sw * 0.5, 0, armOut]; t.elR = -(0.2 + Math.max(0, sw) * 0.55); }
         t.y = Math.abs(Math.cos(phase)) * 0.018;
       } else {
         phase = 0;
