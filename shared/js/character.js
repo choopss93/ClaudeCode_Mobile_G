@@ -1,159 +1,140 @@
 /*
- * 캐릭터 — Metaversal Studio 에서 꾸미고, 게임들이 그대로 가져다 쓴다.
+ * 캐릭터 (새 판 · v2) — Metaversal Studio 에서 만들고, 무지개 정원이 그대로 짓는다.
  *
- * 남자 · 여자를 먼저 고르고, 그에 따라 얼굴 · 헤어 · 상의 · 하의를 **8가지씩**
- * 고른다. 피부색은 둘이 같다. 계정에는 **번호만** 담는다:
- *   {nick, gender:'m'|'f', face, expr, hair, top, bottom, skin}
- * 번호가 무엇인지는 여기 한 곳이 안다 (모양은 game/world/js/outfit.js 가 짓는다).
- * 그래서 고를 거리를 더할 때는 **목록 끝에만** 붙인다 — 가운데 끼우면 이미
- * 만든 캐릭터가 다른 옷을 입게 된다. (서버는 번호 31 까지 받는다.)
+ * 만드는 차례 (사용자 요청):
+ *   1. 스타일 넷 — 스트리트 치비 · 미니멀 후드 · 어반 후디 · 롱레그 패션
+ *   2. 성별 — 남자 · 여자 · 무지(기계 같은 하이브리드)
+ *   3. 얼굴 — 얼굴이 있는 스타일은 얼굴 크기 · 피부 · 헤어 · 이마 · 눈썹 · 눈 · 미간 · 코 · 인중 · 입 · 입술색 · 턱,
+ *             얼굴 없는 스타일(미니멀 후드 · 어반 후디)은 얼굴색(30색) · 눈 있음/없음 · 눈 모양 · 눈빛
+ *   4. 옷 — 상의 · 하의 · 신발 · 모자 · 소품 (색은 30색)
+ *   5. 몸 — 근육 · 몸길이 · 팔길이 · 다리길이 (밀대)
  *
- * 색은 무지개 정원 그림체와 같이 밝고 밀키하게.
+ * 계정에는 **번호만** 담는다 ({v:2, nick, ...KEYS}). 번호가 무엇인지는 여기 한 곳이 알고,
+ * 모양은 game/world/js/avatar.js 가 짓는다. 고를 거리는 **목록 끝에만** 붙인다
+ * (번호가 계정과 접속 인사에 박혀 있다). 서버는 번호 0~63 만 받는다 — 목록은 64 를 넘기지 말 것.
+ *
+ * 예전 판(v 없음)은 **버린다** (사용자 요청) — cleanChar 가 null 을 돌려줘 다시 만들게 한다.
  */
-
-export const GENDERS = [['m', '남자'], ['f', '여자']];
-export const SKIN = [0xFFE9D4, 0xF6D5B8, 0xE8BE98, 0xC99A74, 0x9C6E4E];
-
-/* 얼굴 — 생김새. eyes: 눈 모양, mark: 볼의 점 · 주근깨. 여자 얼굴에는 속눈썹이 붙는다. */
-const FACE_SET = [
-  ['동글 눈', 'dot'],
-  ['반짝 눈', 'sparkle'],
-  ['큰 눈',   'big'],
-  ['작은 눈', 'small'],
-  ['세로 눈', 'tall'],
-  ['반달 눈', 'calm'],
-  ['주근깨',  'dot', 'freckle'],
-  ['점',      'dot', 'mole']
-];
-export const FACES = {
-  m: FACE_SET.map(([name, eyes, mark]) => ({ name, eyes, mark: mark || null, brow: true })),
-  f: FACE_SET.map(([name, eyes, mark]) => ({ name, eyes, mark: mark || null, lash: true }))
-};
-
-/* 표정 — 기분. mouth: 입, eyes: 눈을 바꾸는 표정이면 그 모양(없으면 얼굴의 눈 그대로),
-   brow: 눈썹 기울기(+ 올라감 · − 처짐). 남녀가 같다. */
-const EXPR_SET = [
-  { name: '미소',     mouth: 'smile' },
-  { name: '활짝',     mouth: 'grin',   eyes: 'happy' },
-  { name: '윙크',     mouth: 'grin',   eyes: 'wink' },
-  { name: '졸림',     mouth: 'flat',   eyes: 'sleepy' },
-  { name: '놀람',     mouth: 'o',      eyes: 'surprised', brow: 0.25 },
-  { name: '고양이 입', mouth: 'cat' },
-  { name: '메롱',     mouth: 'tongue', eyes: 'wink' },
-  { name: '시무룩',   mouth: 'frown',  brow: -0.35 }
-];
-export const EXPRS = { m: EXPR_SET, f: EXPR_SET };
-
-/* 헤어 — kind: 모양, color: 머리색 */
-export const HAIRS = {
-  m: [
-    { name: '숏컷',    kind: 'short',   color: 0x6B4A3A },
-    { name: '가르마',  kind: 'part',    color: 0x3E3638 },
-    { name: '뾰족',    kind: 'spiky',   color: 0xD5A372 },
-    { name: '곱슬',    kind: 'curly',   color: 0x81716D },
-    { name: '바가지',  kind: 'bowl',    color: 0x5A4640 },
-    { name: '올백',    kind: 'back',    color: 0x2F2A2C },
-    { name: '더듬이',  kind: 'ahoge',   color: 0xE1B47C },
-    { name: '상투',    kind: 'bun',     color: 0x97786A }
-  ],
-  f: [
-    { name: '생머리',  kind: 'long',    color: 0x5A4640 },
-    { name: '단발',    kind: 'bob',     color: 0x3E3638 },
-    { name: '포니테일', kind: 'pony',    color: 0xBC8966 },
-    { name: '트윈테일', kind: 'twin',    color: 0xE8A3A0 },
-    { name: '똥머리',  kind: 'topbun',  color: 0x6B4A3A },
-    { name: '땋은머리', kind: 'braid',   color: 0xF0D9A8 },
-    { name: '웨이브',  kind: 'wave',    color: 0xA88161 },
-    { name: '숏컷+핀', kind: 'pin',     color: 0x2F2A2C, accent: 0xFFB6D9 }
-  ]
-};
-
-/* 상의 — color: 몸, sleeve: 팔(맨팔이면 null → 피부), kind: 덧붙는 모양, accent: 덧붙는 색 */
-export const TOPS = {
-  m: [
-    { name: '티셔츠',   color: 0xF7F3EE, sleeve: 0xF7F3EE, kind: 'plain' },
-    { name: '후드티',   color: 0x94E2F1, sleeve: 0x94E2F1, kind: 'hood',   accent: 0x7FCBDB },
-    { name: '셔츠',     color: 0xB1BCFC, sleeve: 0xB1BCFC, kind: 'shirt',  accent: 0xFFFFFF },
-    { name: '줄무늬',   color: 0xF7F3EE, sleeve: 0xF7F3EE, kind: 'stripe', accent: 0x8FA6E8 },
-    { name: '조끼',     color: 0xF7F3EE, sleeve: 0xF7F3EE, kind: 'vest',   accent: 0xC9A27A },
-    { name: '집업',     color: 0xACEDA5, sleeve: 0xACEDA5, kind: 'zip',    accent: 0x6E8A6A },
-    { name: '민소매',   color: 0xFFCD88, sleeve: null,     kind: 'plain' },
-    { name: '니트',     color: 0xE7B5F2, sleeve: 0xE7B5F2, kind: 'knit',   accent: 0xD39FE0 }
-  ],
-  f: [
-    { name: '리본 블라우스', color: 0xFFFFFF, sleeve: 0xFFFFFF, kind: 'ribbon', accent: 0xFF9CA8 },
-    { name: '퍼프 소매',   color: 0xFFB6D9, sleeve: 0xFFB6D9, kind: 'puff' },
-    { name: '세일러',     color: 0xFFFFFF, sleeve: 0xFFFFFF, kind: 'sailor', accent: 0x8FA6E8 },
-    { name: '가디건',     color: 0xFFED98, sleeve: 0xFFED98, kind: 'cardigan', accent: 0xFFFFFF },
-    { name: '줄무늬',     color: 0xFFFFFF, sleeve: 0xFFFFFF, kind: 'stripe', accent: 0xFF9CA8 },
-    { name: '후드티',     color: 0xE7B5F2, sleeve: 0xE7B5F2, kind: 'hood',   accent: 0xD39FE0 },
-    { name: '민소매',     color: 0xACEDA5, sleeve: null,     kind: 'plain' },
-    { name: '니트',       color: 0x94E2F1, sleeve: 0x94E2F1, kind: 'knit',   accent: 0x7FCBDB }
-  ]
-};
-
-/* 하의 — kind: shorts · pants · skirt · long(긴 치마) · overall(멜빵) · leggings,
-   color: 옷, leg: 다리(발) 색 — 바지면 바지색, 치마 · 반바지면 양말색 */
-export const BOTTOMS = {
-  m: [
-    { name: '반바지',   kind: 'shorts',  color: 0x8FA6E8, leg: 0xFFFFFF },
-    { name: '긴바지',   kind: 'pants',   color: 0x6E7590, leg: 0x6E7590 },
-    { name: '청바지',   kind: 'pants',   color: 0x7FA0D6, leg: 0x7FA0D6 },
-    { name: '카고',     kind: 'cargo',   color: 0xC9B48A, leg: 0xC9B48A },
-    { name: '멜빵바지', kind: 'overall', color: 0x7FA0D6, leg: 0x7FA0D6 },
-    { name: '트레이닝', kind: 'track',   color: 0x4E4A58, leg: 0x4E4A58, accent: 0xFFFFFF },
-    { name: '슬랙스',   kind: 'pants',   color: 0x3E3A44, leg: 0x3E3A44 },
-    { name: '체크 반바지', kind: 'shorts', color: 0xD9C3A5, leg: 0x8F94A8 }
-  ],
-  f: [
-    { name: '미니 치마',  kind: 'skirt',   color: 0x8FA6E8, leg: 0xFFFFFF },
-    { name: '롱 치마',    kind: 'long',    color: 0xFFCD88, leg: 0xFFFFFF },
-    { name: '반바지',     kind: 'shorts',  color: 0xD9C3A5, leg: 0xFFFFFF },
-    { name: '청바지',     kind: 'pants',   color: 0x7FA0D6, leg: 0x7FA0D6 },
-    { name: '멜빵 치마',  kind: 'overall-skirt', color: 0xFFABB4, leg: 0xFFFFFF },
-    { name: '플레어 치마', kind: 'flare',  color: 0xACEDA5, leg: 0xFFFFFF },
-    { name: '레깅스',     kind: 'pants',   color: 0x4E4A58, leg: 0x4E4A58 },
-    { name: '체크 치마',  kind: 'skirt',   color: 0xE8A3A0, leg: 0x4E4A58, accent: 0xFFFFFF }
-  ]
-};
-
-export const PARTS = [['face', '얼굴', FACES], ['expr', '표정', EXPRS], ['hair', '헤어', HAIRS], ['top', '상의', TOPS], ['bottom', '하의', BOTTOMS]];
 
 export const hex = n => '#' + n.toString(16).padStart(6, '0');
 
-/** 들어온 값을 고쳐 읽는다. 모르는 번호는 0. 예전 판(look · cloth)도 읽는다. */
+export const STYLES = [
+  { name: '스트리트 치비', sub: '큰 머리 · 뾰족 머리 · 재킷', face: true },
+  { name: '미니멀 후드',   sub: '하얗고 매끈한 · 얼굴 없음', face: false },
+  { name: '어반 후디',     sub: '후디 · 비니 · 빛나는 눈',   face: false },
+  { name: '롱레그 패션',   sub: '긴 다리 · 패딩 · 캡',       face: true }
+];
+export const hasFace = c => STYLES[c.style].face;
+
+export const GENDERS = [['m', '남자'], ['f', '여자'], ['x', '무지']];   // 무지 = 기계 같은 하이브리드
+
+/* 30색 — 얼굴색 · 옷 색이 함께 쓴다. 흰색 · 검정 꼭 (사용자 요청). */
+export const PALETTE = [
+  0xFFFFFF, 0xF2F2F0, 0xC9CBD0, 0x8E9197, 0x55585E, 0x2A2B2F, 0x111113,
+  0xFF5A5F, 0xF59AA0, 0xFFC3CF, 0xFF8A3D, 0xFFB98A, 0xFFD84D, 0xFFF0A8,
+  0xB7E36A, 0x4FBF6A, 0x2E7D52, 0x9FE3D0, 0x34B8B0, 0x7FD3F7, 0x3D8BF2,
+  0x26408F, 0xB9A7F5, 0x7D5CE0, 0xE59AF0, 0xB0478F, 0xC9A47E, 0x8A5A3C,
+  0x4E3527, 0xE8DCC2
+];
+export const SKINS = [
+  0xFFEDE0, 0xFBDCC4, 0xF2C9A5, 0xE0AE84, 0xC48A62, 0x9A6644, 0x6E4630,
+  0xD9DEE6, 0x9AA3AF, 0xBFE8DD                                   // 뒤의 셋은 하이브리드 결 (은빛 · 강철 · 민트)
+];
+export const HAIR_COLORS = [0x2A2321, 0x5B3A29, 0x8C5A35, 0xD9A55B, 0xF2DC9B, 0xC9C9CF,
+                            0xFFFFFF, 0x5BCB6B, 0x3D8BF2, 0xF59AA0, 0xB9A7F5, 0xFF5A5F];
+export const EYE_COLORS = [0x2A2321, 0x6B4A33, 0x3D8BF2, 0x4FBF6A, 0x8E9197, 0x7D5CE0, 0xE0474C, 0xD9A23B];
+export const GLOWS = [0xFFFFFF, 0x7FE8FF, 0x6BFFB0, 0xFFE45C, 0xFF6B6B, 0xFF8AE0, 0xB28CFF, 0xFFA64D];
+export const LIPS = [null, 0xF2A0A8, 0xFF8C78, 0xE0474C, 0xA63A5C, 0xD9A08A, 0x8A5A48, 0xFFC3CF];   // 0 = 피부 그대로
+
+/* 고를 거리 — 이름만 여기, 모양은 avatar.js 가 kind 를 보고 짓는다 */
+const L = (...names) => names;
+export const HAIRS   = L('삭발', '짧은 머리', '뾰족 머리', '투블럭', '단발 보브', '긴 생머리', '포니테일', '양갈래',
+                         '뽀글 곱슬', '똥머리', '웨이브 장발', '모히칸');
+export const BROWS   = L('기본', '두꺼운', '가는', '올라간', '처진', '짧은', '일자', '없음');
+export const EYES    = L('동글', '반짝', '가는 눈', '처진 눈', '올라간 눈', '반달', '졸린 눈', '고양이 눈');
+export const NOSES   = L('점', '동글', '오똑', '작은', '넓은', '없음');
+export const MOUTHS  = L('미소', '활짝', '일자', '오', '시무룩', '메롱', '고양이 입', '이 보이게');
+export const CHINS   = L('동글', '뾰족', '각진', '넓은', '갸름');
+export const LIP_NAMES = L('피부색', '핑크', '코랄', '레드', '베리', '누드', '브라운', '베이비');
+export const EYE_SHAPES = L('동그라미', '세로 알약', '가로 슬릿', '반달', '네모', 'X', '하트', '별');
+export const TOPS    = L('티셔츠', '후디', '재킷', '패딩', '맨투맨', '민소매', '바람막이', '셔츠');
+export const BOTTOMS = L('반바지', '조거', '청바지', '카고', '치마', '레깅스 + 워머', '와이드', '트레이닝');
+export const SHOES   = L('운동화', '하이탑', '부츠', '슬립온', '맨발');
+export const HATS    = L('없음', '비니', '캡', '후드 쓰기', '버킷햇', '헤드폰');
+export const ACCS    = L('없음', '체인', '크로스백', '백팩', '목도리');
+
+/* 저장 · 전송 순서. [열쇠, 최댓값]. 밀대는 0~20. **끝에만 붙인다** — 접속 인사가 이 순서의 배열이다. */
+export const SLIDER = 20;
+export const KEYS = [
+  ['style', STYLES.length - 1], ['gender', 2], ['head', SLIDER], ['skin', SKINS.length - 1],
+  ['hair', HAIRS.length - 1], ['hairColor', HAIR_COLORS.length - 1], ['forehead', SLIDER],
+  ['brow', BROWS.length - 1], ['eye', EYES.length - 1], ['eyeColor', EYE_COLORS.length - 1],
+  ['glabella', SLIDER], ['nose', NOSES.length - 1], ['philtrum', SLIDER], ['mouth', MOUTHS.length - 1],
+  ['lip', LIPS.length - 1], ['chin', CHINS.length - 1],
+  ['eyesOn', 1], ['eyeShape', EYE_SHAPES.length - 1], ['glow', GLOWS.length - 1], ['faceColor', PALETTE.length - 1],
+  ['top', TOPS.length - 1], ['topColor', PALETTE.length - 1], ['bottom', BOTTOMS.length - 1],
+  ['bottomColor', PALETTE.length - 1], ['shoes', SHOES.length - 1], ['shoesColor', PALETTE.length - 1],
+  ['hat', HATS.length - 1], ['acc', ACCS.length - 1],
+  ['muscle', SLIDER], ['torso', SLIDER], ['arm', SLIDER], ['leg', SLIDER],
+  ['hatColor', PALETTE.length - 1], ['accColor', PALETTE.length - 1]
+];
+
+/* 스타일마다 처음 입는 옷 — 참고 그림의 느낌 그대로 시작한다 */
+const P = c => PALETTE.indexOf(c);
+export const STYLE_PRESET = [
+  { top: 2, topColor: P(0x4FBF6A), bottom: 0, bottomColor: P(0x2A2B2F), shoes: 0, shoesColor: P(0xFFFFFF), hat: 0, acc: 0, hatColor: P(0x2A2B2F), accColor: P(0xFFD84D),
+    hair: 2, hairColor: 7, faceColor: 0 },
+  { top: 1, topColor: P(0xFFFFFF), bottom: 1, bottomColor: P(0xFFFFFF), shoes: 4, shoesColor: P(0xFFFFFF), hat: 3, acc: 0, hatColor: P(0xFFFFFF), accColor: P(0xC9CBD0),
+    hair: 0, faceColor: P(0xFFFFFF), eyesOn: 1, eyeShape: 2, glow: 0 },
+  { top: 1, topColor: P(0x111113), bottom: 7, bottomColor: P(0x55585E), shoes: 1, shoesColor: P(0xFF5A5F), hat: 1, acc: 1, hatColor: P(0x2A2B2F), accColor: P(0xC9CBD0),
+    hair: 0, faceColor: P(0x111113), eyesOn: 1, eyeShape: 0, glow: 1 },
+  { top: 3, topColor: P(0xFFF0A8), bottom: 5, bottomColor: P(0x2A2B2F), shoes: 0, shoesColor: P(0xF2F2F0), hat: 2, acc: 2, hatColor: P(0x2A2B2F), accColor: P(0x8A5A3C),
+    hair: 5, hairColor: 1, faceColor: 0 }
+];
+
+const MID = SLIDER / 2;
+export function blankChar(style = 0, gender = 'm'){
+  const c = { v: 2, nick: '' };
+  for (const [k] of KEYS) c[k] = 0;
+  Object.assign(c, { style, gender: ['m', 'f', 'x'].indexOf(gender) < 0 ? 0 : ['m', 'f', 'x'].indexOf(gender),
+    head: MID, forehead: MID, glabella: MID, philtrum: MID, muscle: MID, torso: MID, arm: MID, leg: MID,
+    skin: 1, eyesOn: 1, eyeColor: 0, lip: 0 }, STYLE_PRESET[style]);
+  return c;
+}
+
+/* 안에서는 gender 를 0 · 1 · 2 로 다룬다 (계정에도 그렇게). 화면에 보일 때만 남자 · 여자 · 무지. */
 export function cleanChar(c){
-  c = c || {};
-  const gender = c.gender === 'f' || c.gender === 'm' ? c.gender : (c.look === 'long' ? 'f' : 'm');
-  const pick = (v, n) => (Number.isInteger(v) && v >= 0 && v < n ? v : 0);
-  return {
-    nick: String(c.nick || '').trim().slice(0, 12),
-    gender,
-    face: pick(c.face, 8),
-    expr: pick(c.expr, 8),
-    hair: pick(c.hair, 8),
-    top: pick(Number.isInteger(c.top) ? c.top : c.cloth, 8),
-    bottom: pick(c.bottom, 8),
-    skin: pick(c.skin, SKIN.length)
-  };
+  if (!c || typeof c !== 'object' || c.v !== 2) return null;     // 예전 판은 버린다
+  const out = { v: 2, nick: String(c.nick || '').slice(0, 16) };
+  for (const [k, max] of KEYS){
+    const n = c[k];
+    out[k] = Number.isInteger(n) && n >= 0 && n <= max ? n : (k === 'eyesOn' ? 1 : 0);
+  }
+  return out;
 }
 
-/** 이 캐릭터의 모든 모양과 색 — outfit.js 가 받아 짓는다. */
-export function resolveChar(c){
-  c = cleanChar(c);
-  const g = c.gender;
-  return { gender: g, skin: SKIN[c.skin], face: FACES[g][c.face], expr: EXPRS[g][c.expr], hair: HAIRS[g][c.hair],
-           top: TOPS[g][c.top], bottom: BOTTOMS[g][c.bottom] };
+/** 접속 인사에 싣는 배열 · 받은 배열을 캐릭터로 */
+export const packChar = c => KEYS.map(([k]) => c[k]);
+export function unpackChar(a){
+  if (!Array.isArray(a) || a.length < KEYS.length - 4) return null;
+  const c = { v: 2 };
+  KEYS.forEach(([k], i) => { c[k] = a[i]; });
+  return cleanChar(c);
 }
 
-/** 대표 색 세 가지 [옷, 머리, 피부] — 이 캐릭터를 모르는 옛 판에 보내는 몫. */
+/** 옛 판 클라이언트가 읽는 [옷, 머리, 피부] 색 */
 export function colorsOf(c){
-  const r = resolveChar(c);
-  return [r.top.color, r.hair.color, r.skin];
+  const face = hasFace(c) ? SKINS[c.skin] : PALETTE[c.faceColor];
+  return [PALETTE[c.topColor], HAIR_COLORS[c.hairColor], face];
 }
 
-/** 처음 만들 때 — 아무거나 하나 골라 준다. */
 export function randomChar(){
   const r = n => Math.floor(Math.random() * n);
-  return { nick: '', gender: Math.random() < 0.5 ? 'm' : 'f', face: r(8), expr: r(8), hair: r(8), top: r(8), bottom: r(8), skin: r(SKIN.length) };
+  const c = blankChar(r(STYLES.length), ['m', 'f', 'x'][r(3)]);
+  if (hasFace(c)){
+    c.skin = r(7); c.eye = r(EYES.length); c.brow = r(7); c.mouth = r(3);
+    c.hair = c.gender === 1 ? [4, 5, 6, 7, 9, 10][r(6)] : [1, 2, 3, 8, 11][r(5)];
+    c.hairColor = r(HAIR_COLORS.length);
+  }
+  return c;
 }

@@ -101,7 +101,9 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
                           me.pet.paint || null, dots(me.pet.sprays)] : null,
                 // Metaversal Studio 캐릭터의 색 — 늘 뒤에 붙인다 (옛 판은 여기까지 읽지 않는다)
                 Array.isArray(me.colors) ? me.colors : null,
-                Array.isArray(me.style) ? me.style : null];
+                Array.isArray(me.style) ? me.style : null,
+                // 새 캐릭터(v2) — character.js 의 KEYS 순서 그대로의 번호 배열. 옛 판은 읽지 않는다.
+                Array.isArray(me.pack) ? me.pack : null];
 
   function tell(s){
     status = s;
@@ -148,7 +150,8 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
         colors: Array.isArray(m[6]) && m[6].length === 3 && m[6].every(v => Number.isInteger(v) && v >= 0 && v <= 0xFFFFFF) ? m[6] : null,
         style: Array.isArray(m[7]) && m[7].length >= 6 && m[7].every(v => Number.isInteger(v) && v >= 0 && v < 32)
           ? { gender: m[7][0] === 1 ? 'f' : 'm', face: m[7][1], hair: m[7][2], top: m[7][3], bottom: m[7][4], skin: m[7][5], expr: m[7][6] || 0 } : null,
-        look: m[3] === 'long' ? 'long' : 'short'
+        look: m[3] === 'long' ? 'long' : 'short',
+        pack: Array.isArray(m[8]) && m[8].length <= 64 && m[8].every(v => Number.isInteger(v) && v >= 0 && v < 64) ? m[8] : null
       };
       const whoSig = JSON.stringify(who);
       const known = peers.get(from);
@@ -289,11 +292,12 @@ export function createLiveNet({ handlers, channel = PUBLIC, me, onStatus, id }){
 
     /* 내 이름 · 모습이 바뀌었다 (Studio 에서 캐릭터를 고쳤다). 인사를 고쳐 두고
        한 번은 바로 보낸다 — 받는 쪽은 달라진 인사를 보고 모습을 바꾼다. */
-    setMe({ name, look, colors, style }){
+    setMe({ name, look, colors, style, pack }){
       if (name) mine[2] = name;
       if (look) mine[3] = look;
       mine[6] = Array.isArray(colors) ? colors : null;
       mine[7] = Array.isArray(style) ? style : null;
+      mine[8] = Array.isArray(pack) ? pack : null;
       if (link) link.publish(topic, JSON.stringify(mine));
     },
 

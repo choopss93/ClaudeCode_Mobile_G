@@ -147,21 +147,24 @@ async function readToken(env, token){
   return sameBytes(given, await hmac(env.SESSION_SECRET, `${id}.${exp}.${nonce}.${user.key}`)) ? user : null;
 }
 
-/* 캐릭터 — 번호만 담는다. 번호가 무엇인지는 화면 쪽(shared/js/character.js)이 안다.
-   {nick, gender:'m'|'f', face, expr, hair, top, bottom, skin} — 예전 판(look · cloth)으로
-   온 것도 받아서 새 판으로 고쳐 둔다. */
+/* 캐릭터 (v2) — 번호만 담는다. 번호가 무엇인지는 화면 쪽(shared/js/character.js)이 안다.
+   {v:2, nick, style, gender(0 남 · 1 여 · 2 무지), …} — 열쇠는 CHAR_KEYS 그대로, 값은 0~63 정수.
+   예전 판(v 없음)은 **버린다** (사용자 요청 — 새 캐릭터로 다시 만든다). */
+const CHAR_KEYS = ['style', 'gender', 'head', 'skin', 'hair', 'hairColor', 'forehead', 'brow', 'eye', 'eyeColor',
+  'glabella', 'nose', 'philtrum', 'mouth', 'lip', 'chin', 'eyesOn', 'eyeShape', 'glow', 'faceColor',
+  'top', 'topColor', 'bottom', 'bottomColor', 'shoes', 'shoesColor', 'hat', 'acc', 'muscle', 'torso', 'arm', 'leg', 'hatColor', 'accColor'];
 function cleanChar(c){
-  if (!c || typeof c !== 'object') return null;
-  const nick = String(c.nick || '').trim().slice(0, 12);
+  if (!c || typeof c !== 'object' || c.v !== 2) return null;
+  const nick = String(c.nick || '').trim().slice(0, 16);
   if (!nick) return null;
-  const n = (v, max) => (Number.isInteger(v) && v >= 0 && v <= max ? v : 0);
-  const gender = c.gender === 'f' || c.gender === 'm' ? c.gender : (c.look === 'long' ? 'f' : 'm');
-  return { nick, gender, face: n(c.face, 31), expr: n(c.expr, 31), hair: n(c.hair, 31),
-           top: n(Number.isInteger(c.top) ? c.top : c.cloth, 31), bottom: n(c.bottom, 31), skin: n(c.skin, 7) };
+  const out = { v: 2, nick };
+  for (const k of CHAR_KEYS) out[k] = Number.isInteger(c[k]) && c[k] >= 0 && c[k] <= 63 ? c[k] : 0;
+  if (out.style > 3 || out.gender > 2) return null;
+  return out;
 }
 /* 열쇠 · 해시는 절대 내보내지 않는다. 캐릭터 이름은 **늘 로그인 아이디**다 (사용자 요청 —
    '로그인 아이디와 사용 아이디가 일치해야' 한다). 예전에 따로 지은 이름이 남아 있어도 아이디로 덮어 내보낸다. */
-const publicUser = u => ({ id: u.id, char: u.char ? { ...u.char, nick: u.id } : null });
+const publicUser = u => ({ id: u.id, char: u.char && u.char.v === 2 ? { ...u.char, nick: u.id } : null });   // 옛 판은 없는 것으로
 
 /* 마이페이지(접속자)를 볼 수 있는 계정 */
 const ADMINS = ['MASTER'];

@@ -15,7 +15,7 @@ import { trackPresence } from '../../../js/presence.js?v=p2';
 /* 접속 알림 (마스터의 '접속자') — 정원에 들어선 뒤가 게임 중 */
 let walking = false;
 const pres = trackPresence(() => ({ state: walking ? 'game' : 'wait', place: '무지개 정원' }));
-import { cleanChar, colorsOf } from '../../../js/character.js?v=c3';
+import { cleanChar, colorsOf, packChar, unpackChar } from '../../../js/character.js?v=c4';
 import { createLiveNet } from '#live';
 import { SKY, colorFor, hairFor, wind, toon } from '#look';
 
@@ -496,7 +496,7 @@ paintPetMode();
 
 if (MY_CHAR){
   nameIn.value = MY_CHAR.nick;
-  choice.look = MY_CHAR.gender === 'f' ? 'long' : 'short';
+  choice.look = MY_CHAR.gender === 1 ? 'long' : 'short';
   nameIn.required = false;                 // 숨긴 칸에 required 를 남기면 폼이 막힌다
   const gender = $('gender');
   for (const el of [nameIn.previousElementSibling, nameIn, gender.previousElementSibling, gender]) el.hidden = true;
@@ -896,7 +896,7 @@ function begin(myName, petName, petSpec, friends, myLook){
     Object.assign(a, ways);
     a.setHand(look.dark > 0.5);
   }
-  const peerLook = info => info.style ? { style: info.style }
+  const peerLook = info => info.pack && unpackChar(info.pack) ? { style: unpackChar(info.pack) }
     : Array.isArray(info.colors)
     ? { color: info.colors[0], hair: info.colors[1], skin: info.colors[2], long: info.look === 'long' }
     : { color: colorFor(info.name), hair: hairFor(info.name), long: info.look === 'long' };
@@ -1029,7 +1029,8 @@ function begin(myName, petName, petSpec, friends, myLook){
     id: myId,
     me: { name: myName, look: myLook, dog: myCard.name,
           colors: MY_CHAR ? colorsOf(MY_CHAR) : null,
-          style: MY_CHAR ? [MY_CHAR.gender === 'f' ? 1 : 0, MY_CHAR.face, MY_CHAR.hair, MY_CHAR.top, MY_CHAR.bottom, MY_CHAR.skin, MY_CHAR.expr] : null,
+          style: null,                                   // 옛 판 캐릭터 자리 — 이제 비운다
+          pack: MY_CHAR ? packChar(MY_CHAR) : null,
           // '랜덤' 을 그대로 보내면 받는 쪽에서 다른 털빛이 된다.
           // 이미 뽑힌 값을 보내야 같은 아이가 된다.
           pet: { kind: myCard.kind, breed: myCard.breed, coat: myCard.coat,
@@ -1042,7 +1043,6 @@ function begin(myName, petName, petSpec, friends, myLook){
   /* 내 캐릭터가 Studio 에서 바뀌었으면 (다른 기기 · 다른 탭에서 고쳤을 수 있다)
      내 화면도 바로 바꾸고 남들에게도 알린다. 30초마다, 그리고 화면으로 돌아올 때 본다. */
   if (MY_CHAR){
-    const styleArr = c => [c.gender === 'f' ? 1 : 0, c.face, c.hair, c.top, c.bottom, c.skin, c.expr];
     let mySig = JSON.stringify(MY_CHAR);
     const checkMine = async () => {
       const a = await refresh();
@@ -1052,7 +1052,7 @@ function begin(myName, petName, petSpec, friends, myLook){
       restyle(me, createActor({ lamp: true, style: c }));
       myLabel.remove();
       myLabel = makeLabel(c.nick);
-      net.setMe({ name: c.nick, look: c.gender === 'f' ? 'long' : 'short', colors: colorsOf(c), style: styleArr(c) });
+      net.setMe({ name: c.nick, look: c.gender === 1 ? 'long' : 'short', colors: colorsOf(c), style: null, pack: packChar(c) });
     };
     setInterval(checkMine, 30000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) checkMine(); });

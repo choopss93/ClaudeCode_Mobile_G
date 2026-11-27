@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { toon, makeBlob, makeSpray, sprayCap } from '#look';
 import { PAINTS, fixPaint, fixSprays, sprayRadius } from '#pets';
-import { baseMats, dressBody, dressHead } from './outfit.js?v=o4';
-import { resolveChar } from '../../../js/character.js?v=c3';
+import { createAvatar } from './avatar.js?v=a2';
 
 /** 뿌린 자국을 살갗에서 띄우는 거리 (m). 깜빡이지 않을 만큼만. */
 const SPRAY_LIFT = 0.0015;
@@ -65,12 +64,12 @@ function piece(group, geo, mat, x, y, z, sx, sy, sz){
  */
 export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
                               lamp = false, skin: skinColor = 0xFFE9D4, style = null } = {}){
+  // Metaversal Studio 캐릭터(v2)는 avatar.js 가 짓는다 — 돌려주는 모양은 아래와 같다
+  if (style && style.v === 2) return createAvatar(style, { lamp });
   const group = new THREE.Group();
-  const S = style ? resolveChar(style) : null;
-  const M = S ? baseMats(S) : null;
-  const skin = M ? M.skin : toon(skinColor);
+  const skin = toon(skinColor);
   const cloth = toon(color);
-  const legMat = M ? M.leg : cloth, bodyMat = M ? M.body : cloth, armMat = M ? M.arm : cloth;
+  const legMat = cloth, bodyMat = cloth, armMat = cloth;
   const hairMat = toon(hair);
   const dark = toon(0x5C5560);
   const blush = toon(0xFFB4C0);
@@ -96,7 +95,6 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
   const armL = makeArm(-1);
   const armR = makeArm(1);
   armR.rotation.z = -0.34;        // 든 팔은 바깥으로 벌린다
-  if (S) dressBody({ group, armL, armR, BODY_Y, BODY_H }, S);   // 하의 · 상의 장식
 
   /* 오른손 — 밝을 땐 바람개비, 어두울 땐 등불.
      머리가 몸보다 크고 넓어, 몸 옆에 그냥 두면 통째로 가려진다. 아이가
@@ -166,9 +164,7 @@ export function createActor({ color = 0xF2A2A2, hair = 0x6B4A3A, long = false,
   group.add(head);
 
   piece(head, ball, skin, 0, 0, 0, HEAD_R, HEAD_R * 0.96, HEAD_R * 0.92);
-  if (S){
-    dressHead({ head, R: HEAD_R }, S);    // 헤어와 얼굴
-  } else {
+  {
     // 머리칼 — 머리보다 조금 크게 덮어야 모자처럼 보인다. 작게 하면
     // 머리 안으로 파묻혀 깎인 자국처럼 보인다. 얼굴은 드러나게 뒤로 민다.
     piece(head, ball, hairMat, 0, HEAD_R * 0.22, -HEAD_R * 0.16,
