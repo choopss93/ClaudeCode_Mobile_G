@@ -1618,6 +1618,23 @@ function begin(myName, petName, petSpec, friends, myLook){
   let first = true;
 
   const jump = { want: false, air: false, y: 0, vy: 0, carry: null };   // 내 점프
+  /* 손 내밀기 (쪼그려 앉아) — 곁에서 '손' 을 하는 아이가 있으면 그 앞발로, '코' 면 그 코로 팔을 뻗는다.
+     아이 쪽 자리가 매 순간 바뀌므로 내미는 동안 매 프레임 겨눈다 */
+  function aimHand(actor){
+    if (!actor.reaching || !actor.reaching()) return;
+    const at = actor.group.position;
+    for (const e of pets){
+      const tk = e.actor.trickNow && e.actor.trickNow();
+      if (tk !== 'paw' && tk !== 'nose') continue;
+      const g = e.actor.group.position;
+      if (Math.hypot(g.x - at.x, g.z - at.z) > 1.3) continue;
+      const v = actor._aim || (actor._aim = new THREE.Vector3());
+      if (tk === 'paw') e.actor.pawAt(v); else e.actor.mouthAt(v);
+      actor.reach(0.01, v);
+      return;
+    }
+  }
+
   function frame(now){
     const dt = Math.min((now - last) / 1000, 0.05);
     last = now;
@@ -1659,6 +1676,7 @@ function begin(myName, petName, petSpec, friends, myLook){
       if (jump.y <= 0){ jump.y = 0; jump.vy = 0; jump.air = false; jump.carry = null; }
     }
     me.group.position.y = jump.y;
+    aimHand(me);
     me.update(dt, jump.air ? 0 : mySpeed);
 
     /* 반려동물 — 저마다 거닐다, 주인을 만나면 반가워한다 */
@@ -1945,6 +1963,7 @@ function begin(myName, petName, petSpec, friends, myLook){
       g.position.x += (p.s.x - g.position.x) * k;
       g.position.z += (p.s.z - g.position.z) * k;
       g.position.y += ((p.s.y || 0) - g.position.y) * Math.min(1, dt * 18);   // 점프한 높이
+      aimHand(p.actor);
 
       /* 여기서는 밀어내지 않는다. 거니는 손님은 서버 시각이 자리를 정하고
          (모두의 화면에서 같은 자리), 접속한 사람은 저쪽 기기가 자리를 정한다.

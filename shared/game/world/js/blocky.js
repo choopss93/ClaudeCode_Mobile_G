@@ -530,11 +530,34 @@ export function createBlocky(c, { lamp = false } = {}){
   const blob = makeBlob(0.3);
   group.add(blob);
   const { out, AX, LX, hipY, shY, headY, lift, handY, handZ } = build(c);
-  const PIVOT = { body: [0, 0, 0], head: [0, headY, 0], armL: [-AX, shY, 0], armR: [AX, shY, 0], legL: [-LX, hipY, 0], legR: [LX, hipY, 0] };
+  /* 무릎 (쪼그려 앉기 — '손' 재주) — 다리 조각을 무릎 높이에서 갈라 아랫다리(shin)는 무릎 돌쩌귀에 단다.
+     걸치는 조각(바지 · 긴 양말)은 두 토막으로 자른다. 무릎 높이는 체형의 다리 길이를 따른다 */
+  const kneeY = hipY * 0.58;
+  const PIVOT = { body: [0, 0, 0], head: [0, headY, 0], armL: [-AX, shY, 0], armR: [AX, shY, 0], legL: [-LX, hipY, 0], legR: [LX, hipY, 0],
+    shinL: [-LX, kneeY, 0], shinR: [LX, kneeY, 0] };
   const J = {};
-  for (const k in PIVOT){ const p = new THREE.Group(); p.position.fromArray(PIVOT[k]); group.add(p); J[k] = p; }
+  for (const k in PIVOT){ const p = new THREE.Group(); J[k] = p; }
+  for (const k in PIVOT){
+    if (k === 'shinL' || k === 'shinR'){ J[k].position.set(0, kneeY - hipY, 0); J[k === 'shinL' ? 'legL' : 'legR'].add(J[k]); }
+    else { J[k].position.fromArray(PIVOT[k]); group.add(J[k]); }
+  }
+  const rows = [];
+  for (const row of out){
+    const [g, col, x, y, z, w, h, d, r, rz] = row;
+    if (g !== 'legL' && g !== 'legR'){ rows.push(row); continue; }
+    const sh = g === 'legL' ? 'shinL' : 'shinR', y1 = y - h / 2, y2 = y + h / 2;
+    if (y1 >= kneeY - 0.005) rows.push(row);
+    else if (y2 <= kneeY + 0.005) rows.push([sh, col, x, y, z, w, h, d, r, rz]);
+    else {
+      const ha = y2 - kneeY, hb = kneeY - y1, ra = Math.min(r, ha / 2), rb = Math.min(r, hb / 2);
+      rows.push([g, col, x, kneeY + ha / 2, z, w, ha, d, ra, rz], [sh, col, x, kneeY - hb / 2, z, w, hb, d, rb, rz]);
+      /* 무릎 뚜껑 — 옆에서 보면 둥근 원기둥이라 아랫다리를 얼마나 접어도 무릎 사이가 비지 않는다 */
+      const kd = Math.min(d, ha * 2, hb * 2);
+      rows.push([sh, col, x, kneeY, z, w, kd, d, Math.min(w, kd, d) * 0.49, rz]);
+    }
+  }
   const bins = new Map();
-  for (const [g, col, x, y, z, w, h, d, r, rz] of out){
+  for (const [g, col, x, y, z, w, h, d, r, rz] of rows){
     const key = g + '|' + col;
     if (!bins.has(key)) bins.set(key, { g, col, P: [], N: [], I: [] });
     const b = bins.get(key), pv = PIVOT[g];
@@ -568,7 +591,20 @@ export function createBlocky(c, { lamp = false } = {}){
   let glow = null;
   if (lamp){ glow = new THREE.PointLight(LAMP_COLOR, 0, LAMP_REACH, LAMP_DECAY); glow.position.set(0.15, 2.4, 0); group.add(glow); }
 
-  let phase = 0, idle = Math.random() * 6, reachLeft = 0, tossLeft = 0, holding = false;
+  /* 점프 자세 — 뛸 때마다 바로 앞과 다른 것을 고른다 (사용자 요청).
+     [왼넓적다리, 왼아랫다리, 오른넓적다리, 오른아랫다리, 왼팔 x, 왼팔 z, 오른팔 x, 오른팔 z, 다리 벌림] */
+  const JUMPS = [
+    [-0.7, 1.1, 0.25, 0.3, -0.5, -0.5, -0.5, 0.5, 0],          // 한 다리 접고 팔 벌림
+    [-0.6, 1.2, -0.6, 1.2, -2.9, -0.25, -2.9, 0.25, 0.08],     // 만세 — 두 무릎 당기고 두 팔 번쩍
+    [0, 0.1, 0, 0.1, 0, -2.3, 0, 2.3, 0.4],                     // 별 — 팔다리를 활짝
+    [-1.0, 1.5, 0.2, 0.6, 0.35, -0.2, -2.9, 0.15, 0],          // 한 팔 번쩍
+    [0.35, 1.7, 0.35, 1.7, -1.2, -0.15, -1.2, 0.15, 0.05]      // 두 발 뒤로 차기 · 팔 앞으로
+  ];
+  let jumpPose = 0, wasAir = false;
+  let phase = 0, idle = Math.random() * 6, reachLeft = 0, tossLeft = 0, holding = false, crouch = 0;
+  const UPPER = ['body', 'head', 'armL', 'armR'], THIGH = hipY - kneeY, SQ_THIGH = 1.5, SQ_SHIN = 0.6, SQ_LEAN = 0.75;
+  const aimV = new THREE.Vector3(); let aimAt = null;
+  const handV = new THREE.Vector3();
   const TOSS_TIME = 0.55;
   const ease = (o, k, v, t) => { o[k] += (v - o[k]) * t; };
   const api = {
@@ -580,8 +616,11 @@ export function createBlocky(c, { lamp = false } = {}){
       const g = dark ? 0.15 : 1;                    // 밤에는 하늘이 비치지 않는다
       if (g !== gloss){ gloss = g; for (const m of mats.values()) m.envMapIntensity = m.userData.env * g; }
     },
-    reach(sec){ reachLeft = Math.max(reachLeft, sec || 2); },
+    /** 손 내밀기 — 쪼그려 앉아 왼팔을 뻗는다. at(세상 자리)을 주면 그쪽으로 (아이의 앞발) */
+    reach(sec, at){ reachLeft = Math.max(reachLeft, sec || 2); if (at) aimAt = at; },
     reaching(){ return reachLeft > 0; },
+    /** 내민 왼손(정육면체)의 세상 자리 */
+    handAt(v = handV){ J.armL.updateWorldMatrix(true, false); return J.armL.localToWorld(v.set(0, handY, handZ)); },
     toss(){ tossLeft = TOSS_TIME; },
     setPose(){}, poseCount: 0,
     update(dt, speed){
@@ -596,24 +635,55 @@ export function createBlocky(c, { lamp = false } = {}){
       // 높이는 세상 기준으로 읽는다 — 갈아입히면(restyle) 바깥 그릇이 움직이고 이 몸은 그 안에 있다. 땅은 어디나 y = 0
       const gy = Math.max(0, group.matrixWorld.elements[13]), air = gy > 0.02, ta = Math.min(1, dt * 16);
       blob.position.y = -gy; blob.scale.setScalar(Math.max(0.5, 1 - gy * 0.6));
-      ease(J.legL.rotation, 'x', air ? -0.7 : -sw * 0.55, air ? ta : t);
-      ease(J.legR.rotation, 'x', air ? 0.25 : sw * 0.55, air ? ta : t);
-      ease(J.armL.rotation, 'x', air ? -0.5 : sw * 0.5, air ? ta : t);
-      ease(J.armR.rotation, 'x', holding ? -0.45 : air ? -0.5 : -sw * 0.5, air ? ta : t);
-      ease(J.armL.rotation, 'z', air ? -0.5 : -0.06, air ? ta : t); ease(J.armR.rotation, 'z', air ? 0.5 : 0.06, air ? ta : t);
+      if (air && !wasAir){ let n; do n = Math.floor(Math.random() * JUMPS.length); while (n === jumpPose && JUMPS.length > 1); jumpPose = n; }
+      wasAir = air;
+      const P = JUMPS[jumpPose], e = air ? ta : t;
+      ease(J.legL.rotation, 'x', air ? P[0] : -sw * 0.55, e);
+      ease(J.legR.rotation, 'x', air ? P[2] : sw * 0.55, e);
+      ease(J.legL.rotation, 'z', air ? -P[8] : 0, e); ease(J.legR.rotation, 'z', air ? P[8] : 0, e);
+      ease(J.armL.rotation, 'x', air ? P[4] : sw * 0.5, e);
+      ease(J.armR.rotation, 'x', holding ? -0.45 : air ? P[6] : -sw * 0.5, e);
+      ease(J.armL.rotation, 'z', air ? P[5] : -0.06, e); ease(J.armR.rotation, 'z', holding ? 0.06 : air ? P[7] : 0.06, e);
       ease(J.head.rotation, 'y', speed > 0.05 ? sw * 0.06 : Math.sin(idle * 0.4) * 0.25, t * 0.5);
       ease(J.head.rotation, 'x', speed > 0.05 ? 0 : Math.sin(idle * 1.5) * 0.02, t);
-      for (const k in J) if (k !== 'legL' && k !== 'legR') J[k].position.y = PIVOT[k][1] + bob;
+      for (const k of UPPER) J[k].position.y = PIVOT[k][1] + bob;
+      ease(J.shinL.rotation, 'x', air ? P[1] : Math.max(0, sw) * 0.5, e);
+      ease(J.shinR.rotation, 'x', air ? P[3] : Math.max(0, -sw) * 0.5, e);
       if (tossLeft > 0){
         tossLeft -= dt;
         const k = 1 - tossLeft / TOSS_TIME;
         J.armL.rotation.x = k < 0.3 ? (k / 0.3) * 1.5 - 0.1 : 1.4 - ((k - 0.3) / 0.7) * 3.3;
         J.armL.rotation.z = -0.8;
-      } else if (reachLeft > 0){
-        reachLeft -= dt;
-        const k = Math.min(1, reachLeft / 0.3);
-        J.armL.rotation.set(-1.1 * k, 0, -0.5 * k);
       }
+      /* '손' — 쪼그려 앉아 왼팔을 앞으로 뻗는다 (사용자 요청). 넓적다리를 앞으로 눕히고 아랫다리를 되접어 엉덩이를 내린다.
+         내린 만큼(drop)은 다리 길이로 셈해 몸 · 머리 · 팔 돌쩌귀를 함께 내린다 — 발은 땅에 붙어 있다 */
+      crouch += ((reachLeft > 0 ? 1 : 0) - crouch) * Math.min(1, dt * 7);
+      if (reachLeft > 0) reachLeft -= dt; else aimAt = null;
+      if (crouch > 0.002 && tossLeft <= 0){
+        const k = crouch, a = SQ_THIGH * k, b = SQ_SHIN * k, L = SQ_LEAN * k;
+        const drop = THIGH * (1 - Math.cos(a)) + kneeY * (1 - Math.cos(b));
+        const hy = hipY - drop, cl = Math.cos(L), sn = Math.sin(L);
+        for (const n of ['legL', 'legR']){ J[n].rotation.x = -a; J[n].position.y = hy; }
+        J.shinL.rotation.x = J.shinR.rotation.x = a + b;
+        /* 윗몸은 엉덩이를 축으로 앞으로 숙인다 — 돌쩌귀마다 자리를 엉덩이 둘레로 돌리고 같은 만큼 기울인다 */
+        for (const n of UPPER){
+          const ry = PIVOT[n][1] - hipY, rz = PIVOT[n][2];
+          J[n].position.y = hy + ry * cl - rz * sn; J[n].position.z = ry * sn + rz * cl;
+          J[n].rotation.x = L;
+        }
+        J.head.rotation.x = L * 0.2;                                   // 고개는 덜 숙여 아이를 본다
+        J.armR.rotation.set(-0.35 * k, 0, 0.12 * k);                   // 오른팔은 무릎께에
+        /* 왼팔 — 아이의 앞발 쪽으로 곧장 뻗는다. 손바닥이 앞발 밑에 오도록 조금 아래를 겨눈다 */
+        let ax = -0.9, az = -0.25;
+        if (aimAt){
+          group.updateWorldMatrix(true, false);
+          const v = group.worldToLocal(aimV.copy(aimAt)); v.y -= 0.035;
+          v.x -= J.armL.position.x; v.y -= J.armL.position.y; v.z -= J.armL.position.z;
+          v.normalize();
+          az = Math.asin(Math.max(-1, Math.min(1, v.x))); ax = Math.atan2(-v.z, -v.y);
+        }
+        J.armL.rotation.set(ax * k, 0, az * k);
+      } else { J.legL.position.y = J.legR.position.y = hipY; for (const n of UPPER) J[n].position.z = 0; J.body.rotation.x = 0; }
     },
     dispose(){ for (const o of own) o.dispose(); }
   };

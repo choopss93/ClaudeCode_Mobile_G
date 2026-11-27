@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { toon, makeBlob, makeSpray, sprayCap } from '#look';
 import { PAINTS, fixPaint, fixSprays, sprayRadius } from '#pets';
-import { createBlocky } from './blocky.js?v=b6';
+import { createBlocky } from './blocky.js?v=b8';
 
 /** 뿌린 자국을 살갗에서 띄우는 거리 (m). 깜빡이지 않을 만큼만. */
 const SPRAY_LIFT = 0.0015;
@@ -34,7 +34,7 @@ export const TRICKS = {
 
 /* 내민 왼손이 있는 자리 (캐릭터 기준). 재주를 받아 줄 때 여기로 온다.
    앞발이 손에 **닿아야** 하므로 바짝 붙인다. 멀면 허공을 짚는다. */
-export const HAND_SPOT = { x: -0.42, z: 0.2 };
+export const HAND_SPOT = { x: -0.5, z: 0.42 };
 
 const LAMP = 5;               // 불을 켰을 때의 세기
 const LAMP_REACH = 16;        // 빛이 닿는 거리 (m)
@@ -513,6 +513,8 @@ export function createPet(spec){
     box: innerBox,
     /** 코끝 바로 밑(입) 의 세상 자리 — 공을 물 때 쓴다. 품종마다 머리 크기 · 주둥이 길이 · 배율이 달라서
         자리를 숫자로 박아 두면 작은 아이는 공이 얼굴에 박힌다 (사용자 지적). */
+    /** 들어 올린 앞발(손) 끝의 세상 자리 — '손' 재주에서 사람 손에 맞출 때 쓴다 */
+    pawAt(v){ legs[1].updateWorldMatrix(true, false); return legs[1].localToWorld(v.set(0, -0.85, 0)); },
     mouthAt(v){ head.updateWorldMatrix(true, false); return head.localToWorld(v.set(0, -headR * 0.32, headR * 0.76 + mz * 0.95)); },
 
     /** 주인을 만났을 때. 평소 꼬리질과 확실히 달라야 한다. */
@@ -558,6 +560,7 @@ export function createPet(spec){
         head.rotation.z = 0;
         for (const l of legs) l.position.y = legRest;
         legs[1].position.z = legZ;
+        legs[1].rotation.x = 0; legs[1].position.x = legX;
         legs[1].scale.y = legH;
         // 머리는 **양수가 숙이는 쪽**이다 (코 재주가 -0.6 으로 들어 올린다)
         head.rotation.x = (0.92 + Math.sin(t * 15) * 0.1) * k;
@@ -579,7 +582,7 @@ export function createPet(spec){
         head.rotation.x = 0;
         group.position.y = 0;
         for (const l of legs) l.position.y = legRest;
-        legs[1].position.z = legZ;
+        legs[1].position.z = legZ; legs[1].rotation.x = 0; legs[1].position.x = legX;
         /* 늘여 둔 앞다리를 **여기서도** 되돌린다. 재주가 끝날 때만
            되돌리면, "손" 다음에 바로 "앉아" 를 시켰을 때 늘어난 다리가
            그대로 남아 어깨 위로 삐쭉 솟는다.
@@ -607,14 +610,16 @@ export function createPet(spec){
           head.rotation.x = -0.6 * k;               // 코를 들어 올린다
           group.position.y = Math.abs(Math.sin(t * 6)) * 0.018 * k;
         } else if (trick === 'paw'){
-          inner.rotation.x = -0.45 * k;             // 앉은 채로
-          inner.position.y = bodyY * 0.14 * S * k;
+          inner.rotation.x = -0.6 * k;              // 앉아 윗몸을 세우고
+          inner.position.y = bodyY * 0.2 * S * k;
           /* 앞발 하나를 들어 **사람 손 위에 올린다.** 몸 앞쪽(+z)이
              사람 쪽이므로 앞으로 길게 뻗어야 닿는다. */
-          legs[1].position.y = legRest + legH * 1.5 * k;
-          legs[1].position.z = legZ + legH * 1.1 * k;
-          legs[1].scale.y = legH * (1 + 0.25 * k);
-          head.rotation.x = 0.26 * k;
+          legs[1].position.y = legRest + legH * 2.1 * k;
+          legs[1].position.z = legZ + legH * 0.5 * k;
+          legs[1].rotation.x = -1.35 * k;            // 앞발을 앞으로 쭉 — 큰 머리 앞으로 나와야 손에 얹힌 게 보인다
+          legs[1].scale.y = legH * (1 + 0.6 * k);
+          legs[1].position.x = legX * (1 + 0.5 * k);  // 조금 바깥으로 — 턱 밑에 숨지 않게
+          head.rotation.x = -0.35 * k;               // 고개를 들어 주인을 올려다본다 (턱이 앞발을 가리지 않는다)
         }
 
         if (trickLeft <= 0) trick = null;
@@ -624,6 +629,7 @@ export function createPet(spec){
       inner.rotation.x = 0;
       inner.position.y = 0;
       legs[1].position.z = legZ;
+      legs[1].rotation.x = 0; legs[1].position.x = legX;
       legs[1].scale.y = legH;
 
       if (greetLeft > 0){
