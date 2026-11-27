@@ -5,6 +5,7 @@ import { readAccount, refresh, signup, login, logout, logoutAll, deleteAccount, 
 import { trackPresence } from './presence.js?v=p2';
 import { serverNow } from './clock.js?v=k1';
 import { createLogo } from './logo.js?v=l2';
+import { readPhoto, applyPhoto } from './photo.js?v=f1';
 
 /*
  * Metaversal Studio — 시작 → 가입·로그인 → 캐릭터 꾸미기 → 메뉴.
@@ -413,8 +414,8 @@ function openCat(key){
   if (ch) wear(ch);
   else if (actor) actor.group.visible = false;   // 아직 없으면 캐릭터 자리에 '캐릭터를 생성해주세요.' 만 (사용자 요청)
   $('#catEmpty').hidden = !!ch || key !== 'world';
-  $('#catMake').hidden = key !== 'world';
-  $('#catMake').textContent = ch ? '캐릭터 수정 ›' : '새 캐릭터 만들기 ›';
+  $('#catBtns').hidden = key !== 'world';
+  $('#catMake').innerHTML = ch ? '<span class="lg">캐릭터 </span>수정 ›' : '새 <span class="lg">캐릭터 </span>만들기 ›';
   $('#catCrumb').innerHTML = `Metaversal Studio › <b>${c.label}</b>`;
   $('#catTitle').textContent = c.name;
   $('#catSub').textContent = c.sub;
@@ -437,6 +438,25 @@ $('#catMake').onclick = () => {
   const ch = charOf(account);
   if (ch){ draft = { ...ch }; makerFrom = 'cat'; } else { draft = blankChar(); makerFrom = 'world'; }   // 없으면 새 캐릭터부터
   openMaker();
+};
+/* 📷 사진으로 만들기 (사용자 요청) — 온몸 사진에서 머리칼 · 피부 · 상의 · 하의 · 신발 색을 뽑아 입히고 꾸미기를 연다.
+   지금 캐릭터가 있으면 그 모양에 색만 바꾸고, 없으면 새 캐릭터에 기본 종류를 골라 둔다. 사진은 이 기기 밖으로 나가지 않는다 */
+$('#catPhoto').onclick = () => { $('#photoIn').value = ''; $('#photoIn').click(); };
+$('#photoIn').onchange = async () => {
+  const f = $('#photoIn').files[0];
+  if (!f) return;
+  const btn = $('#catPhoto'); btn.disabled = true;
+  try {
+    const { colors, found } = await readPhoto(f);
+    const ch = charOf(account);
+    draft = applyPhoto(ch ? { ...ch } : blankChar(), colors);
+    makerFrom = ch ? 'cat' : 'world';
+    openMaker();
+    $('#makerMsg').textContent = found ? '사진에서 색을 뽑았어요. 모양은 단계마다 골라 주세요.'
+                                       : '사람을 또렷이 못 찾아 가운데 색을 썼어요. 온몸이 나온 사진이 좋아요.';
+  } catch (err){
+    alert(err.message);
+  } finally { btn.disabled = false; }
 };
 $('#catList').addEventListener('click', e => {
   const a = e.target.closest('a[href="game/world/"]');
