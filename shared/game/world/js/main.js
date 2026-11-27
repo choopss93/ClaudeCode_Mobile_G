@@ -1062,7 +1062,7 @@ function begin(myName, petName, petSpec, friends, myLook){
 
   /* ── 조작 ── */
   const controls = createControls(canvas, { stick: $('stick'), knob: $('knob') });
-  let lastYaw = 0;              // 카메라가 보는 쪽 — 공은 이쪽으로 던진다
+  let lastYaw = 0;              // 카메라가 보는 쪽 — 밥그릇을 이쪽 앞에 놓는다 (공은 캐릭터가 바라보는 쪽으로)
 
   /* ── 공 ──
      여러 개를 던질 수 있고, 던질 때마다 빛깔이 다르다. 공을 움직이는 일은
@@ -1145,8 +1145,9 @@ function begin(myName, petName, petSpec, friends, myLook){
       return;
     }
     tossWait = 0.4;
-    const dx = -Math.sin(lastYaw), dz = -Math.cos(lastYaw);   // 보는 쪽 앞으로
-    const req = { x: from.x + dx * 0.35, y: 0.78, z: from.z + dz * 0.35,
+    // 캐릭터가 바라보는 쪽 앞으로 (사용자 요청 — 예전엔 카메라가 보는 쪽이었다). 걸을 때 rotation.y = atan2(x, z)
+    const ry = me.group.rotation.y, dx = Math.sin(ry), dz = Math.cos(ry);
+    const req = { x: from.x + dx * 0.35, y: 0.78 + from.y, z: from.z + dz * 0.35,
                   vx: dx * 7.6, vy: 5.0, vz: dz * 7.6,
                   ci: nextCi() };
     me.toss();                   // 던지는 동작이 보인다
