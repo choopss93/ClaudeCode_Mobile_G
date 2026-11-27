@@ -1,7 +1,7 @@
 import { ROUND_MS, ANSWER_MS, REVEAL_MS, BUZZ_WINDOW, ROUND_CHOICES, MAX_SEATS, newGame, canBuzz, buzz, submit, timeUp, next,
          ranking, questionOf, titleOf, poolSize, hintOf, HINT_MS, HINT_MAX } from './rules.js?v=3';
 import { CAT_NAME, MODE_NAME } from './data.js?v=2';
-import { joinRoom, makeId } from '../../poker/js/room.js?v=12';
+import { joinRoom, makeId } from '../../poker/js/room.js?v=13';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
 import { serverNow } from '../../../js/clock.js?v=k1';

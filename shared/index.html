@@ -200,6 +200,8 @@
   .menu .go{color:var(--faint);font-size:18px}
   /* 게임이 넷 이상이면 촘촘하게 — 카드 위의 갈래 이름은 머리에 이미 있으니 뺀다 */
   .menu.dense{gap:8px} .menu.dense .t b{display:none} .menu.dense a{min-height:64px;padding:10px 14px}
+  /* 여섯 이상 — 더 촘촘하게 (작은 폰에서 넘쳤다) */
+  .menu.denser{gap:6px} .menu.denser a{min-height:0;padding:5px 12px;gap:11px} .menu.denser .ic{width:36px;height:36px;font-size:18px;border-radius:11px} .menu.denser .t span{font-size:15px}
   .crumb{margin:0 0 2px;font-size:11.5px;color:var(--faint);letter-spacing:.02em}
   .crumb b{color:var(--accent);font-weight:700}
   .links{display:grid;grid-template-columns:1fr;gap:8px;flex:none}
@@ -375,7 +377,7 @@
       </a>
       <a href="#project" data-cat="project">
         <span class="ic" style="background:#DCA94E;color:#1a1206">♠</span>
-        <span class="t"><b>META PROJECT</b><span>메타 프로젝트</span><small>Memory Poker · Tower 13 · 어메이징 선데이 · Lucky 주사위 · 틀린그림찾기</small></span>
+        <span class="t"><b>META PROJECT</b><span>메타 프로젝트</span><small>Memory Poker · Tower 13 · 어메이징 선데이 · Lucky 주사위 · 틀린그림찾기 · Pass the Wall</small></span>
         <span class="go">›</span>
       </a>
     </nav>
@@ -441,6 +443,6 @@
     <div class="btns" id="myBtns"></div>
   </div>
 </div>
-<script type="module" src="js/studio.js?v=s29"></script>
+<script type="module" src="js/studio.js?v=s31"></script>
 </body>
 </html>

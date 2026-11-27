@@ -329,7 +329,8 @@ const CATS = {
     { href: 'game/tower/', ic: '13', icStyle: 'background:linear-gradient(180deg,#F0767A 0 33%,#6CCB8A 33% 66%,#6FA8F5 66%);color:#141414;font-weight:800;font-size:17px', name: 'Tower 13', desc: '박스를 쌓다가 13을 넘기면 와르르' },
     { href: 'game/sunday/', ic: '✋', icStyle: 'background:linear-gradient(135deg,#FFE9B8,#DCA94E 55%,#F0A080);color:#1a1206', name: '어메이징 선데이', desc: '초성 · 줄임말로 영화 · 웹툰 제목 맞히기' },
     { href: 'game/lucky/', ic: '🎲', icStyle: 'background:linear-gradient(135deg,#7ED67E,#5EC2F0 55%,#B48CF0);color:#141414', name: 'Lucky 주사위', desc: '주사위 넷으로 길을 올라요 · 한 번만 더?' },
-    { href: 'game/spot/', ic: '🔍', icStyle: 'background:linear-gradient(135deg,#A9DCFF,#9BD27F 60%,#FFC93C);color:#141414', name: '틀린그림찾기', desc: '3분 동안 외우고 바뀐 곳 다섯 찾기' }
+    { href: 'game/spot/', ic: '🔍', icStyle: 'background:linear-gradient(135deg,#A9DCFF,#9BD27F 60%,#FFC93C);color:#141414', name: '틀린그림찾기', desc: '3분 동안 외우고 바뀐 곳 다섯 찾기' },
+    { href: 'game/wall/', ic: '🧱', icStyle: 'background:linear-gradient(135deg,#E8C99A,#C99566 55%,#8A5A3C);color:#141414', name: 'Pass the Wall', desc: '벽으로 막고 피해서 먼저 건너가기 · 팀전' }
   ] }
 };
 const escH = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -349,6 +350,7 @@ function openCat(key){
   $('#catTitle').textContent = c.name;
   $('#catSub').textContent = c.sub;
   $('#catList').classList.toggle('dense', c.items.length >= 4);
+  $('#catList').classList.toggle('denser', c.items.length >= 6);
   $('#catList').innerHTML = c.items.map(it => `<a href="${it.href}">
     <span class="ic" style="${it.icStyle}">${it.ic}</span>
     <span class="t"><b>${c.label}</b><span>${escH(it.name)}</span><small>${escH(it.desc)}</small></span>

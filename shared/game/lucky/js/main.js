@@ -1,6 +1,6 @@
 import { COLS, H, MAX_SEATS, BUST_MS, limitsFor, teamable, newGame, current, sideOf, sides, membersOf, claimedBy,
          options, bustChance, roll, pick, afterBust, stop, skip, ranking, progressOf, botPick, botStops } from './rules.js?v=1';
-import { joinRoom, makeId } from '../../poker/js/room.js?v=12';
+import { joinRoom, makeId } from '../../poker/js/room.js?v=13';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
 import { serverNow } from '../../../js/clock.js?v=k1';

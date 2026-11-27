@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | 1 | `design/` | 아토믹 디자인 · **매번 확인용** |
 | 2 | `my/` | MY (개인) — `my/admin/` 어드민 · `my/front/` 프론트 |
-| 3 | `shared/` | 공용 (공유 서비스) — **Metaversal Studio** 첫 화면 · 계정 · 캐릭터 → `shared/game/world/` 무지개 정원, `shared/game/poker/` Memory Poker, `shared/game/tower/` Tower 13, `shared/game/sunday/` 어메이징 선데이, `shared/game/lucky/` Lucky 주사위, `shared/game/spot/` 틀린그림찾기 |
+| 3 | `shared/` | 공용 (공유 서비스) — **Metaversal Studio** 첫 화면 · 계정 · 캐릭터 → `shared/game/world/` 무지개 정원, `shared/game/poker/` Memory Poker, `shared/game/tower/` Tower 13, `shared/game/sunday/` 어메이징 선데이, `shared/game/lucky/` Lucky 주사위, `shared/game/spot/` 틀린그림찾기, `shared/game/wall/` Pass the Wall |
 | 4 | `etc/` | 기타 (임시) |
 
 ## 1번은 "확인하고 작업하는" 자리
@@ -142,7 +142,7 @@
     처음이면 아이디.
   - 메뉴의 '캐릭터 꾸미기' 는 캐릭터를 만든 뒤에만 보인다.
   - **메뉴는 갈래 둘이다** (사용자 요청) — Metaversal Studio › **META WORLD** › 무지개 정원,
-    Metaversal Studio › **META PROJECT** › Memory Poker · Tower 13 · 어메이징 선데이 · Lucky 주사위 · 틀린그림찾기. 첫 메뉴에는 갈래만 두고,
+    Metaversal Studio › **META PROJECT** › Memory Poker · Tower 13 · 어메이징 선데이 · Lucky 주사위 · 틀린그림찾기 · Pass the Wall. 첫 메뉴에는 갈래만 두고,
     누르면 그 갈래의 목록 화면(`#cat`, `openCat`)이 열린다. 목록은 `studio.js` 의 `CATS`
     한 곳 — 게임을 더할 때 그 갈래에 한 줄. 갈래 이름은 영어 철자 그대로.
   - 목록 화면은 주소에 `#world` · `#project` 를 단다. 게임의 '뒤로' 가 그리로 돌아온다
@@ -1111,6 +1111,8 @@
   방장이 `choose` · `act` · `resolveStep` 으로 판을 바꾸고 상태를 통째로 보낸다 (`gs`,
   1.5초마다 다시). 각자는 고르기(`ch`)와 올리기/패스(`ac`)만 보낸다 (1초마다 다시).
   시간은 단계가 바뀔 때(`keyOf` — 판 · 단계 · 차례 · 남은 패스)만 새로 잰다. 방장이 나가면 다음 사람이 마지막 상태로 잇는다.
+- `room.js` 는 인사의 `ready` · `games` · **`comm`(방 설정)** 이 바뀌면 화면을 다시 그리게 한다 — `comm` 을 빠뜨려서 방장이 개인전 · 팀전을
+  바꿔도 손님 화면에 늦게 보였다. `room.js` 를 고치면 쓰는 게임 모두의 `room.js?v=` 와 `main.js?v=` · `.ver` 를 올릴 것.
 - 접속은 Memory Poker 의 `room.js` 를 그대로 쓴다 — `joinRoom({ topicBase:'tower13/',
   keep:[] })`. 준비 → 시작도 Memory Poker 와 같다 (`readyBase` = 게임 번호).
 - 화면: 자리 8칸(두 줄) · 안내 두 줄 · 시간 띠 · **세 탑**(남은 자리 전부) · 내 손
@@ -1228,6 +1230,29 @@
 - 검사: 브라우저 둘에 `performance.now` 를 앞당기는 덧칠을 하고, 시험용으로만 `main.js` 를 `page.route` 로 바꿔 끼워
   (`window.__P = () => puzzle()`) 정답 자리를 읽어 누른다 — 저장소의 파일은 건드리지 않는다. 다섯 크기에서 설정 · 보기 ·
   찾기 · 결과 · 점수 창을 잰다.
+- 고친 뒤에는 `index.html` 의 `main.js?v=` 와 `.ver` 를 같이 올린다.
+
+## Pass the Wall (`shared/game/wall/`)
+
+- 사용자가 보드게임 '쿼리도' 같은 것을 바랐다. 원작이 파는 상품이라 **이름은 사용자가 새로 지었다** ('Pass the Wall').
+  원작 이름 · 모양을 가져다 쓰지 말 것.
+- 규칙 (`js/rules.js`): 내 말을 **맞은편 변**까지 먼저 보내면 승리. 차례마다 **한 칸 이동 또는 벽 하나**. 앞에 말이 있으면
+  뛰어넘고, 그 뒤가 막혔으면 옆으로 (`legalMoves`). 벽은 두 칸 — 겹치면 안 되고, **누구의 길도 완전히 막으면 안 된다**
+  (`wallProblem` 이 모든 말의 길을 BFS 로 따진다 — `distOf`).
+  - **8명까지** (사용자 요청 — 원작은 4명) — 인원에 따라 판이 커진다 (`layoutFor`): 2명 9×9 위 · 아래 · 벽 10개 /
+    3~4명 9×9 네 변 · 5개 / **5~8명 13×13 네 변에 둘씩 · 3개**.
+  - **팀전 — 2명씩만** (사용자 요청). 짝수 · 4명부터. 팀은 들어온 순서대로 둘씩, 13×13 은 같은 변의 둘 · 9×9 넷은 마주 보는 둘.
+    팀원 중 **한 명만 도착해도** 팀 승리. 방장이 시작 전 개인전 · 팀전을 고른다 (인사의 `comm` 1 · 2).
+  - **시간: 5명 이상 차례당 1분, 그 아래는 제한 없음** (사용자 요청, `TURN_MS`). 지나면 방장이 가장 짧은 길로 한 칸
+    (`autoAct` — `last.auto` 로 그 사람에게 알린다). 나간 사람도 같다.
+  - 혼자 시작하면 META BOT 셋 (사용자 요청 — 4명이라 9×9). 봇은 앞서는 상대의 길목에 벽을 놓고(그 상대가 늘어난 만큼 −
+    내가 늘어난 만큼이 큰 자리), 아니면 가장 짧은 길로 간다 (`botAction`).
+- 화면: 판은 SVG (칸 10 단위). 갈 수 있는 칸에 점, 내 도착 줄은 내 색으로 진하게. **벽은 두 단계** — '🧱 벽 놓기' → 홈을 누르면
+  가장 가까운 교차점이 벽 가운데가 되어 미리보기(초록 · 안 되면 빨강과 까닭) → '↻ 돌리기' · '✓ 놓기'. 손가락으로 홈을
+  정확히 누르기 어려워서 이렇게 했다.
+- 한 수(`ac` — move · wall)에 판 번호 `seq` 를 붙여 두 번 먹지 않게 한다. 토픽 `passwall/`.
+- 검사: 노드로 봇끼리 인원 · 팀전마다 수십 판 (다 끝나는지, 길이 막힌 말이 없는지, 한 칸에 둘이 없는지), 브라우저로 혼자(봇 셋) ·
+  여섯 명 팀전(13×13, 1분 넘기기)을 돌리고, 다섯 크기에서 설정 · 판 · 벽 놓기 · 결과를 잰다.
 - 고친 뒤에는 `index.html` 의 `main.js?v=` 와 `.ver` 를 같이 올린다.
 
 ## 기술 제약

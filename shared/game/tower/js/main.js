@@ -1,6 +1,6 @@
 import { SETS, GAMES, MAX_GAMES, gamesOf, LIMIT, CARDS, CHIPS, ZONES, ZONE_NAME, MAX_SEATS, sumOf, canPut, newGame,
          canChoose, choose, turnOf, seqOf, leadOf, act, resolveStep, autoPick, ranking } from './rules.js?v=6';
-import { joinRoom, makeId } from '../../poker/js/room.js?v=12';
+import { joinRoom, makeId } from '../../poker/js/room.js?v=13';
 import { makeChannel, readChannel, showChannel, channelFromHash, writeChannelToHash, inviteLink } from '../../world/js/channel.js';
 import { readAccount } from '../../../js/account.js?v=s6';
 import { trackPresence } from '../../../js/presence.js?v=p2';

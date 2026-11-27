@@ -82,7 +82,7 @@ export function joinRoom({ room, me, onMessage, onPeers, onStatus, topicBase = T
           const ready = Number.isInteger(m.ready) ? m.ready : -1;
           peers.set(m.id, { name: String(m.name || '').slice(0, 12) || '손님', at: +m.at || 0, comm: +m.comm || 0, games: +m.games || 0, ready, seen: performance.now() });
           if (!old){ hi(); onPeers(); }        // 새로 온 사람이 나를 바로 알게
-          else if (old.ready !== ready || old.games !== (+m.games || 0)) onPeers();   // 준비 · 판 수가 바뀌었다
+          else if (old.ready !== ready || old.games !== (+m.games || 0) || old.comm !== (+m.comm || 0)) onPeers();   // 준비 · 판 수 · 설정(comm)이 바뀌었다
           return;
         }
         if (m.t === 'bye'){
