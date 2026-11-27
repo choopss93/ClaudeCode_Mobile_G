@@ -152,7 +152,7 @@ async function readToken(env, token){
    예전 판(v 없음)은 **버린다** (사용자 요청 — 새 캐릭터로 다시 만든다). */
 const CHAR_KEYS = ['style', 'gender', 'head', 'skin', 'hair', 'hairColor', 'forehead', 'brow', 'eye', 'eyeColor',
   'glabella', 'nose', 'philtrum', 'mouth', 'lip', 'chin', 'eyesOn', 'eyeShape', 'glow', 'faceColor',
-  'top', 'topColor', 'bottom', 'bottomColor', 'shoes', 'shoesColor', 'hat', 'acc', 'muscle', 'torso', 'arm', 'leg', 'hatColor', 'accColor'];
+  'top', 'topColor', 'bottom', 'bottomColor', 'shoes', 'shoesColor', 'hat', 'acc', 'muscle', 'torso', 'arm', 'leg', 'hatColor', 'accColor', 'faceShape'];
 function cleanChar(c){
   if (!c || typeof c !== 'object' || c.v !== 2) return null;
   const nick = String(c.nick || '').trim().slice(0, 16);

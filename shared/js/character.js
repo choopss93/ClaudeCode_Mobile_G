@@ -55,6 +55,7 @@ export const EYES    = L('동글', '반짝', '가는 눈', '처진 눈', '올라
 export const NOSES   = L('점', '동글', '오똑', '작은', '넓은', '없음');
 export const MOUTHS  = L('미소', '활짝', '일자', '오', '시무룩', '메롱', '고양이 입', '이 보이게');
 export const CHINS   = L('동글', '뾰족', '각진', '넓은', '갸름');
+export const FACE_SHAPES = L('동그란형', '계란형', '긴 얼굴', '각진형', '하트형', '넓은형');
 export const LIP_NAMES = L('피부색', '핑크', '코랄', '레드', '베리', '누드', '브라운', '베이비');
 export const EYE_SHAPES = L('동그라미', '세로 알약', '가로 슬릿', '반달', '네모', 'X', '하트', '별');
 export const TOPS    = L('티셔츠', '후디', '재킷', '패딩', '맨투맨', '민소매', '바람막이', '셔츠', '없음');
@@ -76,7 +77,8 @@ export const KEYS = [
   ['bottomColor', PALETTE.length - 1], ['shoes', SHOES.length - 1], ['shoesColor', PALETTE.length - 1],
   ['hat', HATS.length - 1], ['acc', ACCS.length - 1],
   ['muscle', SLIDER], ['torso', SLIDER], ['arm', SLIDER], ['leg', SLIDER],
-  ['hatColor', PALETTE.length - 1], ['accColor', PALETTE.length - 1]
+  ['hatColor', PALETTE.length - 1], ['accColor', PALETTE.length - 1],
+  ['faceShape', FACE_SHAPES.length - 1]          // 얼굴형 (사용자 요청) — 끝에 붙였다
 ];
 
 /* 스타일마다 처음 입는 옷 — 참고 그림의 느낌 그대로 시작한다 */

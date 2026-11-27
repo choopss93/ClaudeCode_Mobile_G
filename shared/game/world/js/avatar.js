@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { toon, toonUnique, makeBlob } from '#look';
+import { toon, toonUnique, makeBlob, wind } from '#look';
 import { serverNow } from '../../../js/clock.js';
-import { SLIDER, PALETTE, SKINS, HAIR_COLORS, EYE_COLORS, GLOWS, LIPS, STYLES } from '../../../js/character.js?v=c5';
+import { SLIDER, PALETTE, SKINS, HAIR_COLORS, EYE_COLORS, GLOWS, LIPS, STYLES } from '../../../js/character.js?v=c6';
 
 /*
  * 새 캐릭터 (v2) — shared/js/character.js 의 번호를 받아 짓는다.
@@ -131,6 +131,18 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   const g = geo => (own.push(geo), geo);
   const uniq = (color, opts) => { const m = toonUnique(color, opts); own.push(m); return m; };
   const sl = (v, lo, hi) => lo + (hi - lo) * (v / SLIDER);
+  /* 날리는 것 — 늘어진 머리칼 · 치마 · 목도리 끝 · 가방. 매달린 위 끝(px, py, pz)에 돌쩌귀를 세우고
+     걷는 빠르기 · 도는 빠르기 · 바람을 받아 용수철처럼 흔들린다 (update 의 '날림'). g 는 얼마나 잘 날리는지. */
+  const flaps = [];
+  const swing = (m, px, py, pz, g = 1, side = 0, flare = false) => {
+    const p = new THREE.Group();
+    p.position.set(px, py, pz);
+    m.parent.add(p);
+    m.position.x -= px; m.position.y -= py; m.position.z -= pz;
+    p.add(m);
+    flaps.push({ p, m, g, side, flare, sx: m.scale.x, sz: m.scale.z, ax: 0, vx: 0, az: 0, vz: 0 });
+    return p;
+  };
 
   const B = BASE[c.style] || BASE[0];
   const faced = STYLES[c.style].face;
@@ -151,10 +163,13 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   const top = PALETTE[c.topColor], bot = PALETTE[c.bottomColor], shoeC = PALETTE[c.shoesColor];
   const hatC = PALETTE[c.hatColor ?? c.topColor], accC = PALETTE[c.accColor ?? 4];
   const hairC = HAIR_COLORS[c.hairColor];
-  const metal = toon(METAL), dmetal = toon(DARKM);
+  /* 무지(하이브리드)도 몸 · 관절 색은 피부(얼굴)색 하나로 통일 (사용자 요청 — 까만 로봇은 관절도 까맣게).
+     이음매 · 기계 귀만 같은 색을 조금 밝게(어두운 색) · 어둡게(밝은 색) 해 선으로 보인다 */
+  const metal = toon(shade(skinC, lum(skinC) < 0.35 ? 1.9 : 0.8)), dmetal = skin;
   const glowC = GLOWS[c.glow];
   /* 관절 구 — 살갗보다 아주 조금 짙게 해 '관절 인형' 처럼 읽히게. 무지는 쇠 */
-  const jointMat = mech ? metal : skin;                 // 관절 구는 피부색 그대로 (사용자 요청) — 무지만 쇠
+  const jointMat = skin;                                // 관절 구는 피부색 그대로 (사용자 요청 — 무지도)
+  const JK = 1.0;
   const limbMat = mech ? toon(shade(skinC, 1.0)) : skin;
 
   const group = new THREE.Group();
@@ -180,13 +195,13 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   const ballAt = (parent, r, mat, y = 0) => put(parent, ballS, mat, 0, y, 0, r);
   /* 관절 셋(위 · 가운데 · 끝)과 마디 둘. 가운데 · 끝은 그 관절에서 도는 무리다 */
   function limb(root, r, l, b, back = 0){
-    ballAt(root, r[0] * 1.06, jointMat);
+    ballAt(root, r[0] * JK, jointMat);       // 관절 구는 마디 굵기 그대로 — 튀어나오지 않게 (사용자 지적). 무지만 쇠 이음매로 조금 크게
     seg(root, r[0], r[1], l[0], limbMat, 1, 0, 1, b[0]);
     const mid = new THREE.Group(); mid.position.y = -l[0]; root.add(mid);
-    ballAt(mid, r[1] * 1.16, jointMat);
+    ballAt(mid, r[1] * JK, jointMat);
     seg(mid, r[1], r[2], l[1], limbMat, 1, 0, 1, b[1], 0, { back });
     const end = new THREE.Group(); end.position.y = -l[1]; mid.add(end);
-    ballAt(end, r[2] * 1.16, jointMat);
+    ballAt(end, r[2] * JK, jointMat);
     return { root, mid, end, r, l, b, back };
   }
   /* 옷 — 마디 위에 조금 굵게 씌운다. a · b 는 0(위 관절) ~ 1(가운데) ~ 2(끝) */
@@ -257,7 +272,7 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   const nr = armR * (G === 1 ? 0.95 : 1.12) * (c.style === 0 ? 0.9 : 1);
   const neckLen = B.neck + R * 0.35;
   put(group, g(new THREE.CylinderGeometry(nr * 0.92, nr * 1.05, neckLen, 14)), mech ? dmetal : skin, 0, neckY - torsoH * 0.02 + neckLen / 2, 0, 1);
-  ballAt(group, nr * 1.15, jointMat, neckY - torsoH * 0.02);
+  ballAt(group, nr * JK, jointMat, neckY - torsoH * 0.02);
   if (mech) put(group, ring, metal, 0, neckY + B.neck * 0.5, 0, nr * 1.15, nr * 1.15, 0.03, Math.PI / 2);
 
   /* ── 다리 — 엉덩이 · 무릎 · 발목 관절. 무릎 아래가 조금 더 길다 ── */
@@ -294,8 +309,9 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   if (bk === 4){                                                                                    // 치마
     const skirtH = thighL * 0.8, top0 = hipY + torsoH * 0.27;
     bodyAt(torsoGeo(1.06, 0.14, 0.27), bm);
-    put(group, g(new THREE.CylinderGeometry(torsoW * at(0.15) * 1.06, torsoW * 1.5, skirtH, 26, 1, true)),
+    const sk = put(group, g(new THREE.CylinderGeometry(torsoW * at(0.15) * 1.06, torsoW * 1.5, skirtH, 26, 1, true)),
         uniq(bot, { side: THREE.DoubleSide }), 0, top0 - torsoH * 0.12 - skirtH / 2, 0, 1, 1, torsoD / torsoW * 1.1);
+    swing(sk, 0, top0 - torsoH * 0.12, 0, 0.35, 0, true);                                         // 걸으면 뒤로 살짝 날리고 퍼진다
   }
 
   /* 발 · 신발 — 발목 관절 밑. 발끝은 앞(+Z) */
@@ -336,19 +352,35 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
         part(ankle, W * 0.98, up * 0.25, L2 * 0.5, up * 0.1, dark, 0, base + sole + shinL * 0.4, -L2 * 0.06);
         break;
       default:
-        put(ankle, ball, skin, 0, base + shoeH * 0.4, fz, shoeW * 0.8, shoeH * 0.45, footL * 0.5);
-        for (let i = 0; i < 4; i++) put(ankle, ballS, skin, (i - 1.5) * shoeW * 0.36, base + shoeH * 0.25, fz + footL * 0.48, shoeW * 0.2);   // 발가락
+      { /* 맨발 — 발목 굵기에 맞춘 좁은 발 (예전엔 발목의 세 배 넓이라 오리발 같았다 — 사용자 지적).
+           뒤꿈치 · 발등 · 앞발을 이어 붙이고, 발가락은 앞발 끝에 작게 묻는다 */
+        const fl = footL / B.shoe * 0.9, fw = legR * 0.5, fh = Math.min(shoeH, legR * 0.75);
+        put(ankle, ballS, skin, 0, base + fh * 0.55, -fl * 0.12, fw * 0.95, fh * 0.6, fw * 1.05);                // 뒤꿈치
+        put(ankle, ball, skin, 0, base + fh * 0.6, fl * 0.18, fw, fh * 0.62, fl * 0.36);                         // 발등
+        put(ankle, ballS, skin, 0, base + fh * 0.32, fl * 0.42, fw * 1.08, fh * 0.34, fl * 0.16);                // 앞발
+        for (let i = 0; i < 5; i++){                                                                             // 발가락 — 엄지가 크고 바깥으로 작아진다
+          const k = [1.25, 1, 0.9, 0.8, 0.7][i];
+          put(ankle, ballS, skin, (i * 0.42 - 0.85) * fw * -1, base + fh * 0.22, fl * (0.56 - i * 0.025), fw * 0.2 * k, fh * 0.2 * k, fw * 0.22 * k);
+        }
+      }
     }
   }
 
   /* ── 팔 — 어깨 · 팔꿈치 · 손목 관절, 그 밑에 손 (손바닥 · 네 손가락 · 엄지) ── */
   const handLen = armR * 2.5;
   const upL = (armLen - handLen) * 0.52, foreL = (armLen - handLen) * 0.48;
-  const shY = neckY - torsoH * 0.07, shX = torsoW * 0.8 * (puffer ? 1.08 : 1) + armR * 0.2;   // 어깨 관절은 몸통 비탈에 반쯤 묻는다
   const bare = c.top === 8;                       // 상의 없음 (처음엔 옷을 입히지 않는다 — 사용자 요청)
   const sleeveB = { 0: 0.6, 5: 0, 8: 0 }[c.top] ?? 1.94;
   const sleeveK = puffer ? 1.42 : 1.18;
   const tm = toon(top);
+  /* 어깨 — 위팔이 가슴 옆면 **바깥**에서 내려오게 (사용자 지적 — 팔이 몸 면 안으로 들어가 있었다).
+     가슴의 가장 넓은 폭(옷 두께까지) + 위팔(소매) 굵기만큼 바깥에 둔다. 목과 어깨 사이는 승모근으로 메운다 */
+  let chestW = 0;
+  for (let t = 0.55; t <= 0.9; t += 0.02) chestW = Math.max(chestW, at(t));
+  const upR = armR * 0.98 * (sleeveB ? sleeveK : 1);
+  const shY = neckY - torsoH * 0.07, shX = torsoW * chestW * (bare ? 1.0 : puffer ? 1.17 : 1.055) + upR * 0.9;
+  for (const s of [-1, 1])                                                                          // 승모근 · 어깨 비탈
+    put(group, ball, bare ? skin : tm, s * shX * 0.5, shY + armR * 0.15, -torsoD * 0.05, shX * 0.55, armR * 1.05, torsoD * 0.72 * (bare ? 1 : 1.05));
   const arms = [-1, 1].map(s => {
     const a = new THREE.Group();
     a.position.set(s * shX, shY, 0);
@@ -432,7 +464,7 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
       break;
     case 2:                                                                                       // 크로스백
       put(group, box, am, 0, midY, frontZ * 1.02, 0.014, torsoH * 1.1, 0.008, 0, 0, 0.72);
-      put(group, ball, am, torsoW * 0.8, hipY + torsoH * 0.18, frontZ * 0.72, torsoW * 0.4, torsoH * 0.15, torsoD * 0.34);
+      swing(put(group, ball, am, torsoW * 0.8, hipY + torsoH * 0.18, frontZ * 0.72, torsoW * 0.4, torsoH * 0.15, torsoD * 0.34), torsoW * 0.8, hipY + torsoH * 0.33, frontZ * 0.72, 0.5);
       break;
     case 3:                                                                                       // 백팩
       put(group, ball, am, 0, midY + torsoH * 0.08, -torsoD * 1.35, torsoW * 0.8, torsoH * 0.36, torsoD * 0.5);
@@ -441,7 +473,7 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
       break;
     case 4:                                                                                       // 목도리
       put(group, ring, am, 0, neckY + 0.005, 0, torsoW * 0.62, torsoD * 0.8, 0.06, Math.PI / 2);
-      put(group, ball, am, torsoW * 0.32, neckY - torsoH * 0.22, frontZ * 0.95, torsoW * 0.17, torsoH * 0.25, 0.022);
+      swing(put(group, ball, am, torsoW * 0.32, neckY - torsoH * 0.22, frontZ * 0.95, torsoW * 0.17, torsoH * 0.25, 0.022), torsoW * 0.32, neckY - torsoH * 0.02, frontZ * 0.95, 1.2);
       break;
   }
 
@@ -450,7 +482,9 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   const head = new THREE.Group();
   head.position.y = headY;
   group.add(head);
-  const HX = R, HY = R * (faced ? 0.96 : 1.02), HZ = R * 0.94;
+  /* 얼굴형 (사용자 요청) — 머리 공의 가로 · 세로 비율. 각진형 · 하트형은 턱도 더한다 */
+  const FS = [[1, 1, 0.94], [0.92, 1.06, 0.94], [0.86, 1.13, 0.92], [1.02, 0.97, 0.95], [1.03, 1.0, 0.94], [1.1, 0.93, 0.95]][c.faceShape | 0] || [1, 1, 0.94];
+  const HX = R * FS[0], HY = R * (faced ? 0.96 : 1.02) * FS[1], HZ = R * FS[2];
   put(head, ball, skin, 0, 0, 0, HX, HY, HZ);
   const fz = (x, y) => HZ * Math.sqrt(Math.max(0, 1 - (x / HX) ** 2 - (y / HY) ** 2));
   /* 얼굴 겉면에 붙인다 — 겉면 쪽으로 돌려 놓는다 */
@@ -473,6 +507,8 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
       case 3: put(head, ball, skin, 0, -R * 0.32, R * 0.04, R * 0.94, R * 0.62, R * 0.8); break;
       case 4: put(head, ball, skin, 0, -R * 0.55, R * 0.3, R * 0.32, R * 0.36, R * 0.42); break;
     }
+    if (c.faceShape === 3) for (const s of [-1, 1]) put(head, ball, skin, s * HX * 0.52, -HY * 0.5, HZ * 0.16, R * 0.4, R * 0.36, R * 0.48);   // 각진형 — 턱 모서리
+    if (c.faceShape === 4) put(head, ball, skin, 0, -HY * 0.62, HZ * 0.3, R * 0.3, R * 0.34, R * 0.4);                                         // 하트형 — 좁은 턱끝
     /* 귀 */
     if (!mech) for (const s of [-1, 1]) put(head, ball, skin, s * HX * 0.96, -R * 0.06, 0, R * 0.12, R * 0.18, R * 0.1);
 
@@ -568,7 +604,7 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
   const hm = toon(hairC);
   const tilt = -sl(c.forehead, 0.34, 0.56) * (faced ? 1 : 0.8);
   const capS = hk === 0 ? 1.015 : 1.06;
-  const hcap = () => put(head, capGeo, hm, 0, R * 0.02, -R * 0.02, R * capS, R * 1.03 * (HY / R), R * capS, tilt);
+  const hcap = () => put(head, capGeo, hm, 0, R * 0.02, -R * 0.02, HX * capS, R * 1.03 * (HY / R), HZ / 0.94 * capS, tilt);
   const frontEdge = Math.PI * 0.56 + tilt;                                                      // 앞 가장자리의 각
   const edgeY = R * 1.03 * Math.cos(frontEdge) + R * 0.02;
   const fringeY = Math.max(edgeY - R * 0.04, browY + R * 0.16);
@@ -585,6 +621,8 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
     m.position.addScaledVector(d, len * 0.42);
   };
   const lock = (x, y, z, sx, sy, sz, rx = 0) => put(head, ball, hm, x, y, z, sx, sy, sz, rx);
+  const dangle = (x, y, z, sx, sy, sz, rx = 0, g = 1, side = 0) =>             // 늘어진 머리칼 — 위 끝에서 매달려 흔들린다
+    swing(lock(x, y, z, sx, sy, sz, rx), x, y + sy * 0.85, z, g, side);
   switch (hk){
     case 0: if (faced) hcap(); break;
     case 1: hcap(); fringe(3); break;
@@ -595,15 +633,15 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
       break;
     case 3: put(head, capGeo, hm, 0, R * 0.08, -R * 0.02, R * 1.08, R * 1.0, R * 1.08, tilt - 0.08);
       onFace(ball, hm, -R * 0.1, fringeY + R * 0.04, R * 0.42, R * 0.12, R * 0.12, -0.25, R * 0.04); break;
-    case 4: hcap(); fringe(4); lock(0, -R * 0.18, -R * 0.14, R * 1.12, R * 0.82, R * 0.98); break;
+    case 4: hcap(); fringe(4); dangle(0, -R * 0.18, -R * 0.14, R * 1.12, R * 0.82, R * 0.98, 0, 0.25); break;
     case 5: hcap(); fringe(3);
-      lock(0, -R * 0.62, -R * 0.45, R * 0.95, R * 1.15, R * 0.42);
-      for (const s of [-1, 1]) lock(s * R * 0.86, -R * 0.5, R * 0.06, R * 0.2, R * 0.62, R * 0.26); break;
+      dangle(0, -R * 0.62, -R * 0.45, R * 0.95, R * 1.15, R * 0.42, 0, 0.8);
+      for (const s of [-1, 1]) dangle(s * R * 0.86, -R * 0.5, R * 0.06, R * 0.2, R * 0.62, R * 0.26, 0, 0.6, s); break;
     case 6: hcap(); fringe(3);
-      lock(0, -R * 0.25, -R * 1.05, R * 0.25, R * 0.62, R * 0.27, 0.45);
+      dangle(0, -R * 0.25, -R * 1.05, R * 0.25, R * 0.62, R * 0.27, 0.45, 1.3);
       put(head, ring, toon(0xFF5A5F), 0, R * 0.2, -R * 0.95, R * 0.12, R * 0.12, R * 0.2, Math.PI / 2 - 0.6); break;
     case 7: hcap(); fringe(3);
-      for (const s of [-1, 1]){ lock(s * R * 1.02, -R * 0.35, -R * 0.2, R * 0.24, R * 0.58, R * 0.24); put(head, ball, toon(0xFF5A5F), s * R * 0.96, R * 0.15, -R * 0.2, R * 0.08); }
+      for (const s of [-1, 1]){ dangle(s * R * 1.02, -R * 0.35, -R * 0.2, R * 0.24, R * 0.58, R * 0.24, 0, 1.1, s); put(head, ball, toon(0xFF5A5F), s * R * 0.96, R * 0.15, -R * 0.2, R * 0.08); }
       break;
     case 8: for (let i = 0; i < 18; i++){
         const t = 0.15 + (i % 3) * 0.42, p = (i / 18) * Math.PI * 2 + (i % 3) * 0.4;
@@ -614,8 +652,8 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
       hcap(); break;
     case 9: hcap(); fringe(3); lock(0, R * 1.08, -R * 0.2, R * 0.36, R * 0.33, R * 0.36); break;
     case 10: hcap(); fringe(4);
-      for (let i = 0; i < 6; i++) lock((i % 2 ? 1 : -1) * R * 0.45, -R * (0.2 + Math.floor(i / 2) * 0.38), -R * 0.55, R * 0.42, R * 0.36, R * 0.32);
-      for (const s of [-1, 1]) lock(s * R * 0.88, -R * 0.45, R * 0.05, R * 0.22, R * 0.55, R * 0.26); break;
+      for (let i = 0; i < 6; i++) dangle((i % 2 ? 1 : -1) * R * 0.45, -R * (0.2 + Math.floor(i / 2) * 0.38), -R * 0.55, R * 0.42, R * 0.36, R * 0.32, 0, 0.5 + Math.floor(i / 2) * 0.3);
+      for (const s of [-1, 1]) dangle(s * R * 0.88, -R * 0.45, R * 0.05, R * 0.22, R * 0.55, R * 0.26, 0, 0.6, s); break;
     case 11: put(head, capGeo, hm, 0, R * 0.02, -R * 0.02, R * 1.015, R * 1.03, R * 1.015, tilt);
       for (let i = 0; i < 6; i++) spikeAt(0.05 + i * 0.32 - 0.5, 0, R * 0.42, R * 0.12);
       break;
@@ -753,7 +791,8 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
     for (const key of ['elL', 'wrL', 'elR', 'knL', 'anL', 'knR', 'anR']) J[key].x = mix(J[key].x, T[key]);
   };
   let target = blank();
-  let phase = 0, idle = Math.random() * 6, reachLeft = 0, tossLeft = 0;
+  let phase = 0, idle = Math.random() * 6, reachLeft = 0, tossLeft = 0, lastYaw = null;
+  const WIND = { x: 0.85, z: -0.5 };                // 정원에 부는 바람의 방향 (세상 기준)
   const TOSS_TIME = 0.55;
   const swingK = Math.min(1, 0.3 / legH + 0.25);                                                // 긴 다리는 덜 벌린다
 
@@ -802,6 +841,26 @@ export function createAvatar(c, { lamp = false, poses = true } = {}){
           const slot = Math.floor(serverNow() / 7000);
           const i = Math.abs((slot * 2654435761 ^ seedOf) | 0) % (POSES.length + 2);
           if (i < POSES.length) POSES[i](t, idle);
+        }
+      }
+      /* 날림 — 앞으로 걸으면 뒤로 흐르고, 돌면 바깥으로 쏠리고, 바람이 불면 바람 쪽으로. 용수철이라 멈추면 출렁이다 가라앉는다 */
+      if (flaps.length && dt > 0){
+        const e = group.matrixWorld.elements, yaw = Math.atan2(e[8], e[10]);
+        let dy = lastYaw == null ? 0 : yaw - lastYaw;
+        if (dy > Math.PI) dy -= Math.PI * 2; else if (dy < -Math.PI) dy += Math.PI * 2;
+        lastYaw = yaw;
+        const turn = Math.max(-4, Math.min(4, dy / dt));
+        const gust = (0.55 + 0.45 * Math.sin(wind.time.value * 1.3) * Math.sin(wind.time.value * 0.7 + 1)) * (wind.sway.value / 0.055);
+        const fx = Math.sin(yaw), fz = Math.cos(yaw);
+        const back = -(WIND.x * fx + WIND.z * fz) * gust, side = (WIND.x * fz - WIND.z * fx) * gust;
+        const bob = speed > 0.05 ? Math.sin(phase * 2) * 0.06 : 0;
+        for (const f of flaps){
+          const tx = Math.max(-0.2, Math.min(0.95, (speed * 0.13 + back * 0.18 + bob) * f.g));
+          const tz = Math.max(-0.6, Math.min(0.6, (-turn * 0.08 + side * 0.15) * f.g + f.side * speed * 0.03));
+          f.vx += ((tx - f.ax) * 55 - f.vx * 8) * dt; f.ax += f.vx * dt;
+          f.vz += ((tz - f.az) * 55 - f.vz * 8) * dt; f.az += f.vz * dt;
+          f.p.rotation.set(f.ax, 0, f.az);
+          if (f.flare){ const k = 1 + Math.min(0.12, speed * 0.03 + Math.abs(f.ax) * 0.1); f.m.scale.x = f.sx * k; f.m.scale.z = f.sz * k; }
         }
       }
       target = t;

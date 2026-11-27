@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s11';
+import { createActor, HEAD_TOP } from '../game/world/js/actor.js?v=s12';
 import { STYLES, GENDERS, PALETTE, SKINS, HAIR_COLORS, EYE_COLORS, GLOWS, LIPS, HAIRS, BROWS, EYES, NOSES, MOUTHS, CHINS,
-  EYE_SHAPES, TOPS, BOTTOMS, SHOES, HATS, ACCS, SLIDER, STYLE_PRESET, hasFace, hex, cleanChar, randomChar } from './character.js?v=c5';
+  EYE_SHAPES, FACE_SHAPES, TOPS, BOTTOMS, SHOES, HATS, ACCS, SLIDER, STYLE_PRESET, hasFace, hex, cleanChar, randomChar } from './character.js?v=c6';
 import { readAccount, refresh, signup, login, logout, logoutAll, deleteAccount, saveChar, recover, newRecovery, checkId, renameId } from './account.js?v=s9';
 import { trackPresence } from './presence.js?v=p2';
 import { serverNow } from './clock.js?v=k1';
@@ -247,11 +247,11 @@ $('#authForm').onsubmit = async e => {
    고를 거리 · 색은 character.js 한 곳 — 여기는 칸만 늘어놓는다. 화면은 넘기지 않는다 (칸 높이 고정). */
 const STEPS = [['style', '스타일'], ['gender', '성별'], ['face', '얼굴'], ['cloth', '옷'], ['body', '몸']];
 const ONOFF = ['없음', '있음'];
-const FACE_SUBS = [['head', '크기', 'slider'], ['skin', '피부', SKINS], ['hair', '헤어', HAIRS], ['hairColor', '머리색', HAIR_COLORS],
+const FACE_SUBS = [['head', '크기', 'slider'], ['faceShape', '얼굴형', FACE_SHAPES], ['skin', '피부', SKINS], ['hair', '헤어', HAIRS], ['hairColor', '머리색', HAIR_COLORS],
   ['forehead', '이마', 'slider'], ['brow', '눈썹', BROWS], ['eye', '눈', EYES], ['eyeColor', '눈동자', EYE_COLORS],
   ['glabella', '미간', 'slider'], ['nose', '코', NOSES], ['philtrum', '인중', 'slider'], ['mouth', '입', MOUTHS],
   ['lip', '입술색', 'lip'], ['chin', '턱', CHINS]];
-const MASK_SUBS = [['head', '얼굴 크기', 'slider'], ['faceColor', '얼굴색', PALETTE], ['eyesOn', '눈', ONOFF],
+const MASK_SUBS = [['head', '얼굴 크기', 'slider'], ['faceShape', '얼굴형', FACE_SHAPES], ['faceColor', '얼굴색', PALETTE], ['eyesOn', '눈', ONOFF],
   ['eyeShape', '눈 모양', EYE_SHAPES], ['glow', '눈빛', GLOWS], ['hair', '헤어', HAIRS], ['hairColor', '머리색', HAIR_COLORS]];
 const CLOTH_SUBS = [['top', '상의', TOPS], ['topColor', '상의 색', PALETTE], ['bottom', '하의', BOTTOMS], ['bottomColor', '하의 색', PALETTE],
   ['shoes', '신발', SHOES], ['shoesColor', '신발 색', PALETTE], ['hat', '모자', HATS], ['hatColor', '모자 색', PALETTE],
