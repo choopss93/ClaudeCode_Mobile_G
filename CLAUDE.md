@@ -720,10 +720,12 @@
   것이 아니다.
 - **말하기(키보드)를 열면 뒤의 게임은 그대로, 대화창과 점프 단추만 키보드 바로 위로** (사용자 요청 — 아이폰에서 게임 화면이 통째로
   위로 밀려 올라갔다). 아이폰 사파리는 입력칸을 보이게 하려고 화면 전체를 민다(`visualViewport.offsetTop`) — `main.js` 가 민 만큼
-  `body` 를 `translateY` 로 도로 내리고, 키보드가 열린 동안 `--kb` 를 키보드 높이 전부(`innerHeight − vv.height`)로 둔다.
+  `body` 를 `translateY` 로 도로 내리고(문서가 밀렸으면 `scrollTo(0,0)`), 키보드가 열린 동안 `--kb` 를 키보드 높이 전부로 둔다.
+  **아이폰은 키보드가 열리면 `innerHeight` 도 줄어든다** — 그것과 견주면 키보드가 0 으로 읽혀 대화창이 키보드 뒤에 남았다 (사용자 지적).
+  키보드에 줄지 않는 높이(`documentElement.clientHeight` · 입력 전의 가장 큰 높이 `full`) − `vv.height` 로 잰다.
   `body.kb` 동안 조이스틱 · 안내 · 재주 단추 · 작은 지도는 숨고, 대화창은 `10px + --kb`, 점프는 그 위 (안전 여백은 쓰지 않는다).
   점프 단추는 `touchstart` · `mousedown` 을 막아 눌러도 입력칸이 닫히지 않는다. 이 환경엔 아이폰 키보드가 없으니
-  `visualViewport` 의 `height` · `offsetTop` 을 덮어써 흉내 내고 보이는 칸 안의 좌표를 잰다.
+  `visualViewport` 의 `height` · `offsetTop` 과 `innerHeight` 를 덮어써 흉내 내고 보이는 칸 안의 좌표를 잰다.
 - 화면 위 UI 를 더할 때 `#stick` 과 `#chat` 을 가리지 않는지 본다. 둘은
   엄지가 닿는 자리다.
 - **화면 크기는 `innerWidth`/`innerHeight` 로 재지 말 것.** 아이폰 사파리는

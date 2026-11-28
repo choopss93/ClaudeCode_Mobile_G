@@ -62,13 +62,19 @@ const themeMeta = document.querySelector('meta[name="theme-color"]');
    100dvh 만으로는 키보드를 알 수 없다. visualViewport 가 알려준다.
    아이폰 사파리는 입력칸을 보이게 하려고 **화면 전체를 위로 밀어 올린다** (visualViewport.offsetTop) — 게임까지 함께 올라가
    보였다 (사용자 지적). 민 만큼 몸(body)을 도로 내려 뒤의 게임은 제자리에 두고, 대화창 · 점프 단추만 키보드 위(--kb)로 올린다.
-   그래서 키보드가 열린 동안 --kb 는 '키보드 높이 전부'(innerHeight − 보이는 높이) 다. */
+   그래서 키보드가 열린 동안 --kb 는 '키보드 높이 전부'(줄지 않는 높이 − 보이는 높이) 다. */
 if (window.visualViewport){
   const vv = window.visualViewport;
+  /* 아이폰은 키보드가 열리면 innerHeight 도 같이 줄어든다 — 그것과 견주면 키보드가 0 으로 읽힌다 (한 번 그렇게 만들었다).
+     키보드에 줄지 않는 높이(문서 높이 · 입력 전의 가장 큰 높이 `full`)와 견준다. 화면을 돌리면 입력 중이 아닐 때 다시 잰다 */
+  let full = Math.max(innerHeight, document.documentElement.clientHeight);
   const sync = () => {
-    const kb = Math.max(0, innerHeight - vv.height);
-    const open = kb > 80 && document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
-    document.documentElement.style.setProperty('--kb', (open ? kb : Math.max(0, innerHeight - (vv.height + vv.offsetTop))) + 'px');
+    const typing = !!document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+    if (!typing) full = Math.max(innerHeight, document.documentElement.clientHeight);
+    const H = Math.max(full, document.documentElement.clientHeight);
+    const kb = Math.max(0, H - vv.height);
+    const open = typing && kb > 80;
+    document.documentElement.style.setProperty('--kb', (open ? kb : Math.max(0, H - (vv.height + vv.offsetTop))) + 'px');
     document.body.classList.toggle('kb', open);
     document.body.style.transform = open && vv.offsetTop > 0 ? `translateY(${Math.round(vv.offsetTop)}px)` : '';
     if (scrollY) scrollTo(0, 0);              // 문서 자체가 밀렸으면 되돌린다
