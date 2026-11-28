@@ -59,19 +59,26 @@ const whereEl = $('where');
 const themeMeta = document.querySelector('meta[name="theme-color"]');
 
 /* ── 폰: 소프트 키보드가 가리는 높이를 재어 UI 를 올린다 ──
-   100dvh 만으로는 키보드를 알 수 없다. visualViewport 가 알려준다. */
+   100dvh 만으로는 키보드를 알 수 없다. visualViewport 가 알려준다.
+   아이폰 사파리는 입력칸을 보이게 하려고 **화면 전체를 위로 밀어 올린다** (visualViewport.offsetTop) — 게임까지 함께 올라가
+   보였다 (사용자 지적). 민 만큼 몸(body)을 도로 내려 뒤의 게임은 제자리에 두고, 대화창 · 점프 단추만 키보드 위(--kb)로 올린다.
+   그래서 키보드가 열린 동안 --kb 는 '키보드 높이 전부'(innerHeight − 보이는 높이) 다. */
 if (window.visualViewport){
   const vv = window.visualViewport;
   const sync = () => {
-    const gap = Math.max(0, innerHeight - (vv.height + vv.offsetTop));
-    document.documentElement.style.setProperty('--kb', gap + 'px');
-    document.body.classList.toggle('kb', gap > 80);
+    const kb = Math.max(0, innerHeight - vv.height);
+    const open = kb > 80 && document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+    document.documentElement.style.setProperty('--kb', (open ? kb : Math.max(0, innerHeight - (vv.height + vv.offsetTop))) + 'px');
+    document.body.classList.toggle('kb', open);
+    document.body.style.transform = open && vv.offsetTop > 0 ? `translateY(${Math.round(vv.offsetTop)}px)` : '';
+    if (scrollY) scrollTo(0, 0);              // 문서 자체가 밀렸으면 되돌린다
   };
   vv.addEventListener('resize', sync);
   vv.addEventListener('scroll', sync);
+  addEventListener('focusin', () => setTimeout(sync, 50));
+  addEventListener('focusout', () => setTimeout(sync, 50));
   sync();
 }
-
 // 캔버스를 길게 눌렀을 때 뜨는 메뉴가 조작을 끊지 않게
 $('scene').addEventListener('contextmenu', e => e.preventDefault());
 
@@ -1340,6 +1347,9 @@ function begin(myName, petName, petSpec, friends, myLook){
   /* 오른쪽 단추 넷 */
   $('actFeed').addEventListener('click', feedPet);
   $('jumpBtn').addEventListener('pointerdown', e => { e.preventDefault(); jump.want = true; });
+  // 말하는 중에 점프를 눌러도 입력칸이 닫히지 않게 (터치가 초점을 가져가지 못하게 막는다)
+  $('jumpBtn').addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+  $('jumpBtn').addEventListener('mousedown', e => e.preventDefault());
   /* 공 던지기 단추 — 누르는 동안 힘이 찬다 (단추에 차오르는 색으로 보인다), 떼면 던진다 */
   {
     const btn = $('actBall');
