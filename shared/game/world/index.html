@@ -253,7 +253,6 @@
     left:50%;transform:translateX(-50%);
     bottom:calc(14px + env(safe-area-inset-bottom, 0px) + var(--kb));
     width:min(500px, calc(100% - 24px));
-    transition:bottom .18s ease;
     display:flex;gap:7px;
   }
   #chatInput{
@@ -456,7 +455,7 @@
      키보드가 덮는 동안 아래 안전 여백은 쓰지 않는다 (키보드 위에 빈 띠가 생긴다) */
   body.kb #stick, body.kb #help, body.kb #acts, body.kb #minimap{opacity:0;pointer-events:none}
   body.kb #chat{bottom:calc(10px + var(--kb))}
-  body.kb #jumpBtn{bottom:calc(10px + var(--kb) + 44px + 12px);transition:bottom .18s ease, opacity .18s ease}
+  body.kb #jumpBtn{bottom:calc(10px + var(--kb) + 44px + 12px)}   /* 움직임 효과 없이 — 키보드와 함께 바로 옮긴다 */
 
   /* ── 코드 창 ── */
   /* 아래에서 올라오는 창. 넘겨 보지 않는다 — 창 안에 맞춰 넣는다 */
@@ -634,18 +633,18 @@
 {
   "imports": {
     "three": "./js/vendor/three.module.min.js",
-    "#look": "./js/look.js?v=2026-11-28b",
-    "#world": "./js/world.js?v=2026-11-28b",
-    "#actor": "./js/actor.js?v=2026-11-28b",
-    "#controls": "./js/controls.js?v=2026-11-28b",
-    "#net": "./js/net.js?v=2026-11-28b",
-    "#pets": "./js/pets.js?v=2026-11-28b",
-    "#petcode": "./js/petcode.js?v=2026-11-28b",
-    "#channel": "./js/channel.js?v=2026-11-28b",
-    "#daylight": "./js/daylight.js?v=2026-11-28b",
-    "#mqtt": "./js/mqtt.js?v=2026-11-28b",
-    "#live": "./js/live.js?v=2026-11-28b",
-    "#paint": "./js/paint.js?v=2026-11-28b"
+    "#look": "./js/look.js?v=2026-11-28c",
+    "#world": "./js/world.js?v=2026-11-28c",
+    "#actor": "./js/actor.js?v=2026-11-28c",
+    "#controls": "./js/controls.js?v=2026-11-28c",
+    "#net": "./js/net.js?v=2026-11-28c",
+    "#pets": "./js/pets.js?v=2026-11-28c",
+    "#petcode": "./js/petcode.js?v=2026-11-28c",
+    "#channel": "./js/channel.js?v=2026-11-28c",
+    "#daylight": "./js/daylight.js?v=2026-11-28c",
+    "#mqtt": "./js/mqtt.js?v=2026-11-28c",
+    "#live": "./js/live.js?v=2026-11-28c",
+    "#paint": "./js/paint.js?v=2026-11-28c"
   }
 }
 </script>
@@ -796,7 +795,7 @@
     <button type="submit">정원으로 들어가기</button>
     </div>
     <p class="note foot"><span class="txt">서두를 것도, 지는 것도 없는 곳이에요.</span>
-      <span class="ver">2026-11-28b</span></p>
+      <span class="ver">2026-11-28c</span></p>
   </form>
 </div>
 
@@ -867,6 +866,6 @@
   </div>
 </div>
 
-<script type="module" src="./js/main.js?v=2026-11-28b"></script>
+<script type="module" src="./js/main.js?v=2026-11-28c"></script>
 </body>
 </html>

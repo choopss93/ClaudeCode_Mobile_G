@@ -74,16 +74,25 @@ if (window.visualViewport){
     const H = Math.max(full, document.documentElement.clientHeight);
     const kb = Math.max(0, H - vv.height);
     const open = typing && kb > 80;
-    document.documentElement.style.setProperty('--kb', (open ? kb : Math.max(0, H - (vv.height + vv.offsetTop))) + 'px');
+    // 입력이 끝나면 곧바로 0 — 키보드가 내려가는 동안 보이는 높이가 아직 작아서, 그 값을 쓰면 대화창이 한참 떠 있다가 뚝 떨어졌다 (사용자 지적)
+    document.documentElement.style.setProperty('--kb', (open ? kb : 0) + 'px');
     document.body.classList.toggle('kb', open);
     document.body.style.transform = open && vv.offsetTop > 0 ? `translateY(${Math.round(vv.offsetTop)}px)` : '';
     if (scrollY) scrollTo(0, 0);              // 문서 자체가 밀렸으면 되돌린다
   };
   vv.addEventListener('resize', sync);
   vv.addEventListener('scroll', sync);
-  addEventListener('focusin', () => setTimeout(sync, 50));
-  addEventListener('focusout', () => setTimeout(sync, 50));
+  addEventListener('scroll', sync);
+  const later = () => { sync(); setTimeout(sync, 60); setTimeout(sync, 320); };   // 키보드가 오르내리는 동안 몇 번 더 잰다
+  addEventListener('focusin', later);
+  addEventListener('focusout', later);
   sync();
+  /* 사파리는 초점을 받은 입력칸이 키보드에 가릴 자리면 화면 전체를 밀어 올린다 — 그 순간 대화창이 위로 튀었다 (사용자 지적).
+     초점을 받는 그 한순간만 입력칸을 화면 밖으로 빼 두면 사파리가 밀 까닭이 없다. 바로 제자리로 돌리고, 자리는 위 sync 가 정한다 */
+  document.querySelectorAll('#chatInput').forEach(el => el.addEventListener('focus', () => {
+    el.style.transform = 'translateY(-10000px)';
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.style.transform = ''; }));
+  }));
 }
 // 캔버스를 길게 눌렀을 때 뜨는 메뉴가 조작을 끊지 않게
 $('scene').addEventListener('contextmenu', e => e.preventDefault());
